@@ -8,10 +8,14 @@ Functions:
 """
 module RSIS
 
+include("RSIS_Lib.jl")
 include("Logging.jl")
 include("Scripting.jl")
 include("SignalLogger.jl")
 include("Model.jl")
+using .MModel
+include("Scheduling.jl")
+using .MScheduling
 
 # final global variables
 _models = []

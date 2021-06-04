@@ -2,6 +2,8 @@
 #define __BASE_SCHEDULER_HXX__
 
 #include <string>
+#include <deque>
+#include "ThreadHandler.hxx"
 
 namespace RSIS {
 namespace Scheduling {
@@ -12,6 +14,7 @@ public:
 
     virtual std::string getDescription() = 0;
 protected:
+    std::deque<Threading::ThreadHandler> _handles;
 };
 
 }

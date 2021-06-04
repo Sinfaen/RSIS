@@ -28,6 +28,17 @@ bool RSISFramework_Shutdown() {
 }
 
 /**
+ * Activates a thread by setting a frequency for it to run at.
+ * 
+ * @param[in] thread_id ID of the thread to set
+ * @param[in] frequency Rate at which the thread will run
+ * @returns Success/failure
+ */
+RSISCmdStat RSISFramework_SetThread(int thread_id, double frequency) {
+    return RSISCmdStat::OK;
+}
+
+/**
  * Trigger the Init process of the simulation
  *
  * @param[in] block Block until initialization is done
@@ -38,6 +49,13 @@ bool RSISFramework_InitScheduler(bool block) {
         return false;
     }
     return RSISFramework::Instance()->InitScheduler(block);
+}
+
+bool RSISFramework_PauseScheduler() {
+    if (!RSISFramework::IsAlive()) {
+        return false;
+    }
+    return false;
 }
 
 /**

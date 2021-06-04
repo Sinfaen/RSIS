@@ -1,6 +1,11 @@
 # Model Interface
 # Used for exposing models & generating C++ interface code
 
+module MModel
+
+export Model, Port, Callback
+export listcallbacks, triggercallback
+
 """
 Used to define a Port in a Model Interface file
 """
@@ -85,4 +90,6 @@ julia> triggercallback(mymodel, "step_1Hz")
 """
 function triggercallback(model::Model, callback::String)
     println("Not implemented")
+end
+
 end

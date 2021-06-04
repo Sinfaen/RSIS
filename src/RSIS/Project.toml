@@ -2,3 +2,6 @@ name = "RSIS"
 uuid = "9cfc04b2-4961-4ca5-a9e9-a56ca7873ac9"
 authors = ["kellyschultz <kellyschultz7233@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
