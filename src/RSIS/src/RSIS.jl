@@ -8,8 +8,10 @@ Functions:
 """
 module RSIS
 
+include("Logging.jl")
 include("Scripting.jl")
 include("SignalLogger.jl")
+include("Model.jl")
 
 # final global variables
 _models = []
