@@ -3,19 +3,29 @@
 """
 Real-Time Simulation Scheduler Framework
 
-Functions:
-    initsim, pausesim, runsim
+Top level script that assembles all of the various underlying scripts
+together into a single module.
 """
 module RSIS
 
 include("RSIS_Lib.jl")
+using .MLibrary
+
 include("Logging.jl")
+
 include("Scripting.jl")
+using .MScripting
+
 include("SignalLogger.jl")
+
 include("Model.jl")
 using .MModel
+
 include("Scheduling.jl")
 using .MScheduling
+
+include("Configuration.jl")
+using .MConfiguration
 
 # final global variables
 _models = []

@@ -1,25 +1,51 @@
 
+module MScripting
+
+export addfilepath, removefilepath, printfilepaths, where, search
+export script, getscripttree
+
 # globals
-_file_paths = []
+_file_paths = Vector{String}()
 
 """
+    addfilepath(directory::String)
 Add filepath to global search list of filepaths.
 """
 function addfilepath(directory::String)
-
+    if !(directory in _file_paths)
+        push!(_file_paths, directory)
+    end
+    return
 end
 
 """
+    removefilepath(directory::String)
+Remove filepath from global search list of filepaths.
 """
 function removefilepath(directory::String)
+    ind = findfirst(_file_paths.== directory)
+    if ind !== nothing
+        deleteat!(_file_paths, ind)
+    end
+    return
 end
 
 """
     printfilepaths()
 Print global search
+```jldoctest
+julia> addfilepath("./marker")
+julia> addfilepath("/usr/local/bin")
+julia> addfilepath("./marker")
+julia> printfilepaths()
+> ./marker
+> /usr/local/bin
+```
 """
 function printfilepaths()
-    println(_file_paths)
+    for fp in _file_paths
+        println("> $fp")
+    end
 end
 
 """
@@ -35,7 +61,7 @@ end
 
 """
     where(filename::String)
-Searches RSIS filepaths for input script.
+Searches RSIS filepaths for input script. Print the result.
 # Examples:
 ```jldoctest
 julia> where("log_nav_data.jl")
@@ -46,8 +72,34 @@ julia> where("check_user_environment.jl")
 File not found.
 ```
 """
-function where(filename::String) :: String
-    #
+function where(filename::String)
+    locations = search(filename, false)
+    if length(locations) == 0
+        println("File not found")
+    else
+        for fp in locations
+            println("Found: $fp")
+        end
+    end
+end
+
+"""
+    search(filename::String, single = true)
+Searches RSIS filepaths for input script. By default,
+only returns first result.
+"""
+function search(filename::String, single=true) :: Vector{String}
+    locations = Vector{String}()
+    for fp in _file_paths
+        total_path = joinpath(fp, filename)
+        if isfile(total_path)
+            push!(locations, total_path)
+            if single
+                return locations
+            end
+        end
+    end
+    return locations
 end
 
 """
@@ -68,4 +120,6 @@ scenario_a.jl
 """
 function getscripttree(filename::String, level::Int = -1)
     #
+end
+
 end
