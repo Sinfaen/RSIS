@@ -16,5 +16,10 @@ bool RSISFramework_RunScheduler(bool block);
 
 enum RSISState RSISFramework_GetState();
 
+RSISCmdStat RSISFramework_LoadLibrary(char* library);
+RSISCmdStat RSISFramework_UnloadLibrary(char* library);
+RSISCmdStat RSISFramework_CreateModel(char* lib, char* name);
+RSISCmdStat RSISFramework_DestroyModel(char* name);
+
 }
 #endif

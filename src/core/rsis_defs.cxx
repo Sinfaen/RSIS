@@ -132,3 +132,11 @@ void RSISFramework::MainThread() {
 void RSISFramework::BeginThread() {
     runner = std::thread([this] { this->MainThread(); });
 }
+
+RSISCmdStat RSISFramework::LoadLibrary(char* library) {
+    return library_manager.LoadLibrary(library);
+}
+
+RSISCmdStat RSISFramework::UnloadLibrary(char * library) {
+    return library_manager.UnloadLibrary(library);
+}

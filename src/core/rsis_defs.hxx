@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include "rsis_types.hxx"
 #include "BaseScheduler.hxx"
+#include "Loader.hxx"
 
 namespace RSIS {
 
@@ -22,6 +23,9 @@ public:
 
     bool InitScheduler(bool block = false);
     bool RunScheduler(bool block = false);
+    RSISCmdStat LoadLibrary(char * library);
+    RSISCmdStat UnloadLibrary(char * library);
+    RSISCmdStat CreateModel(char* library, char* name);
 private:
     static bool           __exists;
     static RSISFramework* __global;
@@ -39,6 +43,7 @@ private:
     void BeginThread();
 
     Scheduling::BaseScheduler* scheduler;
+    Library::LibraryManager    library_manager;
 };
 
 }
