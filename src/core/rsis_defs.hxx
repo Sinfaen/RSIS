@@ -7,6 +7,7 @@
 #include "rsis_types.hxx"
 #include "BaseScheduler.hxx"
 #include "Loader.hxx"
+#include "ModelRegistration.hxx"
 
 namespace RSIS {
 
@@ -26,6 +27,7 @@ public:
     RSISCmdStat LoadLibrary(char * library);
     RSISCmdStat UnloadLibrary(char * library);
     RSISCmdStat CreateModel(char* library, char* name);
+    RSISCmdStat DestroyModel(char* name);
 private:
     static bool           __exists;
     static RSISFramework* __global;
@@ -44,6 +46,7 @@ private:
 
     Scheduling::BaseScheduler* scheduler;
     Library::LibraryManager    library_manager;
+    Model::ModelRegistration   model_registration;
 };
 
 }

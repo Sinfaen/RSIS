@@ -74,7 +74,8 @@ RSISCmdStat LibraryManager::UnloadLibrary(std::string name) {
     return RSISCmdStat::OK;
 }
 
-std::weak_ptr<LibraryPtr> LibraryManager::getModelSymbols(std::string name) {
+std::weak_ptr<LibraryPtr> LibraryManager::getModelSymbols(std::string name) const
+{
     auto it = _modules.find(name);
     if (it == _modules.end()) {
         return std::weak_ptr<LibraryPtr>();

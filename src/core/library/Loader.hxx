@@ -33,7 +33,7 @@ public:
     RSISCmdStat LoadLibrary(std::string path);
     RSISCmdStat UnloadLibrary(std::string path);
 
-    std::weak_ptr<LibraryPtr> getModelSymbols(std::string name);
+    std::weak_ptr<LibraryPtr> getModelSymbols(std::string name) const;
 private:
     std::map<std::string, std::shared_ptr<LibraryPtr> > _modules;
 };

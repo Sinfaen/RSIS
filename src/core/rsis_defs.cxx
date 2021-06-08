@@ -140,3 +140,11 @@ RSISCmdStat RSISFramework::LoadLibrary(char* library) {
 RSISCmdStat RSISFramework::UnloadLibrary(char * library) {
     return library_manager.UnloadLibrary(library);
 }
+
+RSISCmdStat RSISFramework::CreateModel(char* library, char* name) {
+    return model_registration.CreateModel(library_manager, library, name);
+}
+
+RSISCmdStat RSISFramework::DestroyModel(char* name) {
+    return model_registration.DestroyModel(name);
+}

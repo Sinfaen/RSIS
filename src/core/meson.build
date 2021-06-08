@@ -8,4 +8,6 @@ shared_library('rsis',
     'thread/ThreadHandler.cxx',
     'thread/Callback.cxx',
     'library/Loader.cxx',
+    'library/ModelData.cxx',
+    'library/ModelRegistration.cxx',
     include_directories : inc_dir)
