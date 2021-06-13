@@ -16,7 +16,7 @@ RSISFramework::RSISFramework()
     : state(RSISState::NOSTATE),
       commanded_state(RSISState::NOSTATE),
       trigger(false),
-      scheduler(new Scheduling::NRTScheduler())
+      scheduler(std::make_unique<Scheduling::NRTScheduler>())
 {
     //
 }
@@ -147,4 +147,12 @@ RSISCmdStat RSISFramework::CreateModel(char* library, char* name) {
 
 RSISCmdStat RSISFramework::DestroyModel(char* name) {
     return model_registration.DestroyModel(name);
+}
+
+const char * RSISFramework::GetMessagePtr() {
+    return message.c_str();
+}
+
+void RSISFramework::GetSchedulerName() {
+    message = scheduler.get()->getDescription();
 }

@@ -97,4 +97,19 @@ RSISCmdStat RSISFramework_UnloadLibrary(char* library) {
     return RSISFramework::Instance()->UnloadLibrary(library);
 }
 
+const char * RSISFramework_GetMessage() {
+    if (RSISFramework::IsAlive()) {
+        return RSISFramework::Instance()->GetMessagePtr();
+    }
+    return nullptr;
+}
+
+RSISCmdStat RSISFramework_GetSchedulerName() {
+    if (!RSISFramework::IsAlive()) {
+        return RSISCmdStat::ERR;
+    }
+    RSISFramework::Instance()->GetSchedulerName();
+    return RSISCmdStat::OK;
+}
+
 } // extern C

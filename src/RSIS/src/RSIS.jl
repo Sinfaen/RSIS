@@ -13,6 +13,7 @@ using Unitful.DefaultSymbols
 
 include("RSIS_Lib.jl")
 using .MLibrary
+export getscheduler
 
 include("Logging.jl")
 
@@ -37,6 +38,11 @@ _models = []
 _connections = []
 
 # ===
+
+function __init__()
+    LoadLibrary()
+    nothing
+end
 
 
 """

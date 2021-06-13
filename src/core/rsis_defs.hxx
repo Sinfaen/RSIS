@@ -1,6 +1,7 @@
 #ifndef __RSIS_DEFS_HXX__
 #define __RSIS_DEFS_HXX__
 
+#include <memory>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -28,6 +29,9 @@ public:
     RSISCmdStat UnloadLibrary(char * library);
     RSISCmdStat CreateModel(char* library, char* name);
     RSISCmdStat DestroyModel(char* name);
+
+    const char * GetMessagePtr();
+    void GetSchedulerName();
 private:
     static bool           __exists;
     static RSISFramework* __global;
@@ -44,7 +48,7 @@ private:
     void MainThread();
     void BeginThread();
 
-    Scheduling::BaseScheduler* scheduler;
+    std::unique_ptr<Scheduling::BaseScheduler> scheduler;
     Library::LibraryManager    library_manager;
     Model::ModelRegistration   model_registration;
 };

@@ -21,5 +21,8 @@ RSISCmdStat RSISFramework_UnloadLibrary(char* library);
 RSISCmdStat RSISFramework_CreateModel(char* lib, char* name);
 RSISCmdStat RSISFramework_DestroyModel(char* name);
 
+const char * RSISFramework_GetMessage();
+RSISCmdStat RSISFramework_GetSchedulerName();
+
 }
 #endif
