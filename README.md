@@ -10,15 +10,11 @@ The RSIS Framework is used to build Real-Time simulations.
 
 ## Dependencies
 - Julia
-    - StaticArrays
-    - JSON3
+    - Unitful
 - C++17
 - Meson
     - Ninja
     - Python3
-
-## Test Setup
-- Catch2
 
 ## Build Steps
 ```shell
@@ -29,6 +25,11 @@ meson compile
 ```
 
 ## Run Tests
+
+### Entire Test Suite
 ```shell
 meson test
 ```
+
+### Individual Tests
+
