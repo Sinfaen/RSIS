@@ -25,7 +25,9 @@ public:
 
     bool InitScheduler(bool block = false);
     bool RunScheduler(bool block = false);
-    RSISCmdStat LoadLibrary(char * library);
+    RSISCmdStat LoadLibrary(char * library,
+                            void * handle,
+                            void * creator_func);
     RSISCmdStat UnloadLibrary(char * library);
     RSISCmdStat CreateModel(char* library, char* name);
     RSISCmdStat DestroyModel(char* name);

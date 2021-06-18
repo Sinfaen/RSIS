@@ -15,12 +15,6 @@ namespace Library {
 typedef Scheduling::BaseModel* (*CreateModel)(char *);
 
 struct LibraryPtr {
-    LibraryPtr();
-    ~LibraryPtr();
-
-    RSISCmdStat Load(const char * name);
-    RSISCmdStat Unload();
-
     void *      _handle;
     CreateModel _creator;
 };
@@ -30,8 +24,8 @@ public:
     LibraryManager();
     virtual ~LibraryManager();
 
-    RSISCmdStat LoadLibrary(std::string path);
-    RSISCmdStat UnloadLibrary(std::string path);
+    RSISCmdStat LoadLibrary(std::string name, std::shared_ptr<LibraryPtr> lib);
+    RSISCmdStat UnloadLibrary(std::string name);
 
     std::weak_ptr<LibraryPtr> getModelSymbols(std::string name) const;
 private:

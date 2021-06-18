@@ -133,8 +133,14 @@ void RSISFramework::BeginThread() {
     runner = std::thread([this] { this->MainThread(); });
 }
 
-RSISCmdStat RSISFramework::LoadLibrary(char* library) {
-    return library_manager.LoadLibrary(library);
+RSISCmdStat RSISFramework::LoadLibrary(char * library,
+                                       void * handle,
+                                       void * creator_func)
+{
+    std::shared_ptr<Library::LibraryPtr> lib = std::make_shared<Library::LibraryPtr>();
+    lib.get()->_handle  = handle;
+    lib.get()->_creator = (Library::CreateModel) creator_func;
+    return library_manager.LoadLibrary(library, lib);
 }
 
 RSISCmdStat RSISFramework::UnloadLibrary(char * library) {

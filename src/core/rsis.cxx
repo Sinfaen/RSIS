@@ -83,11 +83,14 @@ enum RSISState RSISFramework_GetState() {
     return RSISState::CONFIG;
 }
 
-RSISCmdStat RSISFramework_LoadLibrary(char* library) {
+RSISCmdStat RSISFramework_LoadLibrary(char* library,
+                                      void* handle,
+                                      void* creator_func)
+{
     if (!RSISFramework::IsAlive()) {
         return RSISCmdStat::ERR;
     }
-    return RSISFramework::Instance()->LoadLibrary(library);
+    return RSISFramework::Instance()->LoadLibrary(library, handle, creator_func);
 }
 
 RSISCmdStat RSISFramework_UnloadLibrary(char* library) {

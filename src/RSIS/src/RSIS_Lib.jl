@@ -9,6 +9,7 @@ using Libdl
 # globals
 _lib = nothing # library pointer
 _sym = nothing # symbol loading
+_models = Dict{String, Any}()
 
 @enum RSISCmdStat::Int32 begin
     OK  = 0
@@ -33,6 +34,16 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :RSISFramework_RunScheduler),
             Libdl.dlsym(lib, :RSISFramework_GetMessage),
             Libdl.dlsym(lib, :RSISFramework_GetSchedulerName))
+    end
+end
+
+mutable struct LibModel
+    s_lib
+    s_createmodel
+    function LibModel(libfile::String)
+        lib = Libdl.dlopen(libfile)
+        new(lib,
+            Libdl.dlsym(lib, :CreateModel))
     end
 end
 
@@ -61,6 +72,21 @@ function UnloadLibrary()
         _sym = nothing
     end
     return
+end
+
+function LoadModelLib(name::String, filename::String)
+    global _models
+    if !(name in keys(_models))
+        _models[name] = LibModel(filename)
+    end
+end
+
+function UnloadModelLib(name::String)
+    global _models
+    if name in keys(_models)
+        Libdl.dlclose(_models[name].s_lib)
+        delete!(_models, name)
+    end
 end
 
 function InitLibrary(symbols::LibFuncs)

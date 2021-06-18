@@ -34,8 +34,6 @@ include("Configuration.jl")
 using .MConfiguration
 
 # final global variables
-_models = []
-_connections = []
 
 # ===
 
