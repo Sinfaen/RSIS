@@ -4,6 +4,7 @@
 
 #include <thread>
 #include <vector>
+#include <memory>
 
 #include "rsis_types.hxx"
 #include "Callback.hxx"
@@ -16,10 +17,12 @@ public:
     ThreadHandler();
     virtual ~ThreadHandler();
 
-    RSISCmdStat addCallback(Callback cb);
+    RSISCmdStat addCallback(std::unique_ptr<Callback> cb);
+
+    RSISCmdStat executeCallbacks();
 private:
     std::thread _thread;
-    std::vector<Callback> _callbacks;
+    std::vector<std::unique_ptr<Callback> > _callbacks;
 
     double frequency;
 };

@@ -18,9 +18,11 @@ This framework is experimental and in development.
 - [ ] Add Non Real-Time Scheduling
 - [ ] Add Model Connection
 - [ ] Add Logging Capability
+- [ ] Add Data Replay Capability
+- [ ] Add Project Environment Handling
 - [ ] Add MacOS Soft Real-Time Scheduling
 - [ ] Add Ubuntu Soft Real-Time Scheduling
-- [ ] Add Project Environment Handling
+- [ ] C++20 Rewrite
 - [ ] Add GUI
 - [ ] Add MonteCarlo Capability
 - [ ] Add Code Autogeneration

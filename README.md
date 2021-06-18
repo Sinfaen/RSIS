@@ -17,7 +17,7 @@ The RSIS Framework is used to build Real-Time simulations.
     - Python3
 
 ## Build Steps
-```shell
+```bash
 mkdir builddir
 meson setup builddir
 cd builddir
@@ -27,7 +27,7 @@ meson compile
 ## Run Tests
 
 ### Entire Test Suite
-```shell
+```bash
 meson test
 ```
 

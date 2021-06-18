@@ -11,13 +11,15 @@ namespace Threading {
 
 class Callback {
 public:
-    Callback(std::function<void()> func, int frequency, int frame_offset);
+    Callback(std::function<RSISCmdStat()> func, double frequency, int frame_offset);
     virtual ~Callback();
 
     RSISCmdStat Invoke();
+
+    double getFreq();
 private:
-    std::function<void()> cb;
-    int frequency;
+    std::function<RSISCmdStat()> cb;
+    double frequency;
     int frame_offset;
 };
 
