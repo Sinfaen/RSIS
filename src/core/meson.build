@@ -4,6 +4,7 @@ inc_dir = include_directories('scheduler', 'thread', 'library', 'model', '../inc
 shared_library('rsis',
     'rsis.cxx',
     'rsis_defs.cxx',
+    'scheduler/TimeManager.cxx',
     'scheduler/NRTScheduler.cxx',
     'thread/ThreadHandler.cxx',
     'thread/Callback.cxx',

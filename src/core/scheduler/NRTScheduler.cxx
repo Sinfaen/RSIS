@@ -27,3 +27,7 @@ void NRTScheduler::dropThreads() {
 RSISCmdStat NRTScheduler::init() {
     return RSISCmdStat::OK;
 }
+
+const Time& NRTScheduler::getTime() const {
+    return timeMgr.getTime();
+}

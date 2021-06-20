@@ -20,8 +20,10 @@ public:
     void dropThreads();
 
     RSISCmdStat init();
+    const Time& getTime() const;
 protected:
     std::vector<std::shared_ptr<Threading::ThreadHandler> > _handles;
+    TimeManager timeMgr;
 };
 
 }

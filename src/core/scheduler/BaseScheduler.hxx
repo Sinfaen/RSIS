@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "TimeManager.hxx"
+
 namespace RSIS {
 namespace Scheduling {
 
@@ -16,6 +18,8 @@ public:
     virtual void dropThreads() = 0;
 
     virtual RSISCmdStat init() = 0;
+
+    virtual const Time& getTime() const = 0;
 };
 
 }
