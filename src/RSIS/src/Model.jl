@@ -215,9 +215,9 @@ function generateinterface(interface::String)
     model_name = splitext(interface)[1]
 
     # create text
-    hxx_text = "#include <cstdint>;\n" *
-               "#include <complex>;\n" *
-               "#include <BaseModel.hxx>;\n\n"
+    hxx_text = "#include <cstdint>\n" *
+               "#include <complex>\n" *
+               "#include <BaseModel.hxx>\n\n"
     cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
     global _type_map
     for i in length(class_order):-1:1
