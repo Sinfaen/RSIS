@@ -191,9 +191,8 @@ The generated files are put in the same location as the interface
 file.
 ```jldoctest
 julia> generateinterface("mymodel.jl")
-Generated: mymodelLib.cxx
-Generated: mymodel.hxx
-Generated: mymodel.cxx
+Generated: mymodel_interface.hxx
+Generated: mymodel_interface.cxx
 Generation complete
 ```
 """
@@ -216,8 +215,10 @@ function generateinterface(interface::String)
     model_name = splitext(interface)[1]
 
     # create text
-    hxx_text = "#include <cstdint>;\n#include <complex>;\n"
-    cxx_text = ""
+    hxx_text = "#include <cstdint>;\n" *
+               "#include <complex>;\n" *
+               "#include <BaseModel.hxx>;\n\n"
+    cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
     global _type_map
     for i in length(class_order):-1:1
         name = class_order[i][13:end] # Remove RSIS.MModel. prepend
@@ -226,25 +227,36 @@ function generateinterface(interface::String)
                 "public:\n" *
                 "    $name();\n" *
                 "    virtual ~$name();\n";
+        ctext = "$name::$name()"
+        if length(fields) != 0
+            ctext = ctext * " : "
+        end
+        first = true;
         for (n,f) in fields
             htext = htext * "    " * _type_map[f.type] * " " * "$n"
-            htext = htext * ";\n"
+            htext = htext * "; // $(f.note) \n"
+            if !first
+                ctext = ctext * ", "
+            end
+            ctext = ctext * "$n($(f.defaultvalue))"
+            if first
+                first = false;
+            end
         end
         htext = htext * "};\n"
-        ctext = "$name::$name() { }\n" *
-                "$name::~$name() { }\n"
+        ctext = ctext * "{ }\n$name::~$name() { }\n"
         hxx_text = hxx_text * htext;
         cxx_text = cxx_text * ctext;
     end
 
-    # Lib cxx File
-    pushtexttofile(base_dir, model_name, "Lib.cxx", "")
+    hxx_text = hxx_text * "void Reflect_$(model_name)();\n"
+    cxx_text = cxx_text * "void Reflect_$(model_name)() {\n}\n"
 
     # Model hxx file
-    pushtexttofile(base_dir, model_name, ".hxx", hxx_text)
+    pushtexttofile(base_dir, model_name, "_interface.hxx", hxx_text)
 
     # Model cxx file
-    pushtexttofile(base_dir, model_name, ".cxx", cxx_text)
+    pushtexttofile(base_dir, model_name, "_interface.cxx", cxx_text)
 
     println("Generation complete")
     return

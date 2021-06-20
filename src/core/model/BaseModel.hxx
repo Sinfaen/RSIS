@@ -2,6 +2,8 @@
 #ifndef __BASE_MODEL_HXX__
 #define __BASE_MODEL_HXX__
 
+#include "rsis_types.hxx"
+
 namespace RSIS {
 namespace Scheduling {
 
@@ -9,10 +11,10 @@ class BaseModel {
 public:
     virtual ~BaseModel() = default;
 
-    virtual void configModel()  = 0;
-    virtual void initModel()    = 0;
-    virtual void stepModel()    = 0;
-    virtual void destroyModel() = 0;
+    virtual RSISCmdStat configModel()  = 0;
+    virtual RSISCmdStat initModel()    = 0;
+    virtual RSISCmdStat stepModel()    = 0;
+    virtual RSISCmdStat destroyModel() = 0;
 private:
 };
 }
