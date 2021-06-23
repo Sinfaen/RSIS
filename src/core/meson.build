@@ -3,6 +3,8 @@ inc_dir = include_directories('scheduler', 'thread', 'library', 'model', '../inc
 
 thread_dep = dependency('threads')
 
+install_headers('../include/rsis.hxx', '../include/rsis_types.hxx')
+
 shared_library('rsis',
     'rsis.cxx',
     'rsis_defs.cxx',
@@ -14,4 +16,5 @@ shared_library('rsis',
     'library/ModelData.cxx',
     'library/ModelRegistration.cxx',
     include_directories : inc_dir,
-    dependencies : thread_dep)
+    dependencies : thread_dep,
+    install : true)
