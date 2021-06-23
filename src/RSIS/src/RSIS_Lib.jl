@@ -54,7 +54,7 @@ Load the RSIS shared library
 function LoadLibrary()
     global _lib
     global _sym
-    libpath = joinpath(@__DIR__, "..", "install", "usr", "local", "lib", "librsis.dylib")
+    libpath = joinpath(@__DIR__, "..", "install", "lib", "librsis.dylib")
     _lib = Libdl.dlopen(libpath)
     _sym = LibFuncs(_lib)
     InitLibrary(_sym)
