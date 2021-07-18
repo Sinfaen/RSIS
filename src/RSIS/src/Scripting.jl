@@ -113,10 +113,10 @@ function script(filename::String) :: Nothing
     if length(found_path) == 0
         logmsg("Script \"" * filename * "\" not found!", ERROR)
     else
-        include(found_path[1])
         if _script_record.recording
             addrecord!(_script_record, @__FILE__, filename)
         end
+        include(found_path[1])
     end
     return
 end
