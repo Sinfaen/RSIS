@@ -17,10 +17,12 @@ ScriptRecord() = ScriptRecord(false, Vector{Tuple{String, String}}())
 
 function clearrecord!(record::ScriptRecord)::Nothing
     empty!(record.record)
+    return
 end
 
 function addrecord!(record::ScriptRecord, filename::String, newfile::String)::Nothing
-    push!(record.record, (filename, newfile))
+    push!(record.record, (basename(filename), newfile))
+    return
 end
 
 ## globals used by logscripts & printscriptlog
@@ -88,6 +90,7 @@ julia> printfilepaths()
 """
 function printfilepaths()
     message = "\n"
+    message = message * "> ./\n"
     for fp in _file_paths
         message = message * "> $fp" * "\n"
     end
@@ -115,6 +118,7 @@ function script(filename::String) :: Nothing
             addrecord!(_script_record, @__FILE__, filename)
         end
     end
+    return
 end
 
 """
@@ -179,13 +183,14 @@ end
     printscriptlog()
 
 Prints all calls to `script` that have been recorded since the last call to
-`logscripts`.
+`logscripts`. This function is defined in `Scripting.jl`, so all caller files
+called `Scripting.jl` are replaced with `REPL` when printed
 ```jldoctest
 julia> logscripts()
 julia> script("scenario_a.jl")
 julia> printscriptlog()
 [LOG]: Recorded `script` calls
-REPL[1]       > scenario_a.jl
+REPL          > scenario_a.jl
 scenario_a.jl > load_connect_models.jl
 scenario_a.jl > schedule_models.jl
 scenario_a.jl > setup_sim.jl
@@ -204,11 +209,15 @@ function printscriptlog() :: Nothing
     end
     char_width = min(30, char_width)
 
-    for log in _script_record
-        message = message * log[1]
+    for log in _script_record.record
+        _file = log[1]
+        if _file == "Scripting.jl"
+            _file = "REPL"
+        end
+        message = message * _file
         len = length(log[1])
         if len <= char_width
-            message = message * (' '^(char_width - len)) * sep
+            message = message * (' '^(char_width - len))
         end
         message = message * sep * log[2] * "\n"
     end
@@ -217,6 +226,7 @@ function printscriptlog() :: Nothing
 
     _script_record.recording = false
     clearrecord!(_script_record)
+    return
 end
 
 end
