@@ -3,6 +3,8 @@ module MLogging
 
 export setlogfile, logmsg
 
+export LOG, WARNING, ERROR, CUSTOM
+
 # globals
 
 # types
@@ -13,6 +15,8 @@ export setlogfile, logmsg
     ERROR   = 2
     CUSTOM  = 3
 end
+
+_msgtypetostring = Dict(zip(instances(MsgType), String.(Symbol.(instances(MsgType)))))
 
 """
     setlogfile(filename::String)
@@ -33,6 +37,8 @@ end
 Log a message to the simulation log file
 """
 function logmsg(message::String, type::MsgType)
+    # TODO initial implementation
+    println("[" * _msgtypetostring[type] * "]: " * message)
 end
 
 end

@@ -21,7 +21,8 @@ export setlogfile, logmsg
 
 include("Scripting.jl")
 using .MScripting
-export addfilepath, removefilepath, where, search
+export addfilepath, removefilepath, printfilepaths, where, search
+export script, logscripts, printscriptlog
 
 include("SignalLogger.jl")
 

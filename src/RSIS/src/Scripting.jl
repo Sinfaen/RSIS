@@ -1,11 +1,30 @@
 
 module MScripting
 
-export addfilepath, removefilepath, printfilepaths, where, search
-export script, getscripttree
+export addfilepath, removefilepath, printfilepaths, where, search, script
+export script, logscripts, printscriptlog
+
+using ..MLogging
 
 # globals
-_file_paths = Vector{String}()
+_file_paths   = Vector{String}()
+
+mutable struct ScriptRecord
+    recording::Bool
+    record::Vector{Tuple{String, String}}
+end
+ScriptRecord() = ScriptRecord(false, Vector{Tuple{String, String}}())
+
+function clearrecord!(record::ScriptRecord)::Nothing
+    empty!(record.record)
+end
+
+function addrecord!(record::ScriptRecord, filename::String, newfile::String)::Nothing
+    push!(record.record, (filename, newfile))
+end
+
+## globals used by logscripts & printscriptlog
+_script_record = ScriptRecord()
 
 """
     addfilepath(directory::String)
@@ -38,25 +57,40 @@ julia> addfilepath("./marker")
 julia> addfilepath("/usr/local/bin")
 julia> addfilepath("./marker")
 julia> printfilepaths()
+[LOG]:
 > ./marker
 > /usr/local/bin
 ```
 """
 function printfilepaths()
+    message = "\n"
     for fp in _file_paths
-        println("> $fp")
+        message = message * "> $fp" * "\n"
     end
+    logmsg(message, LOG)
 end
 
 """
     script(filename::String, printpath::bool)
 
-Searches filepaths for input script and passes first instance to 'include'
+Searches filepaths for input script and passes first instance to 'include'.
+Example:
+```jldoctest
+julia> script("setup_filepaths.jl")
+julia> script("foo.jl")
+[ERROR]: File "foo.jl" not found!
+```
 """
-function script(filename::String, printpath = false)
-    found_path = filename
-    # search file paths
-    include(found_path)
+function script(filename::String) :: Nothing
+    found_path = search(filename)
+    if length(found_path) == 0
+        logmsg("Script \"" * filename * "\" not found!", ERROR)
+    else
+        include(found_path[1])
+        if _script_record.recording
+            addrecord!(_script_record, @__FILE__, filename)
+        end
+    end
 end
 
 """
@@ -65,20 +99,20 @@ Searches RSIS filepaths for input script. Print the result.
 # Examples:
 ```jldoctest
 julia> where("log_nav_data.jl")
-Found: /home/user1/sim/inp/nav/log_nav_data.jl
-Found: /home/user1/sim/logging/nav/log_nav_data.jl
+[LOG]: /home/user1/sim/inp/nav/log_nav_data.jl
+[LOG]: /home/user1/sim/logging/nav/log_nav_data.jl
 
 julia> where("check_user_environment.jl")
-File not found.
+[ERROR]: File not found.
 ```
 """
 function where(filename::String)
     locations = search(filename, false)
     if length(locations) == 0
-        println("File not found")
+        logmsg("File not found", ERROR)
     else
         for fp in locations
-            println("Found: $fp")
+            logmsg(fp, LOG)
         end
     end
 end
@@ -102,24 +136,59 @@ function search(filename::String, single=true) :: Vector{String}
     return locations
 end
 
-"""
-    getscripttree(filename::String, level::Int = -1)
-Print all scripts called by provided script.
-Output is structured in a tree-like format.
 
-# Example:
+"""
+    logscripts()
+
+Starts a record of all calls to `script`. See `printscriptlog` for more details
+"""
+function logscripts() :: Nothing
+    _script_record.recording = true
+    return
+end
+
+"""
+    printscriptlog()
+
+Prints all calls to `script` that have been recorded since the last call to
+`logscripts`.
 ```jldoctest
-julia> getscripttree("scenario_a.jl")
-scenario_a.jl
-|- load_connect_models.jl
-|- schedule_models.jl
-|- setup_sim.jl
-|  |- logging.jl
-|  |  |- log_trajectory.jl [WARNING - File not found]
+julia> logscripts()
+julia> script("scenario_a.jl")
+julia> printscriptlog()
+[LOG]: Recorded `script` calls
+REPL[1]       > scenario_a.jl
+scenario_a.jl > load_connect_models.jl
+scenario_a.jl > schedule_models.jl
+scenario_a.jl > setup_sim.jl
+setup_sim.jl  > logging.jl
+logging.jl    > log_trajectory.jl
 ```
 """
-function getscripttree(filename::String, level::Int = -1)
-    #
+function printscriptlog() :: Nothing
+    message = "Recorded `script` calls\n"
+    sep = " > "
+
+    # attempt to line up all ' > ' on the same column, at a maximum index of 30
+    char_width = 0
+    for log in _script_record.record
+        char_width = max(char_width, length(log[1]))
+    end
+    char_width = min(30, char_width)
+
+    for log in _script_record
+        message = message * log[1]
+        len = length(log[1])
+        if len <= char_width
+            message = message * (' '^(char_width - len)) * sep
+        end
+        message = message * sep * log[2] * "\n"
+    end
+
+    logmsg(message, LOG)
+
+    _script_record.recording = false
+    clearrecord!(_script_record)
 end
 
 end
