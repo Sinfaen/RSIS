@@ -28,11 +28,35 @@ _script_record = ScriptRecord()
 
 """
     addfilepath(directory::String)
-Add filepath to global search list of filepaths.
+Add filepath to global search list of filepaths. All paths are resolved to
+absolute paths. Relative paths are searched against pre-existing filepaths
+with the first existing match added.
 """
-function addfilepath(directory::String)
-    if !(directory in _file_paths)
-        push!(_file_paths, directory)
+function addfilepath(directory::String) :: Nothing
+    if isabspath(directory)
+        if directory in _file_paths
+            logmsg("File Path directory already added", WARNING)
+        else
+            push!(_file_paths, directory)
+        end
+    else
+        # search pre-existing paths for directory
+        found = false
+        if isdir(joinpath(pwd(), directory))
+            found = true
+            push!(_file_paths, joinpath(pwd(), directory))
+        else
+            for dir in _file_paths
+                relpath = joinpath(dir, directory)
+                if isdir(relpath)
+                    found = true
+                    push!(_file_paths, relpath)
+                end
+            end
+        end
+        if !found
+            logmsg("Could not resolve: $directory", WARNING)
+        end
     end
     return
 end
@@ -120,10 +144,14 @@ end
 """
     search(filename::String, single = true)
 Searches RSIS filepaths for input script. By default,
-only returns first result.
+only returns first result. The current working directory
+is searched first.
 """
 function search(filename::String, single=true) :: Vector{String}
     locations = Vector{String}()
+    if isfile(filename)
+        push!(locations, filename)
+    end
     for fp in _file_paths
         total_path = joinpath(fp, filename)
         if isfile(total_path)
