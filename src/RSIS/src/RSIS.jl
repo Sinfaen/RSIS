@@ -16,6 +16,8 @@ using .MLibrary
 export getscheduler
 
 include("Logging.jl")
+using .MLogging
+export setlogfile, logmsg
 
 include("Scripting.jl")
 using .MScripting

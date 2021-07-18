@@ -1,5 +1,18 @@
 
+module MLogging
+
+export setlogfile, logmsg
+
 # globals
+
+# types
+
+@enum MsgType::Int32 begin
+    LOG     = 0
+    WARNING = 1
+    ERROR   = 2
+    CUSTOM  = 3
+end
 
 """
     setlogfile(filename::String)
@@ -19,5 +32,7 @@ end
     logmsg(message::String)
 Log a message to the simulation log file
 """
-function logmsg(message::String)
+function logmsg(message::String, type::MsgType)
+end
+
 end
