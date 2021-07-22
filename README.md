@@ -7,6 +7,7 @@ The RSIS Framework is used to build Real-Time simulations.
 
 ## Systems
 - MacOS
+- Ubuntu
 
 ## Dependencies
 - Julia
