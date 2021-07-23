@@ -11,13 +11,14 @@ module RSIS
 using Unitful
 using Unitful.DefaultSymbols
 
-include("RSIS_Lib.jl")
-using .MLibrary
-export getscheduler
-
 include("Logging.jl")
 using .MLogging
 export setlogfile, logmsg
+
+include("RSIS_Lib.jl")
+using .MLibrary
+export getscheduler
+export newmodel!, deletemodel!, listmodels, listmodelsbytag
 
 include("Scripting.jl")
 using .MScripting

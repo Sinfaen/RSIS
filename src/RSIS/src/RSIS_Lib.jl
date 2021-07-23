@@ -1,7 +1,10 @@
 
 module MLibrary
 using Base: Int32
+using ..MLogging
+
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
+export newmodel!, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
 
 using Libdl
@@ -47,6 +50,16 @@ mutable struct LibModel
     end
 end
 
+mutable struct ModelInstance
+    modulename::String
+    name::String
+    tags::Vector{String}
+end
+
+# globals
+_loaded_models = Dict{String, ModelInstance}()
+_model_tags    = Set{String}()
+
 """
     LoadLibrary()
 Load the RSIS shared library
@@ -76,14 +89,12 @@ function UnloadLibrary()
 end
 
 function LoadModelLib(name::String, filename::String)
-    global _models
     if !(name in keys(_models))
         _models[name] = LibModel(filename)
     end
 end
 
 function UnloadModelLib(name::String)
-    global _models
     if name in keys(_models)
         Libdl.dlclose(_models[name].s_lib)
         delete!(_models, name)
@@ -114,6 +125,58 @@ function getscheduler()
     end
     msgptr = ccall(_sym.s_getmessage, Cstring, ())
     println(unsafe_string(msgptr))
+end
+
+"""
+    newmodel(library::String, newname::String, tags::Vector{String} = [])
+Create a new model. A unique name must be given for the model. An optional list
+of tags can be given, allowing the user to search loaded models by tag.
+"""
+function newmodel!(library::String, newname::String, tags::Vector{String}=Vector{String}())::Nothing
+    if newname in keys(_loaded_models)
+        logmsg("Model with name: $newname already exists.", ERROR)
+    else
+        newmodel = ModelInstance(library, newname, tags)
+        _loaded_models[newname] = newmodel
+
+        for tag in tags
+            push!(_model_tags, tag)
+        end
+
+        logmsg("More TODO", LOG)
+    end
+    return
+end
+
+"""
+    deletemodel(name::String)
+Delete a model by name.
+"""
+function deletemodel!(name::String)::Nothing
+    if name in keys(_loaded_models)
+        delete!(_loaded_models, name)
+    else
+        logmsg("No model with name: $name, exists", LOG)
+    end
+    return
+end
+
+"""
+    listmodels()
+Returns the names of models loaded into the environment.
+"""
+function listmodels()
+    return collect(keys(_loaded_models))
+end
+
+function listmodelsbytag(tag::String)::Nothing
+    message = "Models listed with tag: $tag\n"
+    for (name, model) in _loaded_models
+        if tag in model.tags
+            message = message * name * "\n"
+        end
+    end
+    logmsg(message, LOG)
 end
 
 end
