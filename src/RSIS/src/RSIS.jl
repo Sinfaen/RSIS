@@ -37,6 +37,10 @@ using .MScheduling
 include("Configuration.jl")
 using .MConfiguration
 
+include("Project.jl")
+using .MProject
+export newproject, loadproject
+
 # final global variables
 
 # ===
