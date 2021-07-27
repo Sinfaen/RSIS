@@ -67,7 +67,23 @@ Load the RSIS shared library
 function LoadLibrary()
     global _lib
     global _sym
-    libpath = joinpath(@__DIR__, "..", "install", "lib", "librsis.dylib")
+
+    # detect operating system
+    libpath = joinpath(@__DIR__, "..", "install", "lib");
+    libfile = ""
+    if Sys.isunix()
+        if Sys.islinux()
+            libfile = "librsis.so"
+        elseif Sys.isapple()
+            libfile = "librsis.dylib"
+        end
+    elseif Sys.iswindows()
+        libfile = "librsis.dll"
+    else
+        throw(InitError(:RSIS, "could not identify operating system"))
+    end
+
+    libpath = joinpath(libpath, libfile)
     _lib = Libdl.dlopen(libpath)
     _sym = LibFuncs(_lib)
     InitLibrary(_sym)
