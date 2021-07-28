@@ -30,6 +30,7 @@ include("SignalLogger.jl")
 include("Model.jl")
 using .MModel
 export generateinterface
+export load, unload
 
 include("Scheduling.jl")
 using .MScheduling

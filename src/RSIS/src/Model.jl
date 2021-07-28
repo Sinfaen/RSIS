@@ -6,8 +6,11 @@ module MModel
 export Model, Port, Callback
 export listcallbacks, triggercallback
 export generateinterface
+export load, unload
 
 using ..MScripting
+using ..MLibrary
+using ..MLogging
 using ..Unitful
 
 # globals
@@ -113,13 +116,37 @@ end
 Load a shared library containing a model implementation
 ```jldoctest
 julia> load("mymodel")
-Loaded: libmymodel.dylib
 ```
 """
-function load(library::String)
+function load(library::String) :: Nothing
     # Find library in search path, then pass absolute filepath
     # to core functionality
+    locations = search(library)
+    if length(locations) == 0
+        throw(IOError("File not found: $(library)"))
+    end
+
+    if !LoadModelLib(library, locations[0])
+        logmsg("Model library already loaded.", LOG)
+    end
 end
+
+"""
+    unload(library::String)
+Unload a shared library containing a model implementation
+```jldoctest
+julia> load("mymodel")
+julia> unload("mymodel")
+julia> unload("mymodel")
+Model library not previously loaded.
+```
+"""
+function unload(library::String) :: Nothing
+    if !UnloadModelLib(library)
+        logmsg("Model library not previously loaded.", WARNING)
+    end
+end
+
 
 function createmodel(model::String)
     println("Not implemented")

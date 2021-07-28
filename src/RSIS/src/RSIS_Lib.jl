@@ -6,6 +6,7 @@ using ..MLogging
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel!, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
+export LoadModelLib, UnloadModelLib
 
 using Libdl
 
@@ -104,17 +105,33 @@ function UnloadLibrary()
     return
 end
 
-function LoadModelLib(name::String, filename::String)
+"""
+    LoadModelLib(name::String, filename::String)
+Attempts to load a shared model library by filename, storing it with a name
+if it does so. Returns whether the library was loaded for the first time.
+This function can throw.
+"""
+function LoadModelLib(name::String, filename::String) :: Bool
     if !(name in keys(_models))
         _models[name] = LibModel(filename)
+        return true
     end
+    return false
 end
 
-function UnloadModelLib(name::String)
+"""
+    UnloadModelLib(name::String)
+Attempts to unload a shared model library by name.
+Returns whether the model was unloaded.
+This function can throw.
+"""
+function UnloadModelLib(name::String) :: Bool
     if name in keys(_models)
         Libdl.dlclose(_models[name].s_lib)
         delete!(_models, name)
+        return true
     end
+    return false
 end
 
 function InitLibrary(symbols::LibFuncs)
