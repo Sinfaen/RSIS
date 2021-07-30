@@ -3,6 +3,7 @@
 
 module MModel
 
+using DataStructures: first
 export Model, Port, Callback
 export listcallbacks, triggercallback
 export generateinterface
@@ -53,7 +54,7 @@ _type_defaults = Dict{String, Any}(
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3
 
 """
-DefineS a Port in a Model Interface file
+Defines a Port in a Model Interface file
 """
 struct Port
     type::String
@@ -62,7 +63,9 @@ struct Port
     units::Any
     note::String
     porttype::PortType
+    iscomposite::Bool
 
+    # primitive type definition
     function Port(type::String, dimension::Tuple, defaultvalue::Any; units::Any=nothing, note::String="", porttype::PortType=PORT)
         if !(type in keys(_type_map))
             throw(ArgumentError("Provided type: $type is not supported"))
@@ -79,9 +82,16 @@ struct Port
                 error("Provided dimension, [$dimension], does not match: $defaultvalue")
             end
         end
-        new(type, dimension, defaultvalue, units, note, porttype)
+        new(type, dimension, defaultvalue, units, note, porttype, false)
+    end
+
+    # composite definition
+    function Port(type::String, dimension::Tuple; note::String="", porttype::PortType=PORT)
+        # don't check type, must be done elsewhere
+        new(type, dimension, nothing, nothing, note, porttype, true)
     end
 end
+
 
 """
 """
@@ -208,7 +218,7 @@ Base.showerror(io::IO, e::InterfaceException) = print(io, "")
 
 function grabClassDefinitions(data::OrderedDict{String,Any},
                               modelname::String,
-                              order::Vector,
+                              order::Vector{String},
                               definitions::Dict{String, Vector{Tuple{String, Port}} })
     if !haskey(definitions, modelname)
         definitions[modelname] = Vector{Tuple{String,Port}}()
@@ -219,22 +229,36 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
     push!(order, modelname)
     model = data[modelname]
     for field in model
-        if isa(field.second, String)
-            grabClassDefinitions(data, field.second, order, definitions)
-        elseif isa(field.second, OrderedDict)
-            # this is a regular port
-            if !("type" in keys(field.second))
-                throw(ErrorException("Field $(field.first) does not name a type"))
-            end
+        if !isa(field.second, OrderedDict)
+            throw(ErrorException("Non dictionary detected"))
+        end
+        _keys = keys(field.second)
+        if "class" in _keys
             dims = []
-            if "dims" in keys(field.second)
+            if "dims" in _keys
+                dims = field.second["dims"]
+            end
+            if !isa(dims, Vector)
+                throw(ErrorException("Dimension specified for composite $(field.first) is not a list"))
+            end
+            desc = ""
+            if "desc" in _keys
+                desc = field.second["desc"]
+            end
+            composite = Port(field.second["class"], Tuple(dims); note=desc, porttype=PORT)
+            push!(definitions[modelname], (field.first, composite))
+            grabClassDefinitions(data, field.second["class"], order, definitions)
+        elseif "type" in _keys
+            # this is a regular port
+            dims = []
+            if "dims" in _keys
                 dims = field.second["dims"]
             end
             if !isa(dims, Vector)
                 throw(ErrorException("Dimension specified for field $(field.first) is not a list"))
             end
             unit=nothing
-            if "unit" in keys(field.second)
+            if "unit" in _keys
                 u = field.second["unit"]
                 try
                     unit = uparse(u)
@@ -247,11 +271,11 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                 end
             end
             initial = _type_defaults[field.second["type"]]
-            if "value" in keys(field.second)
+            if "value" in _keys
                 initial = field.second["value"]
             end
             desc = ""
-            if "desc" in keys(field.second)
+            if "desc" in _keys
                 desc = field.second["desc"]
             end
 
@@ -288,7 +312,7 @@ function generateinterface(interface::String)
 
     # iterate through expected members, and grab data
     # recurse through each member
-    class_order = []
+    class_order = Vector{String}()
     class_defs  = Dict{String, Vector{Tuple{String, Port}}}()
     grabClassDefinitions(data, data["model"], class_order, class_defs)
 
@@ -302,7 +326,7 @@ function generateinterface(interface::String)
     cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
     global _type_map
     for i in length(class_order):-1:1
-        name = class_order[i][13:end] # Remove RSIS.MModel. prepend
+        name = class_order[i]
         fields = class_defs[class_order[i]]
         htext = "class $(name) {\n" *
                 "public:\n" *
@@ -314,14 +338,20 @@ function generateinterface(interface::String)
         end
         first = true;
         for (n,f) in fields
-            htext = htext * "    " * f.type * " " * "$n"
-            htext = htext * "; // $(f.note) \n"
-            if !first
-                ctext = ctext * ", "
-            end
-            ctext = ctext * "$n($(f.defaultvalue))"
+            htext = htext * "    " * f.type * " " * "$n" * "; // $(f.note) \n"
             if first
                 first = false;
+            else
+                ctext = ctext * ", "
+            end
+            if f.iscomposite
+                ctext = ctext * "$n()"
+            else
+                if length(f.dimension) == 0
+                    ctext = ctext * "$n($(f.defaultvalue))"
+                else
+                    ctext = ctext * "$n{" * join([d for d in f.defaultvalue], ", ") *"}"
+                end
             end
         end
         htext = htext * "};\n"
