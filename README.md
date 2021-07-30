@@ -11,7 +11,9 @@ The RSIS Framework is used to build Real-Time simulations.
 
 ## Dependencies
 - Julia
+    - DataStructures
     - Unitful
+    - YAML
 - C++17
 - Meson
     - Ninja
