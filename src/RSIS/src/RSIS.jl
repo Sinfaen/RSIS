@@ -40,7 +40,7 @@ using .MConfiguration
 
 include("Project.jl")
 using .MProject
-export newproject, loadproject
+export newproject, loadproject, projectinfo, build!, clean!
 
 # final global variables
 

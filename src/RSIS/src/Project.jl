@@ -1,15 +1,49 @@
 
 module MProject
 
-export loadproject, newproject
+export loadproject, newproject, projectinfo
+export build!, clean!
 
 # globals
+mutable struct ProjectInfo
+    loaded::Bool
+    builddirexists::Bool
+    directory::String
+    bname::String
+    function ProjectInfo()
+        new(false, false, "", "builddir")
+    end
+end
+
+function builddir(proj::ProjectInfo)
+    return joinpath(proj.directory, proj.bname)
+end
+
+_loaded_project = ProjectInfo()
+
+function checkbuilddirectory(proj::ProjectInfo) :: Nothing
+    if proj.loaded
+        proj.builddirexists = isdir(builddir(proj))
+    else
+        proj.builddirexists = false
+    end
+    return
+end
+
+function createbuilddirectory(proj::ProjectInfo) :: Nothing
+    if !proj.builddirexists
+        mkdir(builddir(proj))
+        proj.builddirexists = true
+    end
+    return
+end
+        
 
 """
     loadproject(directory::String = ".")
 Load a project, defaulting to the current operating directory.
 """
-function loadproject(directory::String = "") :: Nothing
+function loadproject(directory::String = ".") :: Nothing
     if !isdir(directory)
         throw(IOError("Directory: $(directory) does not exist."))
     end
@@ -17,8 +51,8 @@ function loadproject(directory::String = "") :: Nothing
 
     files = [
         "meson_options.txt",
-        "meson.build",
-        "RSIS_Project.toml"
+        "meson.build"
+        #"RSIS_Project.toml"
     ];
 
     for f in files
@@ -26,6 +60,11 @@ function loadproject(directory::String = "") :: Nothing
             throw(IOError("File `$(f)` not found. Project load aborted.\n`newproject` can be used to regenerate project files"))
         end
     end
+
+    checkbuilddirectory(_loaded_project)
+    _loaded_project.directory = directory
+    _loaded_project.loaded    = true
+    return
 end
 
 """
@@ -34,7 +73,6 @@ Create a folder containing commonly necessary files for a
 new RSIS project.
     - meson_options.txt
     - meson.build
-    - RSIS_Project.toml
 """
 function newproject(name::String) :: Nothing
     if isdir(name)
@@ -53,5 +91,43 @@ function newproject(name::String) :: Nothing
 
     # Generate new project files
 end
-    
+
+function projectinfo() :: String
+    if !_loaded_project.loaded
+        return "No project is loaded"
+    end
+    return "Project loaded at: $(_loaded_project.directory)"
+end
+
+"""
+    build!()
+Compile a loaded RSIS project. Equivalent to executing the
+following commands:
+meson: `cd builddir; meson compile; cd ..`
+"""
+function build!() :: Nothing
+    if !_loaded_project.loaded
+        println("No project loaded. Aborting")
+        return
+    end
+
+    createbuilddirectory(_loaded_project)
+    cd(builddir(proj))
+    run(`meson compile`)
+    cd(_loaded_project.directory)
+end
+
+"""
+    clean!()
+Destroy build directory.
+"""
+function clean!() :: Nothing
+    if !_loaded_project.loaded
+        println("No project loaded. Aborting")
+    end
+
+    cd(_loaded_project.directory)
+    rm("builddir"; recursive=true)
+end
+
 end
