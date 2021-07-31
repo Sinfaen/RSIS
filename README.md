@@ -22,8 +22,7 @@ The RSIS Framework is used to build Real-Time simulations.
 ## Build Steps
 ```bash
 $ mkdir builddir
-$ meson setup builddir
-$ meson configure builddir --prefix install
+$ meson setup builddir --prefix /install
 $ cd builddir
 $ meson compile
 ```
