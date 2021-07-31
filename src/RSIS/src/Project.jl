@@ -110,7 +110,7 @@ function newproject(name::String) :: Nothing
 end
 
 function projectinfo() :: String
-    if !_loaded_project.loaded
+    if !isprojectloaded()
         return "No project is loaded"
     end
     return "Project loaded at: $(_loaded_project.directory)"
@@ -123,7 +123,7 @@ following commands:
 meson: `cd builddir; meson compile; cd ..`
 """
 function build!() :: Nothing
-    if !_loaded_project.loaded
+    if !isprojectloaded()
         println("No project loaded. Aborting")
         return
     end
@@ -139,7 +139,7 @@ end
 Destroy build directory.
 """
 function clean!() :: Nothing
-    if !_loaded_project.loaded
+    if !isprojectloaded()
         println("No project loaded. Aborting")
     end
 
