@@ -27,20 +27,20 @@ export script, logscripts, printscriptlog
 
 include("SignalLogger.jl")
 
-include("Model.jl")
+include("Project.jl") # pulls in MLogging
+using .MProject
+export newproject, loadproject, projectinfo, build!, clean!
+
+include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
 using .MModel
 export generateinterface
-export load, unload
+export load, unload, listavailable
 
 include("Scheduling.jl")
 using .MScheduling
 
 include("Configuration.jl")
 using .MConfiguration
-
-include("Project.jl")
-using .MProject
-export newproject, loadproject, projectinfo, build!, clean!
 
 # final global variables
 

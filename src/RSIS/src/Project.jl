@@ -3,6 +3,9 @@ module MProject
 
 export loadproject, newproject, projectinfo
 export build!, clean!
+export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
+
+using ..MLogging
 
 # globals
 mutable struct ProjectInfo
@@ -20,6 +23,18 @@ function builddir(proj::ProjectInfo)
 end
 
 _loaded_project = ProjectInfo()
+
+function isprojectloaded() :: Bool
+    return _loaded_project.loaded
+end
+
+function getprojectdirectory() :: String
+    return _loaded_project.directory
+end
+
+function getprojectbuilddirectory() :: String
+    return builddir(_loaded_project)
+end
 
 function checkbuilddirectory(proj::ProjectInfo) :: Nothing
     if proj.loaded
@@ -44,10 +59,11 @@ end
 Load a project, defaulting to the current operating directory.
 """
 function loadproject(directory::String = ".") :: Nothing
-    if !isdir(directory)
+    _dir = abspath(directory)
+    if !isdir(_dir)
         throw(IOError("Directory: $(directory) does not exist."))
     end
-    cd(directory)
+    cd(_dir)
 
     files = [
         "meson_options.txt",
@@ -62,8 +78,9 @@ function loadproject(directory::String = ".") :: Nothing
     end
 
     checkbuilddirectory(_loaded_project)
-    _loaded_project.directory = directory
+    _loaded_project.directory = _dir
     _loaded_project.loaded    = true
+    logmsg(projectinfo(), LOG)
     return
 end
 

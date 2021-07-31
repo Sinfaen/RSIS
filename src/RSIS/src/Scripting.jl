@@ -92,7 +92,7 @@ function printfilepaths()
     message = "\n"
     message = message * "> ./\n"
     for fp in _file_paths
-        message = message * "> $fp" * "\n"
+        message = message * "> $fp\n"
     end
     logmsg(message, LOG)
 end
@@ -111,7 +111,7 @@ julia> script("foo.jl")
 function script(filename::String) :: Nothing
     found_path = search(filename)
     if length(found_path) == 0
-        logmsg("Script \"" * filename * "\" not found!", ERROR)
+        logmsg("Script \"$(filename)\" not found!", ERROR)
     else
         if _script_record.recording
             addrecord!(_script_record, @__FILE__, filename)

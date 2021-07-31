@@ -6,7 +6,7 @@ using ..MLogging
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel!, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
-export LoadModelLib, UnloadModelLib
+export LoadModelLib, UnloadModelLib, _libraryextension
 
 using Libdl
 
@@ -61,6 +61,20 @@ end
 _loaded_models = Dict{String, ModelInstance}()
 _model_tags    = Set{String}()
 
+function _libraryextension() :: String
+    if Sys.isunix()
+        if Sys.islinux()
+            return ".so"
+        elseif Sys.isapple()
+            return ".dylib"
+        end
+    elseif Sys.iswindows()
+        return ".dll"
+    else
+        throw(ErrorException("Unknown operating system"))
+    end
+end
+
 """
     LoadLibrary()
 Load the RSIS shared library
@@ -72,16 +86,10 @@ function LoadLibrary()
     # detect operating system
     libpath = joinpath(@__DIR__, "..", "install", "lib");
     libfile = ""
-    if Sys.isunix()
-        if Sys.islinux()
-            libfile = "librsis.so"
-        elseif Sys.isapple()
-            libfile = "librsis.dylib"
-        end
-    elseif Sys.iswindows()
-        libfile = "librsis.dll"
-    else
-        throw(InitError(:RSIS, "could not identify operating system"))
+    try
+        libfile = "librsis" * _libraryextension()
+    catch e
+        throw(InitError(:RSIS, String(e)))
     end
 
     libpath = joinpath(libpath, libfile)

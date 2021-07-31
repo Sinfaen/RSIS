@@ -7,11 +7,12 @@ using DataStructures: first
 export Model, Port, Callback
 export listcallbacks, triggercallback
 export generateinterface
-export load, unload
+export load, unload, listavailable
 
 using ..MScripting
 using ..MLibrary
 using ..MLogging
+using ..MProject
 using ..Unitful
 
 using DataStructures
@@ -50,6 +51,8 @@ _type_defaults = Dict{String, Any}(
     "std::complex<float>"  => 0+0im,
     "std::complex<double>" => 0+0im
 )
+
+_additional_lib_paths = Vector{String}()
 
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3
 
@@ -142,6 +145,46 @@ julia> triggercallback(mymodel, "step_1Hz")
 """
 function triggercallback(model::Model, callback::String)
     println("Not implemented")
+end
+
+"""
+    listavailable()
+Returns a list of model libraries that can be loaded with
+`load`. The project build directory is recursively searched
+for shared libraries; file extension set by OS. Additional
+library search paths can be set with `addlibpath`.
+```
+julia> listavailable()
+3-element Vector{String}:
+ fsw_hr_model
+ fsw_lr_model
+ gravity_model
+```
+"""
+function listavailable() :: Vector{String}
+    all = Vector{String}()
+    if !isprojectloaded()
+        logmsg("Load a project to see available libraries.", LOG)
+    else
+        bdir = getprojectbuilddirectory()
+        file_ext = _libraryextension()
+        if isdir(bdir)
+            for (root, dirs, files) in walkdir(bdir)
+                for file in files
+                    if splitext(file)[2] == file_ext
+                        push!(all, file)
+                    end
+                end
+            end
+            # check additional paths
+            for path in _additional_lib_paths
+                #
+            end
+        else
+            logmsg("Project build directory does not exist", ERROR)
+        end
+    end
+    return all
 end
 
 """
