@@ -25,8 +25,6 @@ using .MScripting
 export addfilepath, removefilepath, printfilepaths, where, search
 export script, logscripts, printscriptlog
 
-include("SignalLogger.jl")
-
 include("Project.jl") # pulls in MLogging
 using .MProject
 export newproject, loadproject, projectinfo, build!, clean!
@@ -41,6 +39,10 @@ using .MScheduling
 
 include("Configuration.jl")
 using .MConfiguration
+
+include("SignalLogger.jl")
+using .MSignalLogger
+export logsignal, logsignalfile, listlogger
 
 # final global variables
 
