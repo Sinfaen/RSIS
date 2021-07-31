@@ -338,7 +338,11 @@ function generateinterface(interface::String)
         end
         first = true;
         for (n,f) in fields
-            htext = htext * "    " * f.type * " " * "$n" * "; // $(f.note) \n"
+            htext = htext * "    " * f.type * " " * "$n"
+            if length(f.dimension) != 0
+                htext = htext * "[" * join(f.dimension, "][") * "]"
+            end
+            htext = htext * "; // $(f.note) \n"
             if first
                 first = false;
             else
