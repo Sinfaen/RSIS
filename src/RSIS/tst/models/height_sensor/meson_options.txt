@@ -1,0 +1,1 @@
+option('rsis_headers', type : 'string', value : '../../../install/include')
