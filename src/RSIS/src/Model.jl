@@ -171,8 +171,9 @@ function listavailable() :: Vector{String}
         if isdir(bdir)
             for (root, dirs, files) in walkdir(bdir)
                 for file in files
-                    if splitext(file)[2] == file_ext
-                        push!(all, file)
+                    fe = splitext(file)
+                    if fe[2] == file_ext && startswith(fe[1], "lib")
+                        push!(all, fe[1][4:end])
                     end
                 end
             end
@@ -197,14 +198,28 @@ julia> load("mymodel")
 function load(library::String) :: Nothing
     # Find library in search path, then pass absolute filepath
     # to core functionality
-    locations = search(library)
-    if length(locations) == 0
-        throw(IOError("File not found: $(library)"))
+    filename = "lib$(library)$(_libraryextension())"
+    if !isprojectloaded()
+        logmsg("Load a project to see available libraries.", ERROR)
+        return
     end
-
-    if !LoadModelLib(library, locations[0])
-        logmsg("Model library already loaded.", LOG)
+    bdir = getprojectbuilddirectory()
+    if isdir(bdir)
+        for (root, dirs, files) in walkdir(bdir)
+            for file in files
+                if file == filename
+                    # load library
+                    if !LoadModelLib(library, joinpath(root, file))
+                        logmsg("Model library alread loaded.", LOG)
+                    end
+                    return
+                end
+            end
+        end
+    else
+        logmsg("Project build directory does not exist", ERROR)
     end
+    throw(ErrorException("File not found: $(library) [$(filename)]"))
 end
 
 """
