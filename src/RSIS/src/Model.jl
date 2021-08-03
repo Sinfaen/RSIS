@@ -76,6 +76,26 @@ struct Port
     end
 end
 
+mutable struct ClassData
+    fields::Vector{Port}
+end
+ClassData() = ClassData(Vector{Port}())
+
+_class_definitions = Dict{String, ClassData}()
+
+function _CreateClass(name::Ptr{Char})
+    println("Created class! ")
+end
+
+function _CreateMember(cl::Ptr{Char}, memb::Ptr{Char}, def::Ptr{Char}, offset::Int)
+    println("Created member! ")
+end
+
+function GetClassData(name::String, namespace::String = "")
+    GetModelData(name, namespace,
+        @cfunction(_CreateClass, Cvoid, (Ptr{Char},)),
+        @cfunction(_CreateMember, Cvoid, (Ptr{Char}, Ptr{Char}, Ptr{Char}, Int32)))
+end
 
 """
 """

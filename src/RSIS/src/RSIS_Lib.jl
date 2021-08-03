@@ -7,6 +7,7 @@ export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel!, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
 export LoadModelLib, UnloadModelLib, _libraryextension
+export GetModelData
 
 using Libdl
 
@@ -45,10 +46,12 @@ end
 mutable struct LibModel
     s_lib
     s_createmodel
+    s_reflect
     function LibModel(libfile::String)
         lib = Libdl.dlopen(libfile)
         new(lib,
-            Libdl.dlsym(lib, :CreateModel))
+            Libdl.dlsym(lib, :CreateModel),
+            Libdl.dlsym(lib, :Reflect))
     end
 end
 
@@ -147,6 +150,14 @@ function UnloadModelLib(name::String) :: Bool
         return true
     end
     return false
+end
+
+function GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid}) :: Nothing
+    if name in keys(_modellibs)
+        ccall(_modellibs[name].s_reflect, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), classfunc, membfunc);
+    else
+        throw(ErrorException("No model loaded with name: $(name)"))
+    end
 end
 
 function InitLibrary(symbols::LibFuncs)

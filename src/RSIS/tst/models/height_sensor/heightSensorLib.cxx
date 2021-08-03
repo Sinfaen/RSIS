@@ -8,8 +8,8 @@ BaseModel* CreateModel() {
     return new heightSensor_Model();
 }
 
-void Reflect(DefineClass_t _cb1, DefineMember_t _cb2) {
-    Reflect_heightSensor(_cb1, _cb2);
+void Reflect(void* _cb1, void* _cb2) {
+    Reflect_heightSensor((DefineClass_t)_cb1, (DefineMember_t)_cb2);
 }
 
 }
