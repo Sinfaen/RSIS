@@ -5,6 +5,7 @@ module MModel
 
 using DataStructures: first
 export Model, Port, Callback
+export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, listavailable
 
@@ -15,6 +16,23 @@ using ..MProject
 using ..Unitful
 
 # globals
+_type_map = Dict{String, DataType}(
+    "char"     =>   Char,
+    "int8_t"   =>   Int8,
+    "int16_t"  =>  Int16,
+    "int32_t"  =>  Int32,
+    "int64_t"  =>  Int64,
+    "uint8_t"  =>  UInt8,
+    "uint16_t" => UInt16,
+    "uint32_t" => UInt32,
+    "uint64_t" => UInt64,
+    "bool"     =>   Bool,
+    "float"    => Float32,
+    "double"   => Float64,
+    "std::complex<float>"  => Complex{Float32},
+    "std::complex<double>" => Complex{Float64}
+)
+
 _additional_lib_paths = Vector{String}()
 
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3

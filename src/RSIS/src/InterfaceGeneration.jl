@@ -3,6 +3,7 @@
 module MInterfaceGeneration
 
 using ..DataStructures
+using ..Unitful
 using ..YAML
 using ..MScripting
 using ..MLogging
@@ -11,22 +12,6 @@ using ..MModel
 export generateinterface
 
 # globals
-_type_map = Dict{String, DataType}(
-    "char"     =>   Char,
-    "int8_t"   =>   Int8,
-    "int16_t"  =>  Int16,
-    "int32_t"  =>  Int32,
-    "int64_t"  =>  Int64,
-    "uint8_t"  =>  UInt8,
-    "uint16_t" => UInt16,
-    "uint32_t" => UInt32,
-    "uint64_t" => UInt64,
-    "bool"     =>   Bool,
-    "float"    => Float32,
-    "double"   => Float64,
-    "std::complex<float>"  => Complex{Float32},
-    "std::complex<double>" => Complex{Float64}
-)
 _type_defaults = Dict{String, Any}(
     "char"     =>   ' ',
     "int8_t"   =>     0,
@@ -174,11 +159,13 @@ function generateinterface(interface::String)
     model_name = splitext(interface)[1]
 
     # create text
-    hxx_text = "#include <cstdint>\n" *
+    hxx_text = "#ifndef __$(uppercase(model_name))__\n" *
+               "#define __$(uppercase(model_name))__\n" *
+               "#include <cstdint>\n" *
                "#include <complex>\n" *
                "#include <BaseModel.hxx>\n\n"
     cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
-    global _type_map
+
     for i in length(class_order):-1:1
         name = class_order[i]
         fields = class_defs[class_order[i]]
@@ -218,7 +205,7 @@ function generateinterface(interface::String)
         cxx_text = cxx_text * ctext;
     end
 
-    hxx_text = hxx_text * "void Reflect_$(model_name)();\n"
+    hxx_text = hxx_text * "void Reflect_$(model_name)();\n" * "#endif\n"
     cxx_text = cxx_text * "void Reflect_$(model_name)() {\n}\n"
 
     # Model hxx file
