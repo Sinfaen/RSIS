@@ -13,7 +13,8 @@ using Libdl
 # globals
 _lib = nothing # library pointer
 _sym = nothing # symbol loading
-_models = Dict{String, Any}()
+_modellibs = Dict{String, Any}()
+_namespaces = Dict{String, Vector{String}}()
 
 @enum RSISCmdStat::Int32 begin
     OK  = 0
@@ -114,14 +115,20 @@ function UnloadLibrary()
 end
 
 """
-    LoadModelLib(name::String, filename::String)
+    LoadModelLib(name::String, filename::String, namespace::String="")
 Attempts to load a shared model library by filename, storing it with a name
 if it does so. Returns whether the library was loaded for the first time.
+The namespace of this library defaults to the global namespace.
 This function can throw.
 """
-function LoadModelLib(name::String, filename::String) :: Bool
-    if !(name in keys(_models))
-        _models[name] = LibModel(filename)
+function LoadModelLib(name::String, filename::String, namespace::String="") :: Bool
+    if !(name in keys(_modellibs))
+        _modellibs[name] = LibModel(filename)
+        if namespace in keys(_namespaces)
+            push!(_namespaces[namespace], name)
+        else
+            _namespaces[namespace] = [name]
+        end
         return true
     end
     return false
@@ -134,9 +141,9 @@ Returns whether the model was unloaded.
 This function can throw.
 """
 function UnloadModelLib(name::String) :: Bool
-    if name in keys(_models)
-        Libdl.dlclose(_models[name].s_lib)
-        delete!(_models, name)
+    if name in keys(_modellibs)
+        Libdl.dlclose(_modellibs[name].s_lib)
+        delete!(_modellibs, name)
         return true
     end
     return false
@@ -169,11 +176,11 @@ function getscheduler()
 end
 
 """
-    newmodel(library::String, newname::String, tags::Vector{String} = [])
+    newmodel(library::String, newname::String; tags::Vector{String}
 Create a new model. A unique name must be given for the model. An optional list
 of tags can be given, allowing the user to search loaded models by tag.
 """
-function newmodel!(library::String, newname::String, tags::Vector{String}=Vector{String}())::Nothing
+function newmodel!(library::String, newname::String; tags::Vector{String}=Vector{String}()) :: Nothing
     if newname in keys(_loaded_models)
         logmsg("Model with name: $newname already exists.", ERROR)
     else

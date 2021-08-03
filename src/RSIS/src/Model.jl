@@ -152,13 +152,17 @@ function listavailable() :: Vector{String}
 end
 
 """
-    load(library::String)
-Load a shared library containing a model implementation
+    load(library::String; namespace::String="")
+Load a shared library containing a model implementation.
+If a namespace is defined, any reflection data defined during
+the load process is defined within that namespace, allowing
+for multiple models to define classes with the same name.
 ```jldoctest
 julia> load("mymodel")
+julia> load("anothermodel"; namespace="TEST")
 ```
 """
-function load(library::String) :: Nothing
+function load(library::String; namespace::String="") :: Nothing
     # Find library in search path, then pass absolute filepath
     # to core functionality
     filename = "lib$(library)$(_libraryextension())"
@@ -172,7 +176,7 @@ function load(library::String) :: Nothing
             for file in files
                 if file == filename
                     # load library
-                    if !LoadModelLib(library, joinpath(root, file))
+                    if !LoadModelLib(library, joinpath(root, file), namespace)
                         logmsg("Model library alread loaded.", LOG)
                     end
                     return
@@ -199,12 +203,6 @@ function unload(library::String) :: Nothing
     if !UnloadModelLib(library)
         logmsg("Model library not previously loaded.", WARNING)
     end
-end
-
-
-function createmodel(model::String)
-    println("Not implemented")
-    # call core::LoadModel
 end
 
 function connect(output::String, input::String)
