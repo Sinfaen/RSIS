@@ -166,11 +166,10 @@ function generateinterface(interface::String)
                "#include <cstdint>\n" *
                "#include <complex>\n" *
                "#include <ModelRegistration.hxx>\n\n"
-    cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
-
-    for i in 1:length(class_order)
-        name = class_order[i]
-        fields = class_defs[class_order[i]]
+    cxx_text = "#include \"$(model_name)_interface.hxx\"\n" *
+               "using namespace RSIS::Model;\n\n"
+    for name in class_order
+        fields = class_defs[name]
         htext = "class $(name) {\n" *
                 "public:\n" *
                 "    $name();\n" *
@@ -207,10 +206,24 @@ function generateinterface(interface::String)
         cxx_text = cxx_text * ctext;
     end
 
-    hxx_text = hxx_text * "void Reflect_$(model_name)(RSIS::Model::DefineClass_t _class, RSIS::Model::DefineMember_t _member);\n" * "#endif\n"
-    cxx_text = cxx_text * "void Reflect_$(model_name)(RSIS::Model::DefineClass_t _class, RSIS::Model::DefineMember_t _member) {\n}\n"
+    hxx_text = hxx_text * "void ReflectModels(RSIS::Model::DefineClass_t _class, RSIS::Model::DefineMember_t _member);\n" * "#endif\n"
 
     # Add reflection generation
+    for name in class_order
+        fields = class_defs[name]
+        cxx_text = cxx_text * "void Reflect_$(name)(DefineClass_t _class, DefineMember_t _member) {\n"
+        cxx_text = cxx_text * "_class(\"$(name)\");\n"
+        for (n, f) in fields
+            cxx_txt = cxx_text * "//_memb(\"$(name)\");"
+        end
+        cxx_text = cxx_text * "}\n\n"
+    end
+
+    cxx_text = cxx_text * "void ReflectModels(DefineClass_t _class, DefineMember_t _member) {\n"
+    for name in class_order
+        cxx_text = cxx_text * "Reflect_$(name)(_class, _member);\n"
+    end
+    cxx_text = cxx_text * "}\n"
 
     # Model hxx file
     pushtexttofile(base_dir, model_name, "_interface.hxx", hxx_text)

@@ -9,7 +9,7 @@ BaseModel* CreateModel() {
 }
 
 void Reflect(void* _cb1, void* _cb2) {
-    Reflect_heightSensor((DefineClass_t)_cb1, (DefineMember_t)_cb2);
+    ReflectModels((DefineClass_t)_cb1, (DefineMember_t)_cb2);
 }
 
 }

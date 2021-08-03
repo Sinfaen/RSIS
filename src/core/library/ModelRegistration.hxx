@@ -17,7 +17,7 @@ namespace Model {
  * Function pointer typedef for Julia function to define classes
  * @param[in] char* Class name
  */
-typedef void (*DefineClass_t)(char*);
+typedef void (*DefineClass_t)(const char*);
 
 /**
  * Function pointer typdef for Julia function to define members
@@ -26,7 +26,7 @@ typedef void (*DefineClass_t)(char*);
  * @param[in] char* Full type definition
  * @param[in] int32 Byte offset
  */
-typedef void (*DefineMember_t)(char*, char*, char*, int32_t);
+typedef void (*DefineMember_t)(const char*, const char*, const char*, int32_t);
 
 class ModelRegistration {
 public:
