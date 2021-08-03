@@ -8,6 +8,8 @@ together into a single module.
 """
 module RSIS
 
+using DataStructures
+
 using Unitful
 using Unitful.DefaultSymbols
 
@@ -31,8 +33,11 @@ export newproject, loadproject, projectinfo, build!, clean!
 
 include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
 using .MModel
-export generateinterface
 export load, unload, listavailable
+
+include("InterfaceGeneration.jl")
+using .MInterfaceGeneration
+export generateinterface
 
 include("Scheduling.jl")
 using .MScheduling
