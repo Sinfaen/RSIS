@@ -163,7 +163,7 @@ function generateinterface(interface::String)
                "#define __$(uppercase(model_name))__\n" *
                "#include <cstdint>\n" *
                "#include <complex>\n" *
-               "#include <BaseModel.hxx>\n\n"
+               "#include <ModelRegistration.hxx>\n\n"
     cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
 
     for i in length(class_order):-1:1
@@ -205,8 +205,10 @@ function generateinterface(interface::String)
         cxx_text = cxx_text * ctext;
     end
 
-    hxx_text = hxx_text * "void Reflect_$(model_name)();\n" * "#endif\n"
-    cxx_text = cxx_text * "void Reflect_$(model_name)() {\n}\n"
+    hxx_text = hxx_text * "void Reflect_$(model_name)(RSIS::Model::DefineClass_t _class, RSIS::Model::DefineMember_t _member);\n" * "#endif\n"
+    cxx_text = cxx_text * "void Reflect_$(model_name)(RSIS::Model::DefineClass_t _class, RSIS::Model::DefineMember_t _member) {\n}\n"
+
+    # Add reflection generation
 
     # Model hxx file
     pushtexttofile(base_dir, model_name, "_interface.hxx", hxx_text)

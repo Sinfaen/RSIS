@@ -1,8 +1,15 @@
+#include <ModelRegistration.hxx>
 #include "heightSensor_Model.hxx"
+
+using namespace RSIS::Model;
 
 extern "C" {
 BaseModel* CreateModel() {
     return new heightSensor_Model();
+}
+
+void Reflect(DefineClass_t _cb1, DefineMember_t _cb2) {
+    Reflect_heightSensor(_cb1, _cb2);
 }
 
 }

@@ -1,6 +1,6 @@
 
 #include <random>
-#include "BaseModel.hxx"
+#include <BaseModel.hxx>
 #include "heightSensor_interface.hxx"
 
 using namespace RSIS::Scheduling;
@@ -17,7 +17,6 @@ public:
     RSISCmdStat stepModel();
     RSISCmdStat destroyModel();
 
-    void reflect();
 protected:
     heightSensorIn in;
     heightSensorOut out;

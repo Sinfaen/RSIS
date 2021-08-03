@@ -38,7 +38,3 @@ RSISCmdStat heightSensor_Model::stepModel() {
 RSISCmdStat heightSensor_Model::destroyModel() {
     return RSISCmdStat::OK;
 }
-
-void heightSensor_Model::reflect() {
-    Reflect_heightSensor();
-}
