@@ -6,7 +6,10 @@ thread_dep = dependency('threads')
 install_headers(
     '../include/rsis.hxx',
     '../include/rsis_types.hxx',
-    'model/BaseModel.hxx')
+    'model/BaseModel.hxx',
+    'library/Loader.hxx',
+    'library/ModelData.hxx',
+    'library/ModelRegistration.hxx')
 
 shared_library('rsis',
     'rsis.cxx',

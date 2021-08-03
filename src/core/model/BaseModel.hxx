@@ -19,7 +19,6 @@ public:
     virtual RSISCmdStat stepModel()    = 0;
     virtual RSISCmdStat destroyModel() = 0;
 
-    virtual void reflect() = 0;
 private:
 };
 }

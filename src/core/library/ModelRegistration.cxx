@@ -26,3 +26,15 @@ RSISCmdStat ModelRegistration::DestroyModel(std::string name) {
     }
     return RSISCmdStat::OK;
 }
+
+RCB::RCB(DefineClass_t classdef, DefineMember_t membdef)
+    : _class(classdef), _memb(membdef)
+{ }
+
+void RCB::NewClass(std::string name) {
+    _class((char*) name.c_str());
+}
+
+void RCB::NewMember(std::string cl, std::string memb, std::string def, int32_t offset) {
+    _memb((char*)cl.c_str(), (char*)memb.c_str(), (char*)def.c_str(), offset);
+}
