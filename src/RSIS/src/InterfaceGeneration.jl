@@ -58,14 +58,13 @@ Base.showerror(io::IO, e::InterfaceException) = print(io, "")
 function grabClassDefinitions(data::OrderedDict{String,Any},
                               modelname::String,
                               order::Vector{String},
-                              definitions::Dict{String, Vector{Tuple{String, Port}} })
+                              definitions::Dict{String, Vector{Tuple{String, Port}} }) :: String
     if !haskey(definitions, modelname)
         definitions[modelname] = Vector{Tuple{String,Port}}()
     end
     if !(modelname in keys(data))
         throw(ErrorException("Class definition: $(model) not found!"))
     end
-    push!(order, modelname)
     model = data[modelname]
     for field in model
         if !isa(field.second, OrderedDict)
@@ -86,7 +85,8 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             end
             composite = Port(field.second["class"], Tuple(dims); note=desc, porttype=PORT)
             push!(definitions[modelname], (field.first, composite))
-            grabClassDefinitions(data, field.second["class"], order, definitions)
+            newmodelname = grabClassDefinitions(data, field.second["class"], order, definitions)
+            push!(order, newmodelname)
         elseif "type" in _keys
             # this is a regular port
             dims = []
@@ -124,6 +124,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             throw(ErrorException("Invalid model interface"))
         end
     end
+    return modelname
 end
 
 """
@@ -154,6 +155,7 @@ function generateinterface(interface::String)
     class_order = Vector{String}()
     class_defs  = Dict{String, Vector{Tuple{String, Port}}}()
     grabClassDefinitions(data, data["model"], class_order, class_defs)
+    push!(class_order, data["model"])
 
     base_dir   = dirname(path_interface[1])
     model_name = splitext(interface)[1]
@@ -166,7 +168,7 @@ function generateinterface(interface::String)
                "#include <ModelRegistration.hxx>\n\n"
     cxx_text = "#include \"$(model_name)_interface.hxx\"\n"
 
-    for i in length(class_order):-1:1
+    for i in 1:length(class_order)
         name = class_order[i]
         fields = class_defs[class_order[i]]
         htext = "class $(name) {\n" *
