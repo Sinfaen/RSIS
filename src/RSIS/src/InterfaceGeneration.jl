@@ -3,6 +3,7 @@
 module MInterfaceGeneration
 
 using ..DataStructures
+using ..YAML
 using ..MScripting
 using ..MLogging
 using ..MModel

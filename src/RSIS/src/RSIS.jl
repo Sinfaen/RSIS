@@ -13,6 +13,8 @@ using DataStructures
 using Unitful
 using Unitful.DefaultSymbols
 
+using YAML
+
 include("Logging.jl")
 using .MLogging
 export setlogfile, logmsg

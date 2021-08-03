@@ -14,10 +14,7 @@ using ..MLogging
 using ..MProject
 using ..Unitful
 
-using YAML
-
 # globals
-
 _additional_lib_paths = Vector{String}()
 
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3
