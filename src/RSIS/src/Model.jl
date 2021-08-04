@@ -83,18 +83,31 @@ ClassData() = ClassData(Vector{Port}())
 
 _class_definitions = Dict{String, ClassData}()
 
-function _CreateClass(name::Ptr{Char})
-    println("Created class! ")
+function _CreateClass(name::Ptr{UInt8}) :: Nothing
+    cl = unsafe_string(name)
+    if cl in keys(_class_definitions)
+        logmsg("Class: $(cl) redefined.", WARNING)
+    end
+    _class_definitions[cl] = ClassData()
+    return
 end
 
-function _CreateMember(cl::Ptr{Char}, memb::Ptr{Char}, def::Ptr{Char}, offset::Int)
-    println("Created member! ")
+function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::Int) :: Nothing
+    classname = unsafe_string(cl)
+    member    = unsafe_string(memb)
+    definition = unsafe_string(def)
+    if !(classname in _class_definitions)
+        logmsg("Class: $(classname) for member: $(member) does not exist. Creating default.", WARNING)
+        _class_definitions[classname] = ClassData()
+    end
+    return
 end
 
-function GetClassData(name::String, namespace::String = "")
+function GetClassData(name::String, namespace::String = "") :: Nothing
     GetModelData(name, namespace,
-        @cfunction(_CreateClass, Cvoid, (Ptr{Char},)),
-        @cfunction(_CreateMember, Cvoid, (Ptr{Char}, Ptr{Char}, Ptr{Char}, Int32)))
+        @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
+        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Int32)))
+    return
 end
 
 """
@@ -217,6 +230,7 @@ function load(library::String; namespace::String="") :: Nothing
                     if !LoadModelLib(library, joinpath(root, file), namespace)
                         logmsg("Model library alread loaded.", LOG)
                     end
+                    GetClassData(library, namespace);
                     return
                 end
             end

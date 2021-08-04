@@ -152,6 +152,11 @@ function UnloadModelLib(name::String) :: Bool
     return false
 end
 
+"""
+    GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid})
+Call into model library to access metadata. Pass in provided callback functions
+for registration of model data.
+"""
 function GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid}) :: Nothing
     if name in keys(_modellibs)
         ccall(_modellibs[name].s_reflect, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), classfunc, membfunc);
