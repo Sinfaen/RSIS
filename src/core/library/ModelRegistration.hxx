@@ -28,6 +28,11 @@ typedef void (*DefineClass_t)(const char*);
  */
 typedef void (*DefineMember_t)(const char*, const char*, const char*, int32_t);
 
+template<typename T, typename U>
+size_t _offsetof(U T::*member) {
+    return (char*)&((T*)nullptr->*member) - (char*)nullptr;
+}
+
 class ModelRegistration {
 public:
     ModelRegistration();

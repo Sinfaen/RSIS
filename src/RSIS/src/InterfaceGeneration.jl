@@ -213,10 +213,11 @@ function generateinterface(interface::String)
         fields = class_defs[name]
         cxx_text = cxx_text * "void Reflect_$(name)(DefineClass_t _class, DefineMember_t _member) {\n"
         cxx_text = cxx_text * "_class(\"$(name)\");\n"
-        for (n, f) in fields
-            cxx_txt = cxx_text * "//_memb(\"$(name)\");"
+        txt = ""
+        for (fieldname, f) in fields
+            txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"int\", _offsetof(&$(name)::$(fieldname)));\n"
         end
-        cxx_text = cxx_text * "}\n\n"
+        cxx_text = cxx_text * txt * "}\n\n"
     end
 
     cxx_text = cxx_text * "void ReflectModels(DefineClass_t _class, DefineMember_t _member) {\n"

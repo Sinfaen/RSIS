@@ -92,11 +92,11 @@ function _CreateClass(name::Ptr{UInt8}) :: Nothing
     return
 end
 
-function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::Int) :: Nothing
+function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::Int32) :: Nothing
     classname = unsafe_string(cl)
     member    = unsafe_string(memb)
     definition = unsafe_string(def)
-    if !(classname in _class_definitions)
+    if !(classname in keys(_class_definitions))
         logmsg("Class: $(classname) for member: $(member) does not exist. Creating default.", WARNING)
         _class_definitions[classname] = ClassData()
     end
