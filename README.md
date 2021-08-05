@@ -30,7 +30,7 @@ $ meson compile
 ## Local install for RSIS
 ```bash
 $ cd builddir
-$ meson install --destdir ../src/RSIS
+$ meson install --destdir ../
 ```
 
 ## Run Tests
