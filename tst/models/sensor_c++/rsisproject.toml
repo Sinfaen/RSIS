@@ -1,0 +1,6 @@
+
+[rsisproject]
+type = "cpp"
+filepaths = [
+    "tst"
+]

@@ -13,6 +13,7 @@ using DataStructures
 using Unitful
 using Unitful.DefaultSymbols
 
+using TOML
 using YAML
 
 include("Logging.jl")
@@ -29,7 +30,7 @@ using .MScripting
 export addfilepath, removefilepath, printfilepaths, where, search
 export script, logscripts, printscriptlog
 
-include("Project.jl") # pulls in MLogging
+include("Project.jl") # pulls in MLogging, MScripting
 using .MProject
 export newproject, loadproject, projectinfo, build!, clean!
 

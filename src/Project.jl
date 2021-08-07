@@ -6,6 +6,8 @@ export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
 using ..MLogging
+using ..MScripting
+using ..TOML
 
 # globals
 mutable struct ProjectInfo
@@ -65,15 +67,22 @@ function loadproject(directory::String = ".") :: Nothing
     end
     cd(_dir)
 
-    files = [
-        "meson_options.txt",
-        "meson.build"
-        #"RSIS_Project.toml"
-    ];
+    if !isfile("rsisproject.toml")
+        throw(ErrorException("`rsisproject.toml` not found. `newproject` can be used to regenerate project files"))
+        return
+    end
+    _f = open("rsisproject.toml")
+    projectdata = TOML.parse(_f)
+    close(_f)
+    if !("rsisproject" in keys(projectdata))
+        throw(ErrorException("Invalid `rsisproject.toml` file. Key: [rsisproject] not found"))
+        return
+    end
 
-    for f in files
-        if !isfile(f)
-            throw(IOError("File `$(f)` not found. Project load aborted.\n`newproject` can be used to regenerate project files"))
+    # All good here, start doing stuff
+    if "filepaths" in keys(projectdata["rsisproject"])
+        for path in projectdata["rsisproject"]["filepaths"]
+            addfilepath(path)
         end
     end
 
@@ -88,10 +97,8 @@ end
     newproject(name::String)
 Create a folder containing commonly necessary files for a
 new RSIS project.
-    - meson_options.txt
-    - meson.build
 """
-function newproject(name::String) :: Nothing
+function newproject(name::String; language::String="cpp") :: Nothing
     if isdir(name)
         println("Folder with name: `$(name)`` already exists")
         print("Generate a new project anyways? [y/n]: ")
