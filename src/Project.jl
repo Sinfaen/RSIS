@@ -97,6 +97,10 @@ end
     newproject(name::String)
 Create a folder containing commonly necessary files for a
 new RSIS project.
+```jldoctest
+julia> newproject("wave_model"; language = "rust")
+julia> newproject("integrate_avionics"; language = "cpp")
+```
 """
 function newproject(name::String; language::String="cpp") :: Nothing
     if isdir(name)
@@ -114,6 +118,13 @@ function newproject(name::String; language::String="cpp") :: Nothing
     cd(name)
 
     # Generate new project files
+    if language == "cpp"
+        #
+    elseif language == "rust"
+        run(`cargo init --lib`)
+    else
+        throw(ArgumentError("`language` must be one of the following: [\"cpp\", \"rust\"]"))
+    end
 end
 
 function projectinfo() :: String
@@ -125,9 +136,10 @@ end
 
 """
     build!()
-Compile a loaded RSIS project. Equivalent to executing the
-following commands:
+Compile a loaded RSIS project. Actions are dependent on the
+type of the project.
 meson: `cd builddir; meson compile; cd ..`
+cargo: ``
 """
 function build!() :: Nothing
     if !isprojectloaded()
@@ -136,9 +148,12 @@ function build!() :: Nothing
     end
 
     createbuilddirectory(_loaded_project)
+
     cd(builddir(proj))
     run(`meson compile`)
     cd(_loaded_project.directory)
+
+    # cargo build
 end
 
 """
