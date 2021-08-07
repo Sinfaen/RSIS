@@ -7,17 +7,18 @@ The RSIS Framework is used to build Real-Time simulations.
 
 ## Systems
 - MacOS
-- Ubuntu
+- Ubuntu (WSL2)
 
 ## Dependencies
 - Julia
     - DataStructures
     - Unitful
     - YAML
-- C++17
+- Rust
+
+### Optional Dependencies
+C++ Projects
 - Meson
-    - Ninja
-    - Python3
 
 ## Build Steps
 ```bash
