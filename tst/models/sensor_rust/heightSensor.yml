@@ -1,0 +1,21 @@
+# Height Sensor Test model
+model: heightSensor
+
+heightSensorIn:
+    signal: {type: double, value: 1.0, unit: m, desc: Truth signal}
+
+heightSensorOut:
+    inrange: {type: bool, value: false, desc: Measured height within range}
+
+heightSensorData:
+    measurement: {type: double, value: 1.0, unit: m, desc: Actual sensor measurement}
+
+heightSensorParams:
+    limits: {type: double, dims: [2], value: [0.1, 0.8], unit: m, desc: Lower & upper range}
+    noise: {type: double, value: 0.01, desc: Standard deviation of applied gaussian noise}
+
+heightSensor:
+    in: {class: heightSensorIn}
+    out: {class: heightSensorOut}
+    data: {class: heightSensorData}
+    params: {class: heightSensorParams}
