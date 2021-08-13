@@ -1,6 +1,15 @@
 
+#[path = "basemodel.rs"]
+pub mod basemodel;
+
+use basemodel::BaseModel;
+
 pub trait Scheduler {
     fn get_num_threads(&self) -> i32;
+}
+
+pub struct LoadedModels {
+    pub rust_objs : Vec<Box<dyn BaseModel>>
 }
 
 pub struct NRTScheduler {

@@ -6,8 +6,10 @@ mod rsis;
 
 pub use rsis::Scheduler;
 pub use rsis::NRTScheduler;
+pub use rsis::LoadedModels;
 
 static mut SCHEDULER : NRTScheduler = NRTScheduler::new();
+static mut MODELS : LoadedModels = LoadedModels { rust_objs: Vec::new() };
 
 #[repr(u32)]
 enum RSISStat {
