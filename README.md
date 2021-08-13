@@ -8,6 +8,7 @@ The RSIS Framework is used to build Real-Time simulations.
 ## Systems
 - MacOS
 - Ubuntu (WSL2)
+- Windows (Coming soon)
 
 ## Dependencies
 - Julia
@@ -20,26 +21,8 @@ The RSIS Framework is used to build Real-Time simulations.
 C++ Projects
 - Meson
 
-## Build Steps
+## Core Library Build Steps
 ```bash
-$ mkdir builddir
-$ meson setup builddir --prefix=/install --libdir=lib
-$ cd builddir
-$ meson compile
+$ cd src/core
+$ cargo build
 ```
-
-## Local install for RSIS
-```bash
-$ cd builddir
-$ meson install --destdir ../
-```
-
-## Run Tests
-
-### Entire Test Suite
-```bash
-$ meson test
-```
-
-### Individual Tests
-
