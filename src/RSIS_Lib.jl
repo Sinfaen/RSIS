@@ -6,7 +6,7 @@ using ..MLogging
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel!, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
-export LoadModelLib, UnloadModelLib, _libraryextension
+export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData
 
 using Libdl
@@ -32,8 +32,8 @@ mutable struct LibFuncs
     s_getmessage
     s_getschedulername
     function LibFuncs(lib)
-        new(Libdl.dlsym(lib, :initialize),
-            Libdl.dlsym(lib, :shutdown),
+        new(Libdl.dlsym(lib, :library_initialize),
+            Libdl.dlsym(lib, :library_shutdown),
             Libdl.dlsym(lib, :set_thread),
             Libdl.dlsym(lib, :init_scheduler),
             Libdl.dlsym(lib, :pause_scheduler),
@@ -65,6 +65,17 @@ end
 _loaded_models = Dict{String, ModelInstance}()
 _model_tags    = Set{String}()
 
+
+function _libraryprefix() :: String
+    if Sys.isunix() || Sys.isapple()
+        return "lib"
+    elseif Sys.iswindows()
+        return ""
+    else
+        throw(ErrorExceptionn("Unknown operating system"))
+    end
+end
+
 function _libraryextension() :: String
     if Sys.isunix()
         if Sys.islinux()
@@ -91,7 +102,7 @@ function LoadLibrary()
     libpath = joinpath(@__DIR__, "core", "target", "debug");
     libfile = ""
     try
-        libfile = "librsis" * _libraryextension()
+        libfile = _libraryprefix() * "rsis" * _libraryextension()
     catch e
         throw(InitError(:RSIS, String(e)))
     end

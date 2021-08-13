@@ -17,12 +17,12 @@ enum RSISStat {
 }
 
 #[no_mangle]
-pub extern "C" fn initialize() -> u32 {
+pub extern "C" fn library_initialize() -> u32 {
     return RSISStat::OK as u32;
 }
 
 #[no_mangle]
-pub extern "C" fn shutdown() -> u32 {
+pub extern "C" fn library_shutdown() -> u32 {
     return RSISStat::OK as u32;
 }
 
