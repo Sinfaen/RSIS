@@ -32,14 +32,14 @@ mutable struct LibFuncs
     s_getmessage
     s_getschedulername
     function LibFuncs(lib)
-        new(Libdl.dlsym(lib, :RSISFramework_Initialize),
-            Libdl.dlsym(lib, :RSISFramework_Shutdown),
-            Libdl.dlsym(lib, :RSISFramework_SetThread),
-            Libdl.dlsym(lib, :RSISFramework_InitScheduler),
-            Libdl.dlsym(lib, :RSISFramework_PauseScheduler),
-            Libdl.dlsym(lib, :RSISFramework_RunScheduler),
-            Libdl.dlsym(lib, :RSISFramework_GetMessage),
-            Libdl.dlsym(lib, :RSISFramework_GetSchedulerName))
+        new(Libdl.dlsym(lib, :initialize),
+            Libdl.dlsym(lib, :shutdown),
+            Libdl.dlsym(lib, :set_thread),
+            Libdl.dlsym(lib, :init_scheduler),
+            Libdl.dlsym(lib, :pause_scheduler),
+            Libdl.dlsym(lib, :run_scheduler),
+            Libdl.dlsym(lib, :get_message),
+            Libdl.dlsym(lib, :get_scheduler_name))
     end
 end
 
@@ -88,7 +88,7 @@ function LoadLibrary()
     global _sym
 
     # detect operating system
-    libpath = joinpath(@__DIR__, "..", "install", "lib");
+    libpath = joinpath(@__DIR__, "core", "target", "debug");
     libfile = ""
     try
         libfile = "librsis" * _libraryextension()
@@ -168,7 +168,7 @@ end
 function InitLibrary(symbols::LibFuncs)
     #
     stat = ccall(symbols.s_init, UInt8, ())
-    if stat ≠ 1
+    if stat ≠ 0
         error("Failed to initialize library");
     end
 end
@@ -176,7 +176,7 @@ end
 function ShutdownLibrary(symbols::LibFuncs)
     #
     stat = ccall(symbols.s_shutdown, UInt8, ())
-    if stat ≠ 1
+    if stat ≠ 0
         error("Failed to shutdown library");
     end
 end
