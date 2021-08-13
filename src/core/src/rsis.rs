@@ -1,8 +1,7 @@
 
-#[path = "basemodel.rs"]
-pub mod basemodel;
+extern crate modellib;
 
-use basemodel::BaseModel;
+use modellib::BaseModel;
 
 pub trait Scheduler {
     fn get_num_threads(&self) -> i32;
