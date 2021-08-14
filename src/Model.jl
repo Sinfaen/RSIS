@@ -3,11 +3,13 @@
 
 module MModel
 
+using Base: julia_cmd, julia_exename
 using DataStructures: first
 export Model, Port, Callback
 export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, listavailable
+export convert_julia_type
 
 using ..MScripting
 using ..MLibrary
@@ -15,24 +17,30 @@ using ..MLogging
 using ..MProject
 using ..Unitful
 
-# globals
-_type_map = Dict{String, DataType}(
-    "char"     =>   Char,
-    "int8_t"   =>   Int8,
-    "int16_t"  =>  Int16,
-    "int32_t"  =>  Int32,
-    "int64_t"  =>  Int64,
-    "uint8_t"  =>  UInt8,
-    "uint16_t" => UInt16,
-    "uint32_t" => UInt32,
-    "uint64_t" => UInt64,
-    "bool"     =>   Bool,
-    "float"    => Float32,
-    "double"   => Float64,
-    "std::complex<float>"  => Complex{Float32},
-    "std::complex<double>" => Complex{Float64}
+## globals
+# DataType => [Rust datatype, C++ datatype]
+_type_conversions = Dict{DataType, Vector{String}}(
+    Char    => ["char", "char"],
+    Int8    => ["i8",   "int8_t"],
+    Int16   => ["i16",  "int16_t"],
+    Int32   => ["i32",  "int32_t"],
+    Int64   => ["i64",  "int64_t"],
+    UInt8   => ["u8",   "uint8_t"],
+    UInt16  => ["u16",  "uint16_t"],
+    UInt32  => ["u32",  "uint32_t"],
+    UInt64  => ["u64",  "uint64_t"],
+    Bool    => ["bool", "bool"],
+    Float32 => ["f32",  "float"],
+    Float64 => ["f64",  "double"],
+    # Requires lines: ["use num_complex::Complex;", "#include <complex>"]
+    Complex{Float32} => ["Complex<f32>", "std::complex<float>"],
+    Complex{Float64} => ["Complex<f64>", "std::complex<double>"]
 )
 
+# Create a string -> DataType mapping for all supported datatypes
+_type_map = Dict([Pair("$(_type)", _type) for _type in keys(_type_conversions)])
+
+# Additional library paths to search
 _additional_lib_paths = Vector{String}()
 
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3
@@ -259,6 +267,19 @@ end
 
 function connect(output::String, input::String)
     println("Not implemented")
+end
+
+function convert_julia_type(juliatype::String; language::String = "rust") :: String
+    if !(juliatype in keys(_type_conversions))
+        return juliatype
+    end
+    if language == "rust"
+        return _type_map[_type_conversions[juliatype]][1]
+    elseif language == "cpp"
+        return _type_map[_type_conversions[juliatype]][2]
+    else
+        throw(ArgumentError("language must be [\"rust\",\"cpp\"]"))
+    end
 end
 
 end

@@ -13,20 +13,20 @@ export generateinterface
 
 # globals
 _type_defaults = Dict{String, Any}(
-    "char"     =>   ' ',
-    "int8_t"   =>     0,
-    "int16_t"  =>     0,
-    "int32_t"  =>     0,
-    "int64_t"  =>     0,
-    "uint8_t"  =>     0,
-    "uint16_t" =>     0,
-    "uint32_t" =>     0,
-    "uint64_t" =>     0,
-    "bool"     => false,
-    "float"    =>     0,
-    "double"   =>     0,
-    "std::complex<float>"  => 0+0im,
-    "std::complex<double>" => 0+0im
+    "char"    => ' ',
+    "Int8"    => 0,
+    "Int16"   => 0,
+    "Int32"   => 0,
+    "Int64"   => 0,
+    "UInt8"   => 0,
+    "UInt16"  => 0,
+    "UInt32"  => 0,
+    "UInt64"  => 0,
+    "Bool"    => false,
+    "Float32" => 0,
+    "Float64" => 0,
+    "Complex{Float32}" => 0+0im,
+    "Complex{Float64}" => 0+0im
 )
 
 """
@@ -198,7 +198,7 @@ function generateinterface(interface::String; language::String = "cpp")
             end
             first = true;
             for (n,f) in fields
-                htext = htext * "    " * f.type * " " * "$n"
+                htext = htext * "    " * convert_julia_type(f.type; language = language) * " " * "$n"
                 if length(f.dimension) != 0
                     htext = htext * "[" * join(f.dimension, "][") * "]"
                 end
