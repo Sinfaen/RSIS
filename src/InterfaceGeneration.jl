@@ -154,7 +154,7 @@ function generateinterface(interface::String; language::String = "cpp")
         push!(templates, ("_interface.hxx", joinpath(@__DIR__, "templates", "header_cpp.template")))
         push!(templates, ("_interface.cxx", joinpath(@__DIR__, "templates", "source_cpp.template")))
     elseif language == "rust"
-        push!(templates, ("_interface.rs", joinpath(@__DIR__, "templates", "rust.target")))
+        push!(templates, ("_interface.rs", joinpath(@__DIR__, "templates", "rust.template")))
     else
         error(ArgumentError("[\"cpp\",\"rust\"] are the only valid language options"))
     end
@@ -198,9 +198,9 @@ function generateinterface(interface::String; language::String = "cpp")
             end
             first = true;
             for (n,f) in fields
-                htext = htext * "    " * convert_julia_type(f.type; language = language) * " " * "$n"
+                htext = htext * "    $(convert_julia_type(f.type, language)) $n"
                 if length(f.dimension) != 0
-                    htext = htext * "[" * join(f.dimension, "][") * "]"
+                    htext = htext * "[$(join(f.dimension, "]["))]"
                 end
                 htext = htext * "; // $(f.note) \n"
                 if first
@@ -243,7 +243,17 @@ function generateinterface(interface::String; language::String = "cpp")
 
         words["REFLECT_CALLS"] = join(["Reflect_$(name)(_class, _member);" for name in class_order], "\n")
     else
-        # rust TODO
+        rs_text = ""
+        for name in class_order
+            fields = class_defs[name]
+            txt = "#[repr(C, packed)]\npub struct $(name) {\n"
+            for (n,f) in fields
+                txt = txt * "    $n : $(convert_julia_type(f.type, language)),\n"
+            end
+            txt = txt * "}\n"
+            rs_text = rs_text * txt
+        end
+        words["STRUCT_DEFINITIONS"] = rs_text
     end
     pushtexttofile(base_dir, model_name, words, templates)
 

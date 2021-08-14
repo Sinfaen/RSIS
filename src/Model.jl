@@ -269,14 +269,14 @@ function connect(output::String, input::String)
     println("Not implemented")
 end
 
-function convert_julia_type(juliatype::String; language::String = "rust") :: String
-    if !(juliatype in keys(_type_conversions))
+function convert_julia_type(juliatype::String, language::String = "rust") :: String
+    if !(juliatype in keys(_type_map))
         return juliatype
     end
     if language == "rust"
-        return _type_map[_type_conversions[juliatype]][1]
+        return _type_conversions[_type_map[juliatype]][1]
     elseif language == "cpp"
-        return _type_map[_type_conversions[juliatype]][2]
+        return _type_conversions[_type_map[juliatype]][2]
     else
         throw(ArgumentError("language must be [\"rust\",\"cpp\"]"))
     end

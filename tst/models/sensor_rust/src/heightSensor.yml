@@ -15,7 +15,7 @@ heightSensorParams:
     noise: {type: Float64, value: 0.01, desc: Standard deviation of applied gaussian noise}
 
 heightSensor:
-    in: {class: heightSensorIn}
-    out: {class: heightSensorOut}
+    inputs: {class: heightSensorIn}
+    outputs: {class: heightSensorOut}
     data: {class: heightSensorData}
     params: {class: heightSensorParams}

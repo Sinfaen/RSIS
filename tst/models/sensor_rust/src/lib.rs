@@ -11,6 +11,8 @@ extern crate modellib;
 use modellib::BaseModel;
 use std::ffi::c_void;
 
+mod heightSensor_interface;
+
 #[no_mangle]
 pub extern "C" fn create_model() -> u32 {
     0
