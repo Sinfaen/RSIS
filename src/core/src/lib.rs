@@ -8,6 +8,9 @@ pub use rsis::Scheduler;
 pub use rsis::NRTScheduler;
 pub use rsis::LoadedModels;
 
+pub use std::ffi::c_void;
+pub use libc::c_char;
+
 static mut SCHEDULER : NRTScheduler = NRTScheduler::new();
 static mut MODELS : LoadedModels = LoadedModels { rust_objs: Vec::new() };
 
@@ -29,12 +32,12 @@ pub extern "C" fn library_shutdown() -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn create_model() -> u32 {
+pub extern "C" fn add_model(name : *const c_char, ptr : * mut c_void) -> u32 {
     return RSISStat::OK as u32;
 }
 
 #[no_mangle]
-pub extern "C" fn destroy_model() -> u32 {
+pub extern "C" fn remove_model(name: *const c_char) -> u32 {
     return RSISStat::OK as u32;
 }
 

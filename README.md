@@ -16,6 +16,7 @@ The RSIS Framework is used to build Real-Time simulations.
     - Unitful
     - YAML
 - Rust
+    - num-complex
 
 ### Optional Dependencies
 C++ Projects
