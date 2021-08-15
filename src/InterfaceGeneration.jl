@@ -214,7 +214,7 @@ function generateinterface(interface::String; language::String = "cpp")
                     if length(f.dimension) == 0
                         ctext = ctext * "$n($(f.defaultvalue))"
                     else
-                        ctext = ctext * "$n{" * join([d for d in f.defaultvalue], ", ") *"}"
+                        ctext = ctext * "$n{$(join([d for d in f.defaultvalue], ", "))}"
                     end
                 end
             end
@@ -244,16 +244,37 @@ function generateinterface(interface::String; language::String = "cpp")
         words["REFLECT_CALLS"] = join(["Reflect_$(name)(_class, _member);" for name in class_order], "\n")
     else
         rs_text = ""
+        cs_text = ""
         for name in class_order
             fields = class_defs[name]
             txt = "#[repr(C, packed)]\npub struct $(name) {\n"
+            cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
+                  "        $(name) {\n"
             for (n,f) in fields
-                txt = txt * "    $n : $(convert_julia_type(f.type, language)),\n"
+                if length(f.dimension) == 0
+                    txt = txt * "    $n : $(convert_julia_type(f.type, language)),\n"
+                    if f.iscomposite
+                        cs = cs * "            $(n) : $(f.type)::new(),\n"
+                    else
+                        cs = cs * "            $(n) : $(f.defaultvalue),\n"
+                    end
+                else
+                    txt = txt * "    $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
+                    if f.iscomposite
+                        cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
+                    else
+                        cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
+                    end
+                end
             end
             txt = txt * "}\n"
+            cs  = cs  * "        }\n    }\n}\n"
             rs_text = rs_text * txt
+            cs_text = cs_text * cs
         end
         words["STRUCT_DEFINITIONS"] = rs_text
+
+        words["CONSTRUCTOR_DEFINITIONS"] = cs_text
     end
     pushtexttofile(base_dir, model_name, words, templates)
 

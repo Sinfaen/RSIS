@@ -12,9 +12,11 @@ use modellib::BaseModel;
 use std::ffi::c_void;
 
 mod heightSensor_interface;
+use heightSensor_interface::heightSensor;
 
 #[no_mangle]
 pub extern "C" fn create_model() -> u32 {
+    let model = heightSensor::new();
     0
 }
 

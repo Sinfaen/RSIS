@@ -5,3 +5,5 @@ extern crate modellib;
 use modellib::BaseModel;
 
 {{STRUCT_DEFINITIONS}}
+
+{{CONSTRUCTOR_DEFINITIONS}}
