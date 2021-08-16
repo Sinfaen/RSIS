@@ -197,12 +197,13 @@ function build!() :: Nothing
         println("No project loaded. Aborting")
         return
     end
-    if target == "debug" || target == "release"
+    if _loaded_project.target == "debug" || _loaded_project.target == "release"
         cd(_loaded_project.directory)
         _build(_loaded_project.type)
     else
         throw(ArgumentError("Invalid `target` specified. Must be debug or release"))
     end
+    return
 end
 
 """
