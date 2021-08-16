@@ -6,6 +6,9 @@ mod tests {
     }
 }
 
+extern crate libc;
+use libc::c_char;
+
 pub trait BaseModel {
     fn config(&self);
     fn init(&self);
@@ -13,3 +16,6 @@ pub trait BaseModel {
     fn run(&self);
     fn stop(&self);
 }
+
+pub type ReflectClass  = extern fn(*const c_char);
+pub type ReflectMember = extern fn(*const c_char, *const c_char, *const c_char, i32);

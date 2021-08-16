@@ -7,12 +7,16 @@ mod height_sensor {
 }
 
 extern crate modellib;
+extern crate libc;
 
 use modellib::BaseModel;
+use modellib::ReflectClass;
+use modellib::ReflectMember;
 use std::ffi::c_void;
 
 mod heightSensor_interface;
 use heightSensor_interface::heightSensor;
+use heightSensor_interface::reflect_all;
 
 #[no_mangle]
 pub extern "C" fn create_model() -> u32 {
@@ -21,6 +25,6 @@ pub extern "C" fn create_model() -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn Reflect(_cb1 : * mut c_void, _cb2 : * mut c_void) -> u32 {
-    0
+pub extern "C" fn reflect(_cb1 : ReflectClass, _cb2 : ReflectMember) {
+    reflect_all(_cb1, _cb2);
 }

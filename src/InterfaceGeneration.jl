@@ -245,11 +245,18 @@ function generateinterface(interface::String; language::String = "cpp")
     else
         rs_text = ""
         cs_text = ""
+        reflect = ""
+        ref_all = "pub fn reflect_all(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
         for name in class_order
             fields = class_defs[name]
             txt = "#[repr(C, packed)]\npub struct $(name) {\n"
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
                   "        $(name) {\n"
+            ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
+                  "    unsafe {\n" *
+                  "        let name = CString::new(\"$(name)\").unwrap();\n" *
+                  "        _cb1(name.as_ptr());\n"
+            ref_all = ref_all * "    reflect_$(name)(_cb1, _cb2);\n"
             for (n,f) in fields
                 if length(f.dimension) == 0
                     txt = txt * "    $n : $(convert_julia_type(f.type, language)),\n"
@@ -269,12 +276,15 @@ function generateinterface(interface::String; language::String = "cpp")
             end
             txt = txt * "}\n"
             cs  = cs  * "        }\n    }\n}\n"
+            ref = ref * "    }\n}\n"
             rs_text = rs_text * txt
             cs_text = cs_text * cs
+            reflect = reflect * ref
         end
+        ref_all = ref_all * "}\n"
         words["STRUCT_DEFINITIONS"] = rs_text
-
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
+        words["REFLECT_DEFINITIONS"] = reflect * ref_all
     end
     pushtexttofile(base_dir, model_name, words, templates)
 
