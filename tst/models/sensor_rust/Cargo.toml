@@ -11,3 +11,6 @@ memoffset = "0.5.4"
 
 [dependencies.modellib]
 path = "/Users/kellyschultz/Documents/code/rsis/src/core/modellib"
+
+[lib]
+crate-type = ["dylib"]

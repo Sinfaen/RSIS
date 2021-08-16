@@ -9,19 +9,35 @@ using ..MLogging
 using ..MScripting
 using ..TOML
 
+abstract type ProjectType end
+struct RUST <: ProjectType end
+struct CPP  <: ProjectType end
+
+Base.print(io::IO, ::RUST) = print(io, "Rust")
+Base.print(io::IO, ::CPP)  = print(io, "C++")
+
 # globals
 mutable struct ProjectInfo
     loaded::Bool
     builddirexists::Bool
     directory::String
-    bname::String
+    type::ProjectType
+    target::String
     function ProjectInfo()
-        new(false, false, "", "builddir")
+        new(false, false, "", RUST(), "debug")
     end
 end
 
+function _libdir(ProjectType::RUST)
+    return joinpath("target", _loaded_project.target)
+end
+
+function _libdir(ProjectType::CPP)
+    return "builddir"
+end
+
 function builddir(proj::ProjectInfo)
-    return joinpath(proj.directory, proj.bname)
+    return joinpath(proj.directory, _libdir(proj.type))
 end
 
 _loaded_project = ProjectInfo()
@@ -47,15 +63,6 @@ function checkbuilddirectory(proj::ProjectInfo) :: Nothing
     return
 end
 
-function createbuilddirectory(proj::ProjectInfo) :: Nothing
-    if !proj.builddirexists
-        mkdir(builddir(proj))
-        proj.builddirexists = true
-    end
-    return
-end
-        
-
 """
     loadproject(directory::String = ".")
 Load a project, defaulting to the current operating directory.
@@ -63,7 +70,7 @@ Load a project, defaulting to the current operating directory.
 function loadproject(directory::String = ".") :: Nothing
     _dir = abspath(directory)
     if !isdir(_dir)
-        throw(IOError("Directory: $(directory) does not exist."))
+        throw(ErrorException("Directory: $(directory) does not exist."))
     end
     cd(_dir)
 
@@ -79,7 +86,19 @@ function loadproject(directory::String = ".") :: Nothing
         return
     end
 
+    if !("type" in keys(projectdata["rsisproject"]))
+        throw(ErrorException("`type` key not found in `rsisproject.toml`"))
+    end
+
     # All good here, start doing stuff
+    if projectdata["rsisproject"]["type"] == "rust"
+        _loaded_project.type = RUST()
+    elseif projectdata["rsisproject"]["type"] == "cpp"
+        _loaded_project.type = CPP()
+    else
+        throw(ErrorException("Invalid language type in `rsisproject.toml`"))
+    end
+
     if "filepaths" in keys(projectdata["rsisproject"])
         for path in projectdata["rsisproject"]["filepaths"]
             addfilepath(path)
@@ -93,16 +112,24 @@ function loadproject(directory::String = ".") :: Nothing
     return
 end
 
+function _newproj(ProjectType::RUST) :: Nothing
+    run(`cargo init --lib`)
+end
+
+function _newproj(ProjectType::CPP) :: Nothing
+    run(`meson setup builddir`)
+end
+
 """
-    newproject(name::String)
+    newproject(name::String; language::String = "rust")
 Create a folder containing commonly necessary files for a
 new RSIS project.
 ```jldoctest
-julia> newproject("wave_model"; language = "rust")
+julia> newproject("wave_model") # Defaults to rust
 julia> newproject("integrate_avionics"; language = "cpp")
 ```
 """
-function newproject(name::String; language::String="cpp") :: Nothing
+function newproject(name::String; language::String = "rust") :: Nothing
     if isdir(name)
         println("Folder with name: `$(name)`` already exists")
         print("Generate a new project anyways? [y/n]: ")
@@ -118,42 +145,64 @@ function newproject(name::String; language::String="cpp") :: Nothing
     cd(name)
 
     # Generate new project files
-    if language == "cpp"
-        #
-    elseif language == "rust"
-        run(`cargo init --lib`)
+    if language == "rust"
+        _loaded_project.type = RUST()
+    elseif language == "cpp"
+        _loaded_project.type = CPP()
     else
         throw(ArgumentError("`language` must be one of the following: [\"cpp\", \"rust\"]"))
     end
+    _newproj(_loaded_project.type)
 end
 
 function projectinfo() :: String
     if !isprojectloaded()
         return "No project is loaded"
     end
-    return "Project loaded at: $(_loaded_project.directory)"
+    return "$(_loaded_project.type) Project loaded at: $(_loaded_project.directory)"
+end
+
+"""
+    buildtarget!(target::String)
+Set the build target of the project, which affects further builds.
+"""
+function buildtarget!(target::String)
+    if target != "debug" && target != "release"
+        throw(ArgumentError("Unknown `target`: $(target). Must be debug or release"))
+    end
+    _loaded_project.target = target;
+end
+
+function _build(ProjectType::RUST)
+    if (_loaded_project.target == "debug")
+        run(`cargo build`)
+    else
+        run(`cargo build --release`)
+    end
+end
+
+function _build(ProjectType::CPP)
+    cd(builddir(_loaded_project.type))
+    run(`meson compile`)
+    cd(_loaded_project.directory)
 end
 
 """
     build!()
 Compile a loaded RSIS project. Actions are dependent on the
 type of the project.
-meson: `cd builddir; meson compile; cd ..`
-cargo: ``
 """
 function build!() :: Nothing
     if !isprojectloaded()
         println("No project loaded. Aborting")
         return
     end
-
-    createbuilddirectory(_loaded_project)
-
-    cd(builddir(proj))
-    run(`meson compile`)
-    cd(_loaded_project.directory)
-
-    # cargo build
+    if target == "debug" || target == "release"
+        cd(_loaded_project.directory)
+        _build(_loaded_project.type)
+    else
+        throw(ArgumentError("Invalid `target` specified. Must be debug or release"))
+    end
 end
 
 """
@@ -166,7 +215,7 @@ function clean!() :: Nothing
     end
 
     cd(_loaded_project.directory)
-    rm("builddir"; recursive=true)
+    rm(_libdir(_loaded_project.type); recursive=true)
 end
 
 end

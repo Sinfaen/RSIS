@@ -50,8 +50,8 @@ mutable struct LibModel
     function LibModel(libfile::String)
         lib = Libdl.dlopen(libfile)
         new(lib,
-            Libdl.dlsym(lib, :CreateModel),
-            Libdl.dlsym(lib, :Reflect))
+            Libdl.dlsym(lib, :create_model),
+            Libdl.dlsym(lib, :reflect))
     end
 end
 
