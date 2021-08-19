@@ -253,30 +253,31 @@ function generateinterface(interface::String; language::String = "cpp")
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
                   "        $(name) {\n"
             ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
-                  "    unsafe {\n" *
-                  "        let name = CString::new(\"$(name)\").unwrap();\n" *
-                  "        _cb1(name.as_ptr());\n"
+                  "    let cl = CString::new(\"$(name)\").unwrap();\n" *
+                  "    _cb1(cl.as_ptr());\n"
             ref_all = ref_all * "    reflect_$(name)(_cb1, _cb2);\n"
             for (n,f) in fields
                 if length(f.dimension) == 0
-                    txt = txt * "    $n : $(convert_julia_type(f.type, language)),\n"
+                    txt = txt * "    pub $n : $(convert_julia_type(f.type, language)),\n"
                     if f.iscomposite
-                        cs = cs * "            pub $(n) : $(f.type)::new(),\n"
+                        cs = cs * "            $(n) : $(f.type)::new(),\n"
                     else
-                        cs = cs * "            pub $(n) : $(f.defaultvalue),\n"
+                        cs = cs * "            $(n) : $(f.defaultvalue),\n"
                     end
                 else
-                    txt = txt * "    $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
+                    txt = txt * "    pub $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
                     if f.iscomposite
-                        cs = cs * "            pub $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
+                        cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
                     else
-                        cs = cs * "            pub $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
+                        cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
                     end
                 end
+                ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
+                            "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), f_$(n).as_ptr(), 0);\n"
             end
             txt = txt * "}\n"
             cs  = cs  * "        }\n    }\n}\n"
-            ref = ref * "    }\n}\n"
+            ref = ref * "}\n"
             rs_text = rs_text * txt
             cs_text = cs_text * cs
             reflect = reflect * ref
