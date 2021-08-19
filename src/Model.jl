@@ -170,20 +170,27 @@ function triggercallback(model::Model, callback::String)
 end
 
 """
-    listavailable()
+    listavailable(;fullpath::Bool = false)
 Returns a list of model libraries that can be loaded with
 `load`. The project build directory is recursively searched
 for shared libraries; file extension set by OS. Additional
-library search paths can be set with `addlibpath`.
+library search paths can be set with `addlibpath`. If the
+`fullPath` argument is `true`, the absolute filename is
+returned instead.
 ```
 julia> listavailable()
 3-element Vector{String}:
  fsw_hr_model
  fsw_lr_model
  gravity_model
+julia> listavailable(fullpath = true)
+3-element Vector{String}:
+ /home/foo/target/release/libfsw_hr_model.dylib
+ /home/foo/target/release/libfsw_lr_model.dylib
+ /home/foo/target/release/libgravity_model.dylib
 ```
 """
-function listavailable() :: Vector{String}
+function listavailable(;fullpath::Bool = false) :: Vector{String}
     all = Vector{String}()
     if !isprojectloaded()
         logmsg("Load a project to see available libraries.", LOG)
@@ -191,11 +198,28 @@ function listavailable() :: Vector{String}
         bdir = getprojectbuilddirectory()
         file_ext = _libraryextension()
         if isdir(bdir)
-            for (root, dirs, files) in walkdir(bdir)
-                for file in files
+            if projecttype() == "Rust"
+                for file in readdir(bdir)
                     fe = splitext(file)
                     if fe[2] == file_ext && startswith(fe[1], "lib")
-                        push!(all, fe[1][4:end])
+                        if fullpath
+                            push!(all, abspath(bdir, file))
+                        else
+                            push!(all, fe[1][4:end])
+                        end
+                    end
+                end
+            else # C++
+                for (root, dirs, files) in walkdir(bdir)
+                    for file in files
+                        fe = splitext(file)
+                        if fe[2] == file_ext && startswith(fe[1], "lib")
+                            if fullpath
+                                push!(all, abspath(root, file))
+                            else
+                                push!(all, fe[1][4:end])
+                            end
+                        end
                     end
                 end
             end

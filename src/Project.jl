@@ -1,7 +1,7 @@
 
 module MProject
 
-export loadproject, newproject, projectinfo
+export loadproject, newproject, projectinfo, projecttype
 export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
@@ -160,6 +160,13 @@ function projectinfo() :: String
         return "No project is loaded"
     end
     return "$(_loaded_project.type) Project loaded at: $(_loaded_project.directory)"
+end
+
+function projecttype() :: String
+    if !isprojectloaded()
+        throw(ErrorException("No project loaded"))
+    end
+    return "$(_loaded_project.type)"
 end
 
 """
