@@ -10,11 +10,11 @@ extern crate libc;
 use libc::c_char;
 
 pub trait BaseModel {
-    fn config(&self);
-    fn init(&self);
-    fn pause(&self);
-    fn run(&self);
-    fn stop(&self);
+    fn config(&mut self) -> bool;
+    fn init(&mut self) -> bool;
+    fn step(&mut self) -> bool;
+    fn pause(&mut self) -> bool;
+    fn stop(&mut self) -> bool;
 }
 
 pub type ReflectClass  = extern fn(*const c_char);

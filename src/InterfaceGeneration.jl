@@ -261,16 +261,16 @@ function generateinterface(interface::String; language::String = "cpp")
                 if length(f.dimension) == 0
                     txt = txt * "    $n : $(convert_julia_type(f.type, language)),\n"
                     if f.iscomposite
-                        cs = cs * "            $(n) : $(f.type)::new(),\n"
+                        cs = cs * "            pub $(n) : $(f.type)::new(),\n"
                     else
-                        cs = cs * "            $(n) : $(f.defaultvalue),\n"
+                        cs = cs * "            pub $(n) : $(f.defaultvalue),\n"
                     end
                 else
                     txt = txt * "    $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
                     if f.iscomposite
-                        cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
+                        cs = cs * "            pub $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
                     else
-                        cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
+                        cs = cs * "            pub $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
                     end
                 end
             end
