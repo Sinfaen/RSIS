@@ -246,7 +246,7 @@ function generateinterface(interface::String; language::String = "cpp")
         rs_text = ""
         cs_text = ""
         reflect = ""
-        ref_all = "pub fn reflect_all(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
+        ref_all = "#[no_mangle]\npub extern \"C\" fn reflect(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
         for name in class_order
             fields = class_defs[name]
             txt = "#[repr(C, packed)]\npub struct $(name) {\n"
