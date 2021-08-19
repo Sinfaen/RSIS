@@ -18,4 +18,4 @@ pub trait BaseModel {
 }
 
 pub type ReflectClass  = extern fn(*const c_char);
-pub type ReflectMember = extern fn(*const c_char, *const c_char, *const c_char, i32);
+pub type ReflectMember = extern fn(*const c_char, *const c_char, *const c_char, usize);

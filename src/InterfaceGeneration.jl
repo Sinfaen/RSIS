@@ -273,7 +273,7 @@ function generateinterface(interface::String; language::String = "cpp")
                     end
                 end
                 ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                            "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), f_$(n).as_ptr(), 0);\n"
+                            "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), f_$(n).as_ptr(), offset_of!($(name), $(n)));\n"
             end
             txt = txt * "}\n"
             cs  = cs  * "        }\n    }\n}\n"

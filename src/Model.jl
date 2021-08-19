@@ -100,7 +100,7 @@ function _CreateClass(name::Ptr{UInt8}) :: Nothing
     return
 end
 
-function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::Int32) :: Nothing
+function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::UInt) :: Nothing
     classname = unsafe_string(cl)
     member    = unsafe_string(memb)
     definition = unsafe_string(def)
@@ -114,7 +114,7 @@ end
 function GetClassData(name::String, namespace::String = "") :: Nothing
     GetModelData(name, namespace,
         @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
-        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Int32)))
+        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt)))
     return
 end
 

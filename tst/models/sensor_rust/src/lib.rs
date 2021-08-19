@@ -9,6 +9,9 @@ mod height_sensor {
 extern crate modellib;
 extern crate libc;
 
+#[macro_use]
+extern crate memoffset;
+
 use modellib::BaseModel;
 use std::ffi::c_void;
 
