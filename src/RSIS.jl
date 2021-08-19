@@ -45,8 +45,9 @@ export generateinterface
 include("Scheduling.jl")
 using .MScheduling
 
-include("Configuration.jl")
-using .MConfiguration
+include("Scenario.jl")
+using .MScenario # pulls in MModel, MScripting
+export scenario!, savescenario
 
 include("SignalLogger.jl")
 using .MSignalLogger

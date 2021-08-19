@@ -162,7 +162,7 @@ function generateinterface(interface::String; language::String = "cpp")
 
     path_interface = search(interface)
     if length(path_interface) == 0
-        throw(IOError("Unable to find interface file: $interface"))
+        throw(ErrorException("Unable to find interface file: $interface"))
     end
 
     data = YAML.load_file(path_interface[1], dicttype=OrderedDict{String,Any})
