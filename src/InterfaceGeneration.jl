@@ -264,6 +264,9 @@ function generateinterface(interface::String; language::String = "cpp")
                     else
                         cs = cs * "            $(n) : $(f.defaultvalue),\n"
                     end
+                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
+                                "    let d_$(n) = CString::new(\"$(f.type)\").unwrap();\n" *
+                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(name), $(n)));\n"
                 else
                     txt = txt * "    pub $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
                     if f.iscomposite
@@ -271,9 +274,10 @@ function generateinterface(interface::String; language::String = "cpp")
                     else
                         cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
                     end
+                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
+                                "    let d_$(n) = CString::new(\"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\").unwrap();\n" *
+                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(name), $(n)));\n"
                 end
-                ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                            "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), f_$(n).as_ptr(), offset_of!($(name), $(n)));\n"
             end
             txt = txt * "}\n"
             cs  = cs  * "        }\n    }\n}\n"

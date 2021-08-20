@@ -9,6 +9,7 @@ export Model, Port, Callback
 export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, listavailable
+export structnames
 export convert_julia_type
 
 using ..MScripting
@@ -116,6 +117,24 @@ function GetClassData(name::String, namespace::String = "") :: Nothing
         @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
         @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt)))
     return
+end
+
+"""
+    structnames()
+Returns a vector of all defined structs that are reflected via the
+shared library API.
+```jldoctest
+julia> structnames()
+5-element Vector{String}:
+ cubesat_inputs
+ cubesat_outputs
+ cubesat_data
+ cubesat_params
+ cubesat
+```
+"""
+function structnames() :: Vector{String}
+    return collect(keys(_class_definitions))
 end
 
 """
