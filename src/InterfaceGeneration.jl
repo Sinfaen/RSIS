@@ -89,7 +89,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             if "desc" in _keys
                 desc = field.second["desc"]
             end
-            composite = Port(field.second["class"], Tuple(dims); note=desc, porttype=PORT)
+            composite = Port(field.second["class"], Tuple(dims), "", true; note=desc)
             push!(definitions[modelname], (field.first, composite))
             newmodelname = grabClassDefinitions(data, field.second["class"], order, definitions)
             push!(order, newmodelname)
@@ -124,7 +124,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                 desc = field.second["desc"]
             end
 
-            port = Port(field.second["type"], Tuple(dims), initial; units=unit, note=desc, porttype=PORT)
+            port = Port(field.second["type"], Tuple(dims), unit, false; note=desc, porttype=PORT, default=initial)
             push!(definitions[modelname], (field.first, port))
         else
             throw(ErrorException("Invalid model interface"))
@@ -249,7 +249,7 @@ function generateinterface(interface::String; language::String = "cpp")
         ref_all = "#[no_mangle]\npub extern \"C\" fn reflect(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
         for name in class_order
             fields = class_defs[name]
-            txt = "#[repr(C, packed)]\npub struct $(name) {\n"
+            txt = "#[repr(C)]\npub struct $(name) {\n"
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
                   "        $(name) {\n"
             ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
@@ -290,6 +290,7 @@ function generateinterface(interface::String; language::String = "cpp")
         words["STRUCT_DEFINITIONS"] = rs_text
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
         words["REFLECT_DEFINITIONS"] = reflect * ref_all
+        words["STRUCT_NAME"] = last(class_order)
     end
     pushtexttofile(base_dir, model_name, words, templates)
 

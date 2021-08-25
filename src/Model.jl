@@ -54,16 +54,27 @@ Defines a Port in a Model Interface file
 struct Port
     type::String
     dimension::Tuple
-    units::String
+    units::Any
     iscomposite::Bool
     note::String
     porttype::PortType
+    defaultvalue::Any
 
-    function Port(type::String, dimension::Tuple, units::String="", composite::Bool=false; note::String="", porttype::PortType=PORT)
-        if !composite && !(type in keys(_type_map))
-            throw(ArgumentError("Primitive type: $type is not supported"))
+    function Port(type::String, dimension::Tuple, units::Any, composite::Bool=false; note::String="", porttype::PortType=PORT, default=nothing)
+        if !composite
+            if !(type in keys(_type_map))
+                throw(ArgumentError("Primitive type: $type is not supported"))
+            end
+            if !isnothing(default)
+                if !(eltype(default) <: _type_map[type])
+                    throw(ArgumentError("Default value: $(default) is not a $(type)"))
+                end
+                if size(default) != dimension
+                    throw(ArgumentError("Size of default value: $(value) does not match dimension $(dimension)"))
+                end
+            end
         end
-        new(type, dimension, units, composite, note, porttype)
+        new(type, dimension, units, composite, note, porttype, default)
     end
 end
 
