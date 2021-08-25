@@ -37,7 +37,7 @@ export newproject, loadproject, projectinfo, build!, clean!
 include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
 using .MModel
 export load, unload, listavailable
-export structnames
+export structnames, structdefinition
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration

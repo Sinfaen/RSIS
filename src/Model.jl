@@ -9,9 +9,10 @@ export Model, Port, Callback
 export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, listavailable
-export structnames
+export structnames, structdefinition
 export convert_julia_type
 
+using ..DataStructures
 using ..MScripting
 using ..MLibrary
 using ..MLogging
@@ -41,6 +42,7 @@ _type_conversions = Dict{DataType, Vector{String}}(
 # Create a string -> DataType mapping for all supported datatypes
 _type_map = Dict([Pair("$(_type)", _type) for _type in keys(_type_conversions)])
 
+
 # Additional library paths to search
 _additional_lib_paths = Vector{String}()
 
@@ -52,43 +54,23 @@ Defines a Port in a Model Interface file
 struct Port
     type::String
     dimension::Tuple
-    defaultvalue::Any
-    units::Any
+    units::String
+    iscomposite::Bool
     note::String
     porttype::PortType
-    iscomposite::Bool
 
-    # primitive type definition
-    function Port(type::String, dimension::Tuple, defaultvalue::Any; units::Any=nothing, note::String="", porttype::PortType=PORT)
-        if !(type in keys(_type_map))
-            throw(ArgumentError("Provided type: $type is not supported"))
+    function Port(type::String, dimension::Tuple, units::String="", composite::Bool=false; note::String="", porttype::PortType=PORT)
+        if !composite && !(type in keys(_type_map))
+            throw(ArgumentError("Primitive type: $type is not supported"))
         end
-        if !(eltype(defaultvalue) <: _type_map[type])
-            throw(ArgumentError("Provided type: $type is not the same or a supertype of default value: $(eltype(defaultvalue))"))
-        end
-        _size = size(defaultvalue)
-        if length(dimension) != length(_size)
-            error("Provided dimension, [$dimension], does not match: $defaultvalue")
-        end
-        for i = 1:length(dimension)
-            if dimension[i] != _size[i]
-                error("Provided dimension, [$dimension], does not match: $defaultvalue")
-            end
-        end
-        new(type, dimension, defaultvalue, units, note, porttype, false)
-    end
-
-    # composite definition
-    function Port(type::String, dimension::Tuple; note::String="", porttype::PortType=PORT)
-        # don't check type, must be done elsewhere
-        new(type, dimension, nothing, nothing, note, porttype, true)
+        new(type, dimension, units, composite, note, porttype)
     end
 end
 
 mutable struct ClassData
-    fields::Vector{Port}
+    fields::OrderedDict{String, Tuple{Port, UInt}}
 end
-ClassData() = ClassData(Vector{Port}())
+ClassData() = ClassData(OrderedDict{String, Tuple{Port, UInt}}())
 
 _class_definitions = Dict{String, ClassData}()
 
@@ -108,6 +90,12 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
     if !(classname in keys(_class_definitions))
         logmsg("Class: $(classname) for member: $(member) does not exist. Creating default.", WARNING)
         _class_definitions[classname] = ClassData()
+    end
+    # parse definition passed as a string
+    if occursin("[", definition)
+        # array detected
+    else
+        _class_definitions[classname].fields[member] = (Port(definition, (), "", !(definition in keys(_type_map))), offset)
     end
     return
 end
@@ -135,6 +123,18 @@ julia> structnames()
 """
 function structnames() :: Vector{String}
     return collect(keys(_class_definitions))
+end
+
+function structdefinition(name::String) :: Vector{Tuple{String, String, UInt}}
+    if name in keys(_class_definitions)
+        fields = Vector{Tuple{String, String, UInt}}()
+        for (_name, field) in _class_definitions[name].fields
+            push!(fields, (_name, field[1].type, field[2]))
+        end
+        return fields
+    else
+        throw(ArgumentError("$(name) not defined!"))
+    end
 end
 
 """
