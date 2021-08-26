@@ -103,8 +103,18 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
         _class_definitions[classname] = ClassData()
     end
     # parse definition passed as a string
-    if occursin("[", definition)
-        # array detected
+    if occursin("[", definition) # array detection
+        tt = split(definition[2:end-1], ";")
+        dims = []
+        for token in split(tt[2], ",")
+            val = tryparse(Int, token)
+            if isnothing(val)
+                logmsg("Unable to parse: $(token) as a dimension", ERROR)
+                val = -1
+            end
+            push!(dims, val)
+        end
+        _class_definitions[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), "", !(String(tt[1]) in keys(_type_map))), offset)
     else
         _class_definitions[classname].fields[member] = (Port(definition, (), "", !(definition in keys(_type_map))), offset)
     end
