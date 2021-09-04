@@ -14,7 +14,6 @@ using Libdl
 # globals
 _lib = nothing # library pointer
 _sym = nothing # symbol loading
-_modellibs = Dict{String, Any}()
 _namespaces = Dict{String, Vector{String}}()
 
 @enum RSISCmdStat::Int32 begin
@@ -59,9 +58,11 @@ mutable struct ModelInstance
     modulename::String
     name::String
     tags::Vector{String}
+    obj::Ptr{Cvoid}
 end
 
 # globals
+_modellibs     = Dict{String, LibModel}()
 _loaded_models = Dict{String, ModelInstance}()
 _model_tags    = Set{String}()
 
@@ -203,24 +204,37 @@ function getscheduler()
 end
 
 """
-    newmodel(library::String, newname::String; tags::Vector{String}
+    newmodel!(library::String, newname::String; tags::Vector{String}
 Create a new model. A unique name must be given for the model. An optional list
 of tags can be given, allowing the user to search loaded models by tag.
+```jldoctest
+julia> load("testM")
+julia> newmodel!("testM", "testInterface")
+
+```
 """
-function newmodel!(library::String, newname::String; tags::Vector{String}=Vector{String}()) :: Nothing
-    if newname in keys(_loaded_models)
-        logmsg("Model with name: $newname already exists.", ERROR)
-    else
-        newmodel = ModelInstance(library, newname, tags)
-        _loaded_models[newname] = newmodel
-
-        for tag in tags
-            push!(_model_tags, tag)
-        end
-
-        logmsg("More TODO", LOG)
+function newmodel!(library::String, newname::String; tags::Vector{String}=Vector{String}()) :: ModelInstance
+    if !(library in keys(_modellibs))
+        throw(ArgumentError("Module: $(library) is not loaded"))
     end
-    return
+    if newname in keys(_loaded_models)
+        throw(ArgumentError("Model: $newname already exists."))
+    end
+    
+    # call `create_model` function to get a pointer to the object
+    obj = ccall(_modellibs[library].s_createmodel, Ptr{Cvoid}, ())
+    if obj == 0
+        throw(ErrorException("Call to `create_model` return NULL"))
+    end
+
+    # store in a new model instance
+    newmodel = ModelInstance(library, newname, tags, obj)
+    _loaded_models[newname] = newmodel
+
+    for tag in tags
+        push!(_model_tags, tag)
+    end
+    newmodel
 end
 
 """
