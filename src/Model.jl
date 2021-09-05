@@ -5,12 +5,13 @@ module MModel
 
 using Base: julia_cmd, julia_exename
 using DataStructures: first
-export Model, Port, Callback
+export Port, Callback
 export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, listavailable
 export structnames, structdefinition
 export convert_julia_type
+export getsignal, setsignal!
 
 using ..DataStructures
 using ..MScripting
@@ -84,9 +85,10 @@ end
 ClassData() = ClassData(OrderedDict{String, Tuple{Port, UInt}}())
 
 mutable struct LibraryData
-    structs::Dict{String, ClassData}
+    structs::OrderedDict{String, ClassData}
+    last::String # last is not defined for structs, so use this keepsake
 end
-LibraryData() = LibraryData(Dict{String, ClassData}())
+LibraryData() = LibraryData(OrderedDict{String, ClassData}(), "")
 
 _classdefinitions = Dict{String, LibraryData}()
 _cur_class = "" # current class being defined
@@ -99,6 +101,7 @@ function _CreateClass(name::Ptr{UInt8}) :: Nothing
         logmsg("Class: $(cl) redefined.", WARNING)
     end
     _data.structs[cl] = ClassData()
+    _data.last = cl # workaround
     return
 end
 
@@ -182,48 +185,6 @@ function structdefinition(library::String, name::String) :: Vector{Tuple{String,
     else
         throw(ArgumentError("$(name) not defined!"))
     end
-end
-
-"""
-"""
-struct Callback
-    name::String
-end
-
-"""
-References instantiated model in the simulation framework
-"""
-mutable struct Model
-    name::String
-
-    callbacks::Vector{Callback}
-end
-
-"""
-    listcallbacks(model::Model)
-List all callbacks provided by model instance
-```jldoctest
-julia> mymodel = createmodel("MyModel", "mymodel", group="test")
-julia> listcallbacks(mymodel)
-mymodel (MyModel) callbacks:
-    > stepModel
-    > step_1Hz
-```
-"""
-function listcallbacks(model::Model)
-    println("Not implemented")
-end
-
-"""
-    triggercallback(model::Model, callback::String)
-Trigger a specified callback in a model instance.
-```jldoctest
-julia> triggercallback(mymodel, "step_1Hz")
-[mymodel.step_1Hz] executed successfully.
-```
-"""
-function triggercallback(model::Model, callback::String)
-    println("Not implemented")
 end
 
 """
@@ -344,6 +305,53 @@ function unload(library::String) :: Nothing
     if !UnloadModelLib(library)
         logmsg("Model library not previously loaded.", WARNING)
     end
+end
+
+"""
+    getsignal(model::ModelInstance, fieldname::String)
+Attempts to get a signal and return a copy of the value.
+```jldoctest
+julia> get(cubesat, "data.mass")
+35.6
+```
+"""
+function getsignal(model::ModelInstance, fieldname::String) :: Any
+    data = _classdefinitions[model.modulename].structs
+    curstruct = _classdefinitions[model.modulename].last # assumes that overarching is the last defined
+    downtree = split(fieldname, ".")
+    ptr = model.obj
+    for (i, token) in enumerate(downtree)
+        lasttok = (i == length(downtree))
+        ref = data[curstruct]
+        if !(token in keys(ref.fields))
+            throw(ErrorException("Could not find: $(token) in $(curstruct)"))
+        end
+        port = ref.fields[token][1]
+        ptr += ref.fields[token][2]
+        if lasttok
+            if port.iscomposite
+                throw(ErrorException("Last token $(token) is a struct"))
+            end
+            if !(port.type in keys(_type_map))
+                throw(ErrorException("Type $(type) is not supported"))
+            end
+            # ATTEMPT TO LOAD DATA HEREE!!!!!
+            t = _type_map[port.type]
+            if length(port.dimension) == 0
+                return unsafe_load(Ptr{t}(ptr))
+            else
+                # return a deepcopy so that users can't alter the model
+                return deepcopy(unsafe_wrap(Array, Ptr{t}(ptr), port.dimension))
+            end
+        elseif !port.iscomposite
+            throw(ErrorException("$(token) is not the last token, but isn't a struct"))
+        end
+        curstruct = port.type
+    end
+    throw(ErrorException("Failed to get value"))
+end
+
+function setsignal!(model::ModelInstance, fieldname::String, value::Any)
 end
 
 function connect(output::String, input::String)

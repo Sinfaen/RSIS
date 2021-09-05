@@ -24,6 +24,7 @@ include("RSIS_Lib.jl")
 using .MLibrary
 export getscheduler
 export newmodel!, deletemodel!, listmodels, listmodelsbytag
+export ModelInstance
 
 include("Scripting.jl")
 using .MScripting
@@ -38,6 +39,7 @@ include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
 using .MModel
 export load, unload, listavailable
 export structnames, structdefinition
+export getsignal
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration

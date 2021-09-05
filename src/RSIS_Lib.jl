@@ -8,6 +8,7 @@ export newmodel!, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData
+export ModelInstance
 
 using Libdl
 
