@@ -157,6 +157,8 @@ This function can throw.
 """
 function UnloadModelLib(name::String) :: Bool
     if name in keys(_modellibs)
+        # unload all model instances
+        # TODO
         Libdl.dlclose(_modellibs[name].s_lib)
         delete!(_modellibs, name)
         return true

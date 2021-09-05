@@ -83,14 +83,22 @@ mutable struct ClassData
 end
 ClassData() = ClassData(OrderedDict{String, Tuple{Port, UInt}}())
 
-_class_definitions = Dict{String, ClassData}()
+mutable struct LibraryData
+    structs::Dict{String, ClassData}
+end
+LibraryData() = LibraryData(Dict{String, ClassData}())
+
+_classdefinitions = Dict{String, LibraryData}()
+_cur_class = "" # current class being defined
+
 
 function _CreateClass(name::Ptr{UInt8}) :: Nothing
     cl = unsafe_string(name)
-    if cl in keys(_class_definitions)
+    _data = _classdefinitions[_cur_class]
+    if cl in keys(_data.structs)
         logmsg("Class: $(cl) redefined.", WARNING)
     end
-    _class_definitions[cl] = ClassData()
+    _data.structs[cl] = ClassData()
     return
 end
 
@@ -98,9 +106,10 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
     classname = unsafe_string(cl)
     member    = unsafe_string(memb)
     definition = unsafe_string(def)
-    if !(classname in keys(_class_definitions))
+    _data = _classdefinitions[_cur_class]
+    if !(classname in keys(_data.structs))
         logmsg("Class: $(classname) for member: $(member) does not exist. Creating default.", WARNING)
-        _class_definitions[classname] = ClassData()
+        _data.structs[classname] = ClassData()
     end
     # parse definition passed as a string
     if occursin("[", definition) # array detection
@@ -114,26 +123,33 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
             end
             push!(dims, val)
         end
-        _class_definitions[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), "", !(String(tt[1]) in keys(_type_map))), offset)
+        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), "", !(String(tt[1]) in keys(_type_map))), offset)
     else
-        _class_definitions[classname].fields[member] = (Port(definition, (), "", !(definition in keys(_type_map))), offset)
+        _data.structs[classname].fields[member] = (Port(definition, (), "", !(definition in keys(_type_map))), offset)
     end
     return
 end
 
 function GetClassData(name::String, namespace::String = "") :: Nothing
+    if name in keys(_classdefinitions)
+        throw(ErrorException("Library $(name) already loaded."))
+    end
+    global _cur_class
+    _cur_class = name
+    _classdefinitions[_cur_class] = LibraryData()
     GetModelData(name, namespace,
         @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
         @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt)))
+    _cur_class = ""
     return
 end
 
 """
-    structnames()
-Returns a vector of all defined structs that are reflected via the
-shared library API.
+    structnames(library::String)
+Returns a vector of all defined structs for a library that are
+reflected via the shared library API.
 ```jldoctest
-julia> structnames()
+julia> structnames("cubesat")
 5-element Vector{String}:
  cubesat_inputs
  cubesat_outputs
@@ -142,14 +158,24 @@ julia> structnames()
  cubesat
 ```
 """
-function structnames() :: Vector{String}
-    return collect(keys(_class_definitions))
+function structnames(library::String) :: Vector{String}
+    return collect(keys(_classdefinitions[library].structs))
 end
 
-function structdefinition(name::String) :: Vector{Tuple{String, String, UInt}}
-    if name in keys(_class_definitions)
+"""
+    structdefinition(library::String, name::String)
+Returns a vector of all defined fields for a class defined in a library.
+```jldoctest
+julia> structdefinition("cubesat", "cubesat_params")
+1-element Vector{Tuple{String, String, UInt64}}:
+ ("signal", "Float64", 0x0000000000000000)
+```
+"""
+function structdefinition(library::String, name::String) :: Vector{Tuple{String, String, UInt}}
+    data = _classdefinitions[library]
+    if name in keys(data.structs)
         fields = Vector{Tuple{String, String, UInt}}()
-        for (_name, field) in _class_definitions[name].fields
+        for (_name, field) in data.structs[name].fields
             push!(fields, (_name, field[1].type, field[2]))
         end
         return fields
@@ -169,10 +195,6 @@ References instantiated model in the simulation framework
 """
 mutable struct Model
     name::String
-    in::Vector{Any}
-    out::Vector{Any}
-    data::Vector{Any}
-    params::Vector{Any}
 
     callbacks::Vector{Callback}
 end
@@ -189,12 +211,7 @@ mymodel (MyModel) callbacks:
 ```
 """
 function listcallbacks(model::Model)
-    name = model.name
-    println("$name callbacks:")
-    for i in eachindex(model.callbacks)
-        cb = model.callbacks[i].name
-        println("    > $cb")
-    end
+    println("Not implemented")
 end
 
 """
