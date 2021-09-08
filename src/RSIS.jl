@@ -39,7 +39,7 @@ include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
 using .MModel
 export load, unload, listavailable
 export structnames, structdefinition
-export getsignal
+export set!
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration

@@ -11,7 +11,7 @@ export listcallbacks, triggercallback
 export load, unload, listavailable
 export structnames, structdefinition
 export convert_julia_type
-export getsignal, setsignal!
+export set!
 
 using ..DataStructures
 using ..MScripting
@@ -308,50 +308,86 @@ function unload(library::String) :: Nothing
 end
 
 """
-    getsignal(model::ModelInstance, fieldname::String)
-Attempts to get a signal and return a copy of the value.
-```jldoctest
-julia> get(cubesat, "data.mass")
-35.6
-```
+Helper function to grab port by name in string form
 """
-function getsignal(model::ModelInstance, fieldname::String) :: Any
+function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cvoid}, Port}
     data = _classdefinitions[model.modulename].structs
     curstruct = _classdefinitions[model.modulename].last # assumes that overarching is the last defined
-    downtree = split(fieldname, ".")
     ptr = model.obj
+
+    downtree = split(fieldname, ".")
     for (i, token) in enumerate(downtree)
         lasttok = (i == length(downtree))
         ref = data[curstruct]
         if !(token in keys(ref.fields))
-            throw(ErrorException("Could not find: $(token) in $(curstruct)"))
+            throw(ErrorException("$(token) is not a member of $(curstruct)"))
         end
         port = ref.fields[token][1]
         ptr += ref.fields[token][2]
         if lasttok
             if port.iscomposite
-                throw(ErrorException("Last token $(token) is a struct"))
+                throw(ErrorException("$(token) is not a signal"))
             end
             if !(port.type in keys(_type_map))
-                throw(ErrorException("Type $(type) is not supported"))
+                throw(ErrorException("Signal $(token) has type $(port.type) which is not supported"))
             end
-            # ATTEMPT TO LOAD DATA HEREE!!!!!
-            t = _type_map[port.type]
-            if length(port.dimension) == 0
-                return unsafe_load(Ptr{t}(ptr))
-            else
-                # return a deepcopy so that users can't alter the model
-                return deepcopy(unsafe_wrap(Array, Ptr{t}(ptr), port.dimension))
-            end
+            # return information to caller
+            return (ptr, port)
         elseif !port.iscomposite
-            throw(ErrorException("$(token) is not the last token, but isn't a struct"))
+            throw(ErrorException("$(token) is a signal but is accessed like a struct"))
         end
         curstruct = port.type
     end
-    throw(ErrorException("Failed to get value"))
+    throw(ErrorException("Should not reach here. Something went terribly wrong"))
 end
 
-function setsignal!(model::ModelInstance, fieldname::String, value::Any)
+"""
+    get(model::ModelInstance, fieldname::String)
+Attempts to get a signal and return a copy of the value. UNSAFE.
+NOTE: does not correct for row-major to column-major conversion.
+```jldoctest
+julia> get(cubesat, "data.mass")
+35.6
+```
+"""
+function Base.:get(model::ModelInstance, fieldname::String) :: Any
+    (ptr, port) = _parselocation(model, fieldname)
+    # ATTEMPT TO LOAD DATA HERE!!!!!
+    t = _type_map[port.type]
+    if length(port.dimension) == 0
+        return unsafe_load(Ptr{t}(ptr))
+    else
+        # return a deepcopy so that users can't alter the model
+        # TODO handle row-major to column-major conversion
+        return deepcopy(unsafe_wrap(Array, Ptr{t}(ptr), port.dimension))
+    end
+end
+
+"""
+    set(model::ModelInstance, fieldname::String, value::Any)
+Attempts to set a signal to value. UNSAFE. Requires value to match the
+port type.
+NOTE: does not correct for column-major to row-major conversion.
+```jldoctest
+julia> set(cubesat, "inputs.voltage", 5.0)
+```
+"""
+function set!(model::ModelInstance, fieldname::String, value::T) where{T}
+    (ptr, port) = _parselocation(model, fieldname)
+    if size(value) != port.dimension
+        throw(ArgumentError("Value size does not match port size: $(port.dimension)"))
+    end
+    t = _type_map[port.type]
+    if eltype(value) != t
+        throw(ArgumentError("Value type does not match port type: $(port.type)"))
+    end
+    if length(port.dimension) == 0
+        unsafe_store!(Ptr{t}(ptr), value)
+    else
+        arr = unsafe_wrap(Array, Ptr{t}(ptr), port.dimension)
+        unsafe_copyto!(arr, 1, value, 1, length(value))
+    end
+    return
 end
 
 function connect(output::String, input::String)
