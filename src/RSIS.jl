@@ -34,6 +34,7 @@ export script, logscripts, printscriptlog
 include("Project.jl") # pulls in MLogging, MScripting
 using .MProject
 export newproject, loadproject, projectinfo, build!, clean!
+export getprojectdirectory, getprojectbuilddirectory
 
 include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
 using .MModel

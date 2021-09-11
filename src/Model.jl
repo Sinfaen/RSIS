@@ -215,15 +215,16 @@ function listavailable(;fullpath::Bool = false) :: Vector{String}
     else
         bdir = getprojectbuilddirectory()
         file_ext = _libraryextension()
+        file_prefix = _libraryprefix()
         if isdir(bdir)
             if projecttype() == "Rust"
                 for file in readdir(bdir)
                     fe = splitext(file)
-                    if fe[2] == file_ext && startswith(fe[1], "lib")
+                    if fe[2] == file_ext && startswith(fe[1], file_prefix)
                         if fullpath
                             push!(all, abspath(bdir, file))
                         else
-                            push!(all, fe[1][4:end])
+                            push!(all, fe[1][1+length(file_prefix):end])
                         end
                     end
                 end
@@ -231,11 +232,11 @@ function listavailable(;fullpath::Bool = false) :: Vector{String}
                 for (root, dirs, files) in walkdir(bdir)
                     for file in files
                         fe = splitext(file)
-                        if fe[2] == file_ext && startswith(fe[1], "lib")
+                        if fe[2] == file_ext && startswith(fe[1], file_prefix)
                             if fullpath
                                 push!(all, abspath(root, file))
                             else
-                                push!(all, fe[1][4:end])
+                                push!(all, fe[1][1+length(file_prefix):end])
                             end
                         end
                     end
@@ -266,7 +267,7 @@ julia> load("anothermodel"; namespace="TEST")
 function load(library::String; namespace::String="") :: Nothing
     # Find library in search path, then pass absolute filepath
     # to core functionality
-    filename = "lib$(library)$(_libraryextension())"
+    filename = "$(_libraryprefix())$(library)$(_libraryextension())"
     if !isprojectloaded()
         logmsg("Load a project to see available libraries.", ERROR)
         return
