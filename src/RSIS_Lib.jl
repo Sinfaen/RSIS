@@ -25,7 +25,7 @@ end
 mutable struct LibFuncs
     s_init
     s_shutdown
-    s_setthread
+    s_newthread
     s_initscheduler
     s_pausescheduler
     s_runscheduler
@@ -34,7 +34,7 @@ mutable struct LibFuncs
     function LibFuncs(lib)
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
-            Libdl.dlsym(lib, :set_thread),
+            Libdl.dlsym(lib, :new_thread),
             Libdl.dlsym(lib, :init_scheduler),
             Libdl.dlsym(lib, :pause_scheduler),
             Libdl.dlsym(lib, :run_scheduler),

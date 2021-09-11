@@ -6,13 +6,11 @@ mod rsis;
 
 pub use rsis::Scheduler;
 pub use rsis::NRTScheduler;
-pub use rsis::LoadedModels;
 
 pub use std::ffi::c_void;
 pub use libc::c_char;
 
-static mut SCHEDULER : NRTScheduler = NRTScheduler::new();
-static mut MODELS : LoadedModels = LoadedModels { rust_objs: Vec::new() };
+static mut SCHEDULERS : Vec<Box<dyn Scheduler>> = vec![];
 
 #[repr(u32)]
 enum RSISStat {
@@ -23,6 +21,9 @@ enum RSISStat {
 
 #[no_mangle]
 pub extern "C" fn library_initialize() -> u32 {
+    unsafe {
+        SCHEDULERS.push(Box::new(NRTScheduler::new()));
+    }
     return RSISStat::OK as u32;
 }
 
@@ -32,7 +33,35 @@ pub extern "C" fn library_shutdown() -> u32 {
 }
 
 #[no_mangle]
+pub extern "C" fn set_scheduler(id : u32) -> u32 {
+    let stat = match id {
+        0 => RSISStat::OK,
+        _ => RSISStat::ERR
+    };
+    stat as u32
+}
+
+#[no_mangle]
+pub extern "C" fn clear_threads() -> u32 {
+    unsafe {
+        SCHEDULERS.get_mut(0).unwrap().clear_threads();
+        return RSISStat::OK as u32;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn new_thread(frequency : f64) -> u32 {
+    unsafe {
+        SCHEDULERS.get_mut(0).unwrap().add_thread(frequency);
+    }
+    return RSISStat::OK as u32;
+}
+
+#[no_mangle]
 pub extern "C" fn add_model(name : *const c_char, ptr : * mut c_void) -> u32 {
+    if ptr.is_null() {
+        return RSISStat::BADARG as u32;
+    }
     return RSISStat::OK as u32;
 }
 
@@ -57,14 +86,9 @@ pub extern "C" fn run_scheduler() -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn set_thread(thread_id : i32, frequency : f64) -> u32 {
-    return RSISStat::OK as u32;
-}
-
-#[no_mangle]
 pub extern "C" fn get_thread_number() -> i32 {
     unsafe {
-        SCHEDULER.get_num_threads()
+        SCHEDULERS.get_mut(0).unwrap().get_num_threads()
     }
 }
 
