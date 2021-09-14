@@ -4,11 +4,11 @@ using Base: Int32
 using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
-export newmodel!, deletemodel!, listmodels, listmodelsbytag
+export newmodel, deletemodel!, listmodels, listmodelsbytag
 export getscheduler
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
-export GetModelData
-export ModelInstance
+export GetModelData, _getmodelinstance
+export ModelInstance, ModelReference
 
 using Libdl
 
@@ -62,11 +62,31 @@ mutable struct ModelInstance
     obj::Ptr{Cvoid}
 end
 
+struct ModelReference
+    name::String
+end
+
+function Base.show(io::IO, obj::ModelReference)
+    try
+        _model = _getmodelinstance(obj)
+        println(io, "RSIS model: $(obj.name), from library $(_model.modulename)")
+    catch
+        println(io, "RSIS model: $(obj.name), does not exist")
+    end
+end
+
 # globals
 _modellibs     = Dict{String, LibModel}()
 _loaded_models = Dict{String, ModelInstance}()
 _model_tags    = Set{String}()
 
+function _getmodelinstance(model::ModelReference) :: ModelInstance
+    if model.name in keys(_loaded_models)
+        return _loaded_models[model.name]
+    else
+        throw(ErrorException("$(model.name) does not exist"))
+    end
+end
 
 function _libraryprefix() :: String
     if Sys.isunix() || Sys.isapple()
@@ -207,16 +227,16 @@ function getscheduler()
 end
 
 """
-    newmodel!(library::String, newname::String; tags::Vector{String}
+    newmodel(library::String, newname::String; tags::Vector{String}
 Create a new model. A unique name must be given for the model. An optional list
 of tags can be given, allowing the user to search loaded models by tag.
 ```jldoctest
 julia> load("testM")
-julia> newmodel!("testM", "testInterface")
+julia> newmodel("testM", "testInterface")
 
 ```
 """
-function newmodel!(library::String, newname::String; tags::Vector{String}=Vector{String}()) :: ModelInstance
+function newmodel(library::String, newname::String; tags::Vector{String}=Vector{String}()) :: ModelReference
     if !(library in keys(_modellibs))
         throw(ArgumentError("Module: $(library) is not loaded"))
     end
@@ -231,13 +251,14 @@ function newmodel!(library::String, newname::String; tags::Vector{String}=Vector
     end
 
     # store in a new model instance
-    newmodel = ModelInstance(library, newname, tags, obj)
-    _loaded_models[newname] = newmodel
+    _loaded_models[newname] = ModelInstance(library, newname, tags, obj)
 
     for tag in tags
         push!(_model_tags, tag)
     end
-    newmodel
+
+    # return reference
+    ModelReference(newname)
 end
 
 """

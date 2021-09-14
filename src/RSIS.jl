@@ -23,7 +23,7 @@ export setlogfile, logmsg
 include("RSIS_Lib.jl")
 using .MLibrary
 export getscheduler
-export newmodel!, deletemodel!, listmodels, listmodelsbytag
+export newmodel, deletemodel!, listmodels, listmodelsbytag
 export ModelInstance
 
 include("Scripting.jl")
@@ -48,6 +48,8 @@ export generateinterface
 
 include("Scheduling.jl")
 using .MScheduling
+export setthread, setnumthreads
+export initsim
 
 include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
