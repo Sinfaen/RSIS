@@ -7,9 +7,9 @@ export setthread, setnumthreads, schedule
 export initsim
 
 mutable struct SModel
-    modelname::String
+    ref::ModelReference
     frequency::Float64
-    offset::Int32
+    offset::Int64
 end
 
 mutable struct SThread
@@ -48,19 +48,20 @@ function setnumthreads(num::Int) :: Nothing
     end
     _resetthreads()
     for i=1:num
-        push!(_threads, SThread())
+        push!(_threads, SThread());
     end
 end
 
 """
-    schedule(model::ModelReference, frequency::Float64 = -1.0; offset::Int = 0, thread::Int = 1)
+    schedule(model::ModelReference, frequency::Float64 = -1.0; offset::Int32 = 0, thread::Int = 1)
 Schedule a model in the current scenario, with a specified frequency and offset
 """
-function schedule(model::ModelReference, frequency::Float64 = -1.0; offset::Int = 0, thread::Int = 1)::Nothing
+function Base.:schedule(model::ModelReference, frequency::Float64 = -1.0; offset::Int64 = 0, thread::Int = 1)::Nothing
     if thread < 1 || thread > length(_threads)
         throw(ArgumentError("Invalid thread id"))
     end
-    push!(_threads[thread].schedule, SModel(model.name, frequency, offset))
+    push!(_threads[thread].scheduled, SModel(model, frequency, offset));
+    return
 end
 
 """
