@@ -48,7 +48,7 @@ export generateinterface
 
 include("Scheduling.jl")
 using .MScheduling
-export setthread, setnumthreads
+export setthread, setnumthreads, threadinfo
 export initsim
 
 include("Scenario.jl")

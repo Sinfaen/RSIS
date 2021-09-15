@@ -1,11 +1,11 @@
 
 module MLibrary
-using Base: Int32
+using Base: Int32, _getmeta
 using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, listmodels, listmodelsbytag
-export getscheduler, addthread
+export getscheduler, addthread, schedulemodel
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
@@ -26,6 +26,7 @@ mutable struct LibFuncs
     s_init
     s_shutdown
     s_newthread
+    s_addmodel
     s_initscheduler
     s_pausescheduler
     s_runscheduler
@@ -35,6 +36,7 @@ mutable struct LibFuncs
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
             Libdl.dlsym(lib, :new_thread),
+            Libdl.dlsym(lib, :add_model),
             Libdl.dlsym(lib, :init_scheduler),
             Libdl.dlsym(lib, :pause_scheduler),
             Libdl.dlsym(lib, :run_scheduler),
@@ -296,6 +298,14 @@ function addthread(frequency::Float64)
     stat = ccall(_sym.s_newthread, UInt32, (Float64,), frequency)
     if stat != 0
         throw(ErrorException("Call to `new_thread` in library failed"))
+    end
+end
+
+function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, offset::Int64)
+    _model = _getmodelinstance(model)
+    stat = ccall(_sym.s_addmodel, UInt32, (Int64, Ptr{Cvoid}, Int64, Int64), thread, _model.obj, divisor, offset)
+    if stat != 0
+        throw(ErrorException("Call to `add_model` in library failed"))
     end
 end
 

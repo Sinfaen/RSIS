@@ -58,7 +58,7 @@ pub extern "C" fn new_thread(frequency : f64) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn add_model(name : *const c_char, ptr : * mut c_void) -> u32 {
+pub extern "C" fn add_model(thread: i64, ptr: * mut c_void, divisor: i64, offset: i64) -> u32 {
     if ptr.is_null() {
         return RSISStat::BADARG as u32;
     }
@@ -66,7 +66,7 @@ pub extern "C" fn add_model(name : *const c_char, ptr : * mut c_void) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn remove_model(name: *const c_char) -> u32 {
+pub extern "C" fn remove_model(id: i32) -> u32 {
     return RSISStat::OK as u32;
 }
 
