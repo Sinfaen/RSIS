@@ -28,6 +28,7 @@ push!(_threads, SThread())
 
 function _resetthreads() :: Nothing
     _threads = Vector{SThread}()
+    return
 end
 
 function setthread(threadId::Int; frequency::Float64=1.0, cpu::Int32=-1)
@@ -50,6 +51,7 @@ function setnumthreads(num::Int) :: Nothing
     for i=1:num
         push!(_threads, SThread());
     end
+    return
 end
 
 """
@@ -75,6 +77,10 @@ julia> initsim(blocking = true)
 ```
 """
 function initsim(;blocking::Bool = false) :: Nothing
+    # create threads
+    for thread in _threads
+        addthread(thread.frequency)
+    end
     println("Simulation initialized")
 end
 

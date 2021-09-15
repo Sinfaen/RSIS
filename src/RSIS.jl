@@ -76,15 +76,6 @@ function gui()
     println("Not implemented")
 end
 
-"""
-RSIS
-
-Perform initialization actions.
-"""
-function initsim()
-    println("Not implemented")
-end
-
 function pausesim()
     println("Not implemented")
 end

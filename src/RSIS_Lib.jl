@@ -5,7 +5,7 @@ using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, listmodels, listmodelsbytag
-export getscheduler
+export getscheduler, addthread
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
@@ -290,6 +290,13 @@ function listmodelsbytag(tag::String)::Nothing
         end
     end
     logmsg(message, LOG)
+end
+
+function addthread(frequency::Float64)
+    stat = ccall(_sym.s_newthread, UInt32, (Float64,), frequency)
+    if stat != 0
+        throw(ErrorException("Call to `new_thread` in library failed"))
+    end
 end
 
 end
