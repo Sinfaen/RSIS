@@ -3,11 +3,12 @@ extern crate modellib;
 
 use modellib::BaseModel;
 use std::thread;
+use std::sync::{Arc, Barrier};
 
 pub trait Scheduler {
     fn clear_threads(&mut self) -> ();
     fn add_thread(&mut self, freq : f64) -> ();
-    fn add_model(&mut self, model: Box<Box<dyn BaseModel>>, thread: usize, divisor: i64, offset: i64) -> i32;
+    fn add_model(&mut self, model: Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> i32;
     fn get_num_threads(&self) -> i32;
 
     fn init(&mut self) -> i32;
@@ -16,7 +17,7 @@ pub trait Scheduler {
 }
 
 pub struct ScheduledObject {
-    pub model : Box<dyn BaseModel>,
+    pub model : Box<dyn BaseModel + Send>,
     pub divisor : i64,
     pub offset : i64,
 }
@@ -28,6 +29,8 @@ pub struct ThreadState {
 
 pub struct NRTScheduler {
     pub threads : Vec<ThreadState>,
+    pub barrier : Arc<Barrier>,
+    pub handles : Vec<thread::JoinHandle<()>>
 }
 
 impl Scheduler for NRTScheduler {
@@ -40,7 +43,7 @@ impl Scheduler for NRTScheduler {
             models: Vec::new(),
         })
     }
-    fn add_model(&mut self, model : Box<Box<dyn BaseModel>>, thread: usize, divisor: i64, offset: i64) -> i32 {
+    fn add_model(&mut self, model : Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> i32 {
         if thread > self.threads.len() {
             return 1
         }
@@ -56,8 +59,8 @@ impl Scheduler for NRTScheduler {
         self.threads.len() as i32
     }
     fn init(&mut self) -> i32 {
-        for thread in &mut self.threads[0..] {
-            for obj in &mut thread.models[0..] {
+        for ts in &mut self.threads[0..] {
+            for obj in &mut ts.models[0..] {
                 if !(*obj).model.init() {
                     return 1;
                 }
@@ -77,6 +80,8 @@ impl NRTScheduler {
     pub fn new() -> NRTScheduler {
         NRTScheduler {
             threads: Vec::<ThreadState>::new(),
+            barrier: Arc::new(Barrier::new(1)),
+            handles: Vec::new(),
         }
     }
 }
