@@ -33,6 +33,26 @@ pub struct NRTScheduler {
     pub handles : Vec<thread::JoinHandle<()>>,
 }
 
+impl NRTScheduler {
+    fn start_thread(&mut self) -> () {
+        // create threads now. Add 1 for main thread
+        self.barrier = Arc::new(Barrier::new(self.threads.len() + 1));
+        for ts in &mut self.threads[..] {
+            let c = Arc::clone(&self.barrier);
+            let mut u: Vec<_> = ts.models.drain(..).collect();
+            self.handles.push(thread::spawn(move|| {
+                c.wait(); // wait for init to run
+                for obj in &mut u[..] {
+                    (*obj).model.init();
+                }
+                println!("Scenario Initialized");
+                c.wait();
+                println!("thread spawn end");
+            }));
+        }
+    }
+}
+
 impl Scheduler for NRTScheduler {
     fn clear_threads(&mut self) -> () {
         self.threads.clear();
@@ -59,20 +79,8 @@ impl Scheduler for NRTScheduler {
         self.threads.len() as i32
     }
     fn init(&mut self) -> i32 {
-        // create threads now. Add 1 for main thread
-        self.barrier = Arc::new(Barrier::new(self.threads.len() + 1));
-        for ts in &mut self.threads[..] {
-            let c = Arc::clone(&self.barrier);
-            let mut u: Vec<_> = ts.models.drain(..).collect();
-            self.handles.push(thread::spawn(move|| {
-                for obj in &mut u[0..] {
-                    (*obj).model.init();
-                }
-                println!("Scenario Initialized");
-                c.wait();
-                println!("thread spawn end");
-            }));
-        }
+        self.start_thread();
+        self.barrier.wait();
         0
     }
     fn step(&mut self) -> i32 {
