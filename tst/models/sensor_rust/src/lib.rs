@@ -26,11 +26,7 @@ impl BaseModel for height_sensor {
         true
     }
     fn init(&mut self) -> bool {
-        if self.config() {
-            println!("height sensor connected - (fake message)");
-            return true;
-        }
-        return false;
+        self.config()
     }
     fn step(&mut self) -> bool {
         if self.data.measurement < self.params.limits[0] ||

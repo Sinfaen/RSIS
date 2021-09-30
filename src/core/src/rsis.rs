@@ -41,7 +41,7 @@ impl Scheduler for NRTScheduler {
         self.threads.len() as i32
     }
     fn init(&mut self) -> i32 {
-        for model in &mut self.models[1..] {
+        for model in &mut self.models[0..] {
             if !(*model).init() {
                 return 1;
             }
