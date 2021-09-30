@@ -30,7 +30,7 @@ pub struct ThreadState {
 pub struct NRTScheduler {
     pub threads : Vec<ThreadState>,
     pub barrier : Arc<Barrier>,
-    pub handles : Vec<thread::JoinHandle<()>>
+    pub handles : Vec<thread::JoinHandle<()>>,
 }
 
 impl Scheduler for NRTScheduler {
@@ -59,12 +59,19 @@ impl Scheduler for NRTScheduler {
         self.threads.len() as i32
     }
     fn init(&mut self) -> i32 {
-        for ts in &mut self.threads[0..] {
-            for obj in &mut ts.models[0..] {
-                if !(*obj).model.init() {
-                    return 1;
+        // create threads now. Add 1 for main thread
+        self.barrier = Arc::new(Barrier::new(self.threads.len() + 1));
+        for ts in &mut self.threads[..] {
+            let c = Arc::clone(&self.barrier);
+            let mut u: Vec<_> = ts.models.drain(..).collect();
+            self.handles.push(thread::spawn(move|| {
+                for obj in &mut u[0..] {
+                    (*obj).model.init();
                 }
-            }
+                println!("Scenario Initialized");
+                c.wait();
+                println!("thread spawn end");
+            }));
         }
         0
     }

@@ -123,7 +123,6 @@ function initsim(;blocking::Bool = false) :: Nothing
         end
     end
     initscheduler()
-    println("Simulation initialized")
 end
 
 end
