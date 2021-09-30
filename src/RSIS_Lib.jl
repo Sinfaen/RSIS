@@ -5,7 +5,7 @@ using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
-export getscheduler, addthread, schedulemodel
+export getscheduler, initscheduler, addthread, schedulemodel
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
@@ -314,6 +314,13 @@ function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, off
     stat = ccall(_sym.s_addmodel, UInt32, (Int64, Ptr{Cvoid}, Int64, Int64), thread, _model.obj, divisor, offset)
     if stat != 0
         throw(ErrorException("Call to `add_model` in library failed"))
+    end
+end
+
+function initscheduler() :: Nothing
+    stat = ccall(_sym.s_initscheduler, UInt32, ());
+    if stat != 0
+        throw(ErrorException("Call to `init_scheduler` in library failed"))
     end
 end
 

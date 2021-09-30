@@ -316,6 +316,9 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
     curstruct = _classdefinitions[model.modulename].last # assumes that overarching is the last defined
     ptr = model.obj
 
+    # returned value is a Box<Box<dyn trait>>
+    ptr = Ptr{Cvoid}(unsafe_load(Ptr{UInt64}(ptr)))
+
     downtree = split(fieldname, ".")
     for (i, token) in enumerate(downtree)
         lasttok = (i == length(downtree))

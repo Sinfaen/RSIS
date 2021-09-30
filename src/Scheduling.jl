@@ -121,6 +121,7 @@ function initsim(;blocking::Bool = false) :: Nothing
             schedulemodel(model.ref, i, Int64(model.frequency / thread.frequency), model.offset)
         end
     end
+    initscheduler()
     println("Simulation initialized")
 end
 

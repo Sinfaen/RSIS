@@ -69,7 +69,7 @@ pub extern "C" fn add_model(thread: i64, ptr: *mut c_void, divisor: i64, offset:
         // notes for C++ programmers. Rust dyn traits are "fat", they're actually
         // implemented as two pointers. That's why the double box procedure must be
         // used to pass a dyn trait object through FFI
-        let boxed_trait: Box<Box<dyn BaseModel>> = Box::from_raw(ptr as *mut _);
+        let boxed_trait: Box<Box<dyn BaseModel>> = Box::from_raw(ptr as *mut Box<dyn BaseModel>);
         SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait);
     }
     return RSISStat::OK as u32;
@@ -82,6 +82,11 @@ pub extern "C" fn remove_model(id: i32) -> u32 {
 
 #[no_mangle]
 pub extern "C" fn init_scheduler() -> u32 {
+    unsafe {
+        if SCHEDULERS.get_mut(0).unwrap().init() != 0 {
+            return RSISStat::ERR as u32;
+        }
+    }
     return RSISStat::OK as u32;
 }
 

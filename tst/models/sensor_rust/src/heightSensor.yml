@@ -1,21 +1,21 @@
 # Height Sensor Test model
-model: heightSensor
+model: height_sensor
 
-heightSensorIn:
+height_sensor_in:
     signal: {type: Float64, value: 1.0, unit: m, desc: Truth signal}
 
-heightSensorOut:
+height_sensor_out:
     inrange: {type: Bool, value: false, desc: Measured height within range}
 
-heightSensorData:
+height_sensor_data:
     measurement: {type: Float64, value: 1.0, unit: m, desc: Actual sensor measurement}
 
-heightSensorParams:
+height_sensor_params:
     limits: {type: Float64, dims: [2], value: [0.1, 0.8], unit: m, desc: Lower & upper range}
     noise: {type: Float64, value: 0.01, desc: Standard deviation of applied gaussian noise}
 
-heightSensor:
-    inputs: {class: heightSensorIn}
-    outputs: {class: heightSensorOut}
-    data: {class: heightSensorData}
-    params: {class: heightSensorParams}
+height_sensor:
+    inputs: {class: height_sensor_in}
+    outputs: {class: height_sensor_out}
+    data: {class: height_sensor_data}
+    params: {class: height_sensor_params}

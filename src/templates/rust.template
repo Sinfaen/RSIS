@@ -3,7 +3,7 @@
 extern crate modellib;
 extern crate libc;
 
-use libc::c_char;
+use libc::c_void;
 use std::ffi::CString;
 
 use modellib::BaseModel;
@@ -17,6 +17,7 @@ use modellib::ReflectMember;
 {{REFLECT_DEFINITIONS}}
 
 #[no_mangle]
-pub extern "C" fn create_model() -> Box<Box<dyn BaseModel>> {
-    Box::new(Box::new({{STRUCT_NAME}}::new()))
+pub extern "C" fn create_model() -> *mut c_void {
+    let obj: Box<Box<dyn BaseModel>> = Box::new(Box::new({{STRUCT_NAME}}::new()));
+    Box::into_raw(obj) as *mut Box<dyn BaseModel> as *mut c_void
 }
