@@ -23,7 +23,7 @@ export setlogfile, logmsg
 include("RSIS_Lib.jl")
 using .MLibrary
 export getscheduler
-export newmodel, deletemodel!, listmodels, listmodelsbytag
+export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
 
 include("Scripting.jl")

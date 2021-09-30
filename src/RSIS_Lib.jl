@@ -4,7 +4,7 @@ using Base: Int32, _getmeta
 using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
-export newmodel, deletemodel!, listmodels, listmodelsbytag
+export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export getscheduler, addthread, schedulemodel
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
@@ -278,10 +278,18 @@ end
 
 """
     listmodels()
-Returns the names of models loaded into the environment.
+Returns the names of all models loaded into the environment.
 """
-function listmodels()
+function listmodels() :: Vector{String}
     return collect(keys(_loaded_models))
+end
+
+"""
+    listlibraries()
+Returns a vector of all loaded model libraries
+"""
+function listlibraries() :: Vector{String}
+    return collect(keys(_modellibs))
 end
 
 function listmodelsbytag(tag::String)::Nothing
