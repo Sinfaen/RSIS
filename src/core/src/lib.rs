@@ -73,7 +73,7 @@ pub extern "C" fn add_model(thread: i64, ptr: *mut c_void, divisor: i64, offset:
         // implemented as two pointers. That's why the double box procedure must be
         // used to pass a dyn trait object through FFI
         let boxed_trait: Box<Box<dyn BaseModel>> = Box::from_raw(ptr as *mut Box<dyn BaseModel>);
-        SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize);
+        SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
     }
     return RSISStat::OK as u32;
 }
