@@ -3,7 +3,7 @@ extern crate modellib;
 
 use modellib::BaseModel;
 use std::thread;
-use std::sync::{Arc, Barrier};
+use std::sync::{Arc, Barrier, mpsc, mpsc::Receiver};
 
 pub trait Scheduler {
     fn clear_threads(&mut self) -> ();
@@ -31,25 +31,33 @@ pub struct NRTScheduler {
     pub threads : Vec<ThreadState>,
     pub barrier : Arc<Barrier>,
     pub handles : Vec<thread::JoinHandle<()>>,
+    pub rx      : Option<Receiver<[i32; 2]>>,
 }
 
 impl NRTScheduler {
     fn start_thread(&mut self) -> () {
         // create threads now. Add 1 for main thread
         self.barrier = Arc::new(Barrier::new(self.threads.len() + 1));
+        let (tx, rx) = mpsc::channel();
         for ts in &mut self.threads[..] {
             let c = Arc::clone(&self.barrier);
             let mut u: Vec<_> = ts.models.drain(..).collect();
+            let txc = tx.clone();
             self.handles.push(thread::spawn(move|| {
                 c.wait(); // wait for init to run
+                let mut status:i32 = 0;
                 for obj in &mut u[..] {
-                    (*obj).model.init();
+                    if !(*obj).model.init() {
+                        status = 1;
+                    }
                 }
                 println!("Scenario Initialized");
+                txc.send([0, status]);
                 c.wait();
                 println!("thread spawn end");
             }));
         }
+        self.rx = Some(rx);
     }
 }
 
@@ -97,6 +105,7 @@ impl NRTScheduler {
             threads: Vec::<ThreadState>::new(),
             barrier: Arc::new(Barrier::new(1)),
             handles: Vec::new(),
+            rx     : None,
         }
     }
 }
