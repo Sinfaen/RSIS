@@ -7,7 +7,7 @@ use modellib::BaseModel;
 pub trait Scheduler {
     fn clear_threads(&mut self) -> ();
     fn add_thread(&mut self, freq : f64) -> ();
-    fn add_model(&mut self, model : Box<dyn BaseModel>) -> i32;
+    fn add_model(&mut self, model : Box<Box<dyn BaseModel>>) -> i32;
     fn get_num_threads(&self) -> i32;
 
     fn init(&mut self) -> i32;
@@ -33,8 +33,8 @@ impl Scheduler for NRTScheduler {
             frequency: freq
         })
     }
-    fn add_model(&mut self, model : Box<dyn BaseModel>) -> i32 {
-        self.models.push(model);
+    fn add_model(&mut self, model : Box<Box<dyn BaseModel>>) -> i32 {
+        self.models.push(*model);
         0
     }
     fn get_num_threads(&self) -> i32 {

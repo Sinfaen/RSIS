@@ -7,6 +7,9 @@ mod rsis;
 pub use rsis::Scheduler;
 pub use rsis::NRTScheduler;
 
+
+use modellib::BaseModel;
+
 pub use std::ffi::c_void;
 pub use libc::c_char;
 
@@ -58,9 +61,16 @@ pub extern "C" fn new_thread(frequency : f64) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn add_model(thread: i64, ptr: * mut c_void, divisor: i64, offset: i64) -> u32 {
+pub extern "C" fn add_model(thread: i64, ptr: *mut c_void, divisor: i64, offset: i64) -> u32 {
     if ptr.is_null() {
         return RSISStat::BADARG as u32;
+    }
+    unsafe {
+        // notes for C++ programmers. Rust dyn traits are "fat", they're actually
+        // implemented as two pointers. That's why the double box procedure must be
+        // used to pass a dyn trait object through FFI
+        let boxed_trait: Box<Box<dyn BaseModel>> = Box::from_raw(ptr as *mut _);
+        SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait);
     }
     return RSISStat::OK as u32;
 }

@@ -17,6 +17,6 @@ use modellib::ReflectMember;
 {{REFLECT_DEFINITIONS}}
 
 #[no_mangle]
-pub extern "C" fn create_model() -> Box<dyn BaseModel> {
-    Box::new({{STRUCT_NAME}}::new())
+pub extern "C" fn create_model() -> Box<Box<dyn BaseModel>> {
+    Box::new(Box::new({{STRUCT_NAME}}::new()))
 }
