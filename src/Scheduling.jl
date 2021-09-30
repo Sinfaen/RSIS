@@ -118,7 +118,8 @@ function initsim(;blocking::Bool = false) :: Nothing
         println("Thread $(i): $(Float64(thread.frequency)) Hz")
         # schedule models
         for model in thread.scheduled
-            schedulemodel(model.ref, i, Int64(model.frequency / thread.frequency), model.offset)
+            # Convert 1 based indexing to 0 based indexing for the thread id
+            schedulemodel(model.ref, i - 1, Int64(model.frequency / thread.frequency), model.offset)
         end
     end
     initscheduler()
