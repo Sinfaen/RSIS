@@ -25,6 +25,7 @@ using .MLibrary
 export getscheduler
 export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
+export simstatus, SchedulerState
 
 include("Scripting.jl")
 using .MScripting

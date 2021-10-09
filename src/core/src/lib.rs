@@ -111,6 +111,13 @@ pub extern "C" fn get_thread_number() -> i32 {
 }
 
 #[no_mangle]
+pub extern "C" fn get_scheduler_state() -> i32 {
+    unsafe {
+        SCHEDULERS.get_mut(0).unwrap().get_state() as i32
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn get_scheduler_name() -> u32 {
     return RSISStat::OK as u32;
 }
