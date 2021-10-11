@@ -174,12 +174,12 @@ julia> structdefinition("cubesat", "cubesat_params")
  ("signal", "Float64", 0x0000000000000000)
 ```
 """
-function structdefinition(library::String, name::String) :: Vector{Tuple{String, String, UInt}}
+function structdefinition(library::String, name::String) :: Vector{Tuple{String, String, String, UInt}}
     data = _classdefinitions[library]
     if name in keys(data.structs)
-        fields = Vector{Tuple{String, String, UInt}}()
+        fields = Vector{Tuple{String, String, String, UInt}}()
         for (_name, field) in data.structs[name].fields
-            push!(fields, (_name, field[1].type, field[2]))
+            push!(fields, (_name, field[1].type, field[1].units, field[2]))
         end
         return fields
     else
@@ -369,12 +369,12 @@ function Base.:get(model::ModelReference, fieldname::String) :: Any
 end
 
 """
-    set(model::ModelReference, fieldname::String, value::Any)
+    set!(model::ModelReference, fieldname::String, value::Any)
 Attempts to set a signal to value. UNSAFE. Requires value to match the
 port type.
 NOTE: does not correct for column-major to row-major conversion.
 ```jldoctest
-julia> set(cubesat, "inputs.voltage", 5.0)
+julia> set!(cubesat, "inputs.voltage", 5.0)
 ```
 """
 function set!(model::ModelReference, fieldname::String, value::T) where{T}
@@ -396,7 +396,30 @@ function set!(model::ModelReference, fieldname::String, value::T) where{T}
     return
 end
 
-function connect(output::String, input::String)
+"""
+    connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String})
+Add a connection between an output port and an input port. The second value of the output
+and input arguments represent the model ports by name.
+```jldoctest
+julia> connect((environment_model, "outputs.pos_eci"), (cubesat, "inputs.position"))
+```
+"""
+function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String})
+    _output = _getmodelinstance(output[1]);
+    (_, oport) = _parselocation(_output, output[2]);
+    _input  = _getmodelinstance(input[1]);
+    (_, iport) = _parselocation(_input, output[2]);
+    # data type must match
+    if _type_map[oport.type] != _type_map[iport.type]
+        throw(ArgumentError("Output port type: $(oport.type) does not match input port type: $(iport.type)"))
+    end
+    # dimension must match
+    if oport.dimension != iport.dimension
+        throw(ArgumentError("Output port dimension: $(oport.dimension) does not match input port dimension: $(iport.dimension)"))
+    end
+    # units must match
+    # TODO
+    # Register connection
     println("Not implemented")
 end
 
