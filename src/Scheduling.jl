@@ -4,7 +4,7 @@ using ..MLibrary
 using ..MModel
 
 export setthread, setnumthreads, schedule, threadinfo
-export initsim
+export initsim, stepsim
 
 mutable struct SModel
     ref::ModelReference
@@ -123,6 +123,15 @@ function initsim(;blocking::Bool = false) :: Nothing
         end
     end
     initscheduler()
+end
+
+"""
+    stepsim(steps::Int64 = 1)
+Step the simulation by the specified number of steps.
+"""
+function stepsim(steps::Int64 = 1)
+    # TODO add state checking here
+    stepscheduler(UInt64(steps));
 end
 
 end

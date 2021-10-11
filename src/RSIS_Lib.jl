@@ -5,7 +5,7 @@ using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
-export getscheduler, initscheduler, addthread, schedulemodel
+export getscheduler, initscheduler, stepscheduler, addthread, schedulemodel
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
@@ -40,6 +40,7 @@ mutable struct LibFuncs
     s_newthread
     s_addmodel
     s_initscheduler
+    s_stepscheduler
     s_pausescheduler
     s_runscheduler
     s_getmessage
@@ -51,6 +52,7 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :new_thread),
             Libdl.dlsym(lib, :add_model),
             Libdl.dlsym(lib, :init_scheduler),
+            Libdl.dlsym(lib, :step_scheduler),
             Libdl.dlsym(lib, :pause_scheduler),
             Libdl.dlsym(lib, :run_scheduler),
             Libdl.dlsym(lib, :get_message),
@@ -335,6 +337,13 @@ function initscheduler() :: Nothing
     stat = ccall(_sym.s_initscheduler, UInt32, ());
     if stat != 0
         throw(ErrorException("Call to `init_scheduler` in library failed"))
+    end
+end
+
+function stepscheduler(steps::UInt64) :: Nothing
+    stat = ccall(_sym.s_stepscheduler, UInt32, (UInt64,), steps);
+    if stat != 0
+        throw(ErrorException("Call to step_scheduler in library failed"))
     end
 end
 

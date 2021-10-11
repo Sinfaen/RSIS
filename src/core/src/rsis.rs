@@ -36,7 +36,7 @@ pub trait Scheduler {
     fn get_num_threads(&self) -> i32;
 
     fn init(&mut self) -> i32;
-    fn step(&mut self, steps: i64) -> i32;
+    fn step(&mut self, steps: u64) -> i32;
     fn end(&mut self) -> i32;
 
     fn get_state(&self) -> SchedulerState;
@@ -72,7 +72,7 @@ impl NRTScheduler {
         // create threads now. Add 1 for main thread
         let mut thread_state = Vec::<SchedulerState>::new();
         let mut tx_handles = Vec::<Sender<ThreadMsg>>::new();
-        let mut rx_handles = Vec::<Receiver<i32>>::new();
+        let mut rx_handles = Vec::<Receiver<ThreadMsg>>::new();
         let barrier = Arc::new(Barrier::new(threadlen));
         for ts in &mut self.threads[..] {
             let c = Arc::clone(&barrier);
@@ -83,10 +83,10 @@ impl NRTScheduler {
                 loop {
                     match rxx.recv() {
                         Ok(ThreadMsg::INIT) => {
-                            let mut status = 0;
+                            let mut status = ThreadMsg::OK;
                             for obj in &mut u[..] {
                                 if !(*obj).model.init() {
-                                    status = 1;
+                                    status = ThreadMsg::ERR;
                                 }
                             }
                             tx.send(status).unwrap();
@@ -98,6 +98,7 @@ impl NRTScheduler {
                                 }
                                 c.wait();
                             }
+                            tx.send(ThreadMsg::OK).unwrap();
                         },
                         _ => ()
                     }
@@ -130,19 +131,29 @@ impl NRTScheduler {
                         let mut alldone = true;
                         for (pos, rx) in rx_handles.iter_mut().enumerate() {
                             match rx.try_recv() {
-                                Ok(_) => {
+                                Ok(ThreadMsg::OK) => {
                                     thread_state[pos] = SchedulerState::INITIALIZED;
+                                },
+                                Ok(ThreadMsg::ERR) => {
+                                    thread_state[pos] = SchedulerState::ERRORED;
+                                    println!("Thread {} reported an error in initialization.", pos);
                                 },
                                 _ => (),
                             }
                             if thread_state[pos] != SchedulerState::INITIALIZED {
                                 alldone = false;
                             }
-                            if alldone {
-                                state = SchedulerState::INITIALIZED;
-                                let mut s = mutex_state.lock().unwrap();
-                                *s = state;
-                            }
+                        }
+                        if alldone {
+                            state = SchedulerState::INITIALIZED;
+                            println!("Scenario Initialized");
+                        } else {
+                            state = SchedulerState::ERRORED;
+                            println!("Scenario Initialization Failed");
+                        }
+                        {
+                            let mut s = mutex_state.lock().unwrap();
+                            *s = state;
                         }
                     },
                     SchedulerState::INITIALIZED => {
@@ -151,10 +162,24 @@ impl NRTScheduler {
                                 for tx in tx_handles.iter_mut() {
                                     tx.send(ThreadMsg::EXECUTE(steps)).unwrap();
                                 }
+                                state = SchedulerState::RUNNING;
+                                let mut s = mutex_state.lock().unwrap();
+                                *s = state;
                             },
                             _ => ()
                         }
                     },
+                    SchedulerState::RUNNING => {
+                        match stat {
+                            Ok(ThreadMsg::OK) => {
+                                state = SchedulerState::PAUSED;
+                                let mut s = mutex_state.lock().unwrap();
+                                *s = state;
+                            },
+                            Ok(ThreadMsg::ERR) => (),
+                            _ => ()
+                        }
+                    }
                     _ => ()
                 }
                 thread::sleep(time::Duration::from_millis(10)); // sleep to prevent hogging the cpu
@@ -197,8 +222,16 @@ impl Scheduler for NRTScheduler {
         //
         0
     }
-    fn step(&mut self, steps: i64) -> i32 {
-        0
+    fn step(&mut self, steps: u64) -> i32 {
+        match &self.runner_tx {
+            Some(tx) => {
+                tx.send(ThreadMsg::EXECUTE(steps)).unwrap();
+                return 0;
+            },
+            _ => {
+                return 1;
+            }
+        }
     }
     fn end(&mut self) -> i32 {
         0

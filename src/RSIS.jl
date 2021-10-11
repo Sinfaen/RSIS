@@ -50,7 +50,7 @@ export generateinterface
 include("Scheduling.jl")
 using .MScheduling
 export setthread, setnumthreads, threadinfo
-export initsim
+export initsim, stepsim
 
 include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
