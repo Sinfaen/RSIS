@@ -1,6 +1,7 @@
 
 extern crate modellib;
 
+pub use std::ffi::c_void;
 use modellib::BaseModel;
 use std::{thread,time};
 use std::sync::{Arc, Barrier, mpsc, mpsc::Receiver, mpsc::Sender, Mutex};
@@ -32,7 +33,7 @@ pub enum ThreadMsg {
 pub trait Scheduler {
     fn clear_threads(&mut self) -> ();
     fn add_thread(&mut self, freq : f64) -> ();
-    fn add_model(&mut self, model: Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> i32;
+    fn add_model(&mut self, model: Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> *mut c_void;
     fn get_num_threads(&self) -> i32;
 
     fn init(&mut self) -> i32;
@@ -199,17 +200,17 @@ impl Scheduler for NRTScheduler {
             models: Vec::new(),
         })
     }
-    fn add_model(&mut self, model : Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> i32 {
+    fn add_model(&mut self, model : Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> *mut c_void {
         if thread > self.threads.len() {
-            return 1
+            return 0 as *mut c_void;
         }
-        let obj = ScheduledObject {
+        let mut obj = ScheduledObject {
             model: *model,
             divisor: divisor,
             offset: offset,
         };
         self.threads[thread].models.push(obj);
-        0
+        return &self.threads[thread].models.last().unwrap().model as *const Box<dyn BaseModel + Send> as *mut c_void;
     }
     fn get_num_threads(&self) -> i32 {
         self.threads.len() as i32

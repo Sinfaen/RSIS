@@ -327,10 +327,12 @@ end
 
 function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, offset::Int64)
     _model = _getmodelinstance(model)
-    stat = ccall(_sym.s_addmodel, UInt32, (Int64, Ptr{Cvoid}, Int64, Int64), thread, _model.obj, divisor, offset)
-    if stat != 0
+    # the framework moves the object around, get the new pointer
+    newptr = ccall(_sym.s_addmodel, Ptr{Cvoid}, (Int64, Ptr{Cvoid}, Int64, Int64), thread, _model.obj, divisor, offset)
+    if newptr == 0
         throw(ErrorException("Call to `add_model` in library failed"))
     end
+    _model.obj = newptr
 end
 
 function initscheduler() :: Nothing

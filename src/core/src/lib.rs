@@ -61,21 +61,20 @@ pub extern "C" fn new_thread(frequency : f64) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn add_model(thread: i64, ptr: *mut c_void, divisor: i64, offset: i64) -> u32 {
+pub extern "C" fn add_model(thread: i64, ptr: *mut c_void, divisor: i64, offset: i64) -> *mut c_void {
     if ptr.is_null() {
-        return RSISStat::BADARG as u32;
+        return 0 as *mut c_void;
     }
     if thread < 0 {
-        return RSISStat::BADARG as u32;
+        return 0 as *mut c_void;
     }
     unsafe {
         // notes for C++ programmers. Rust dyn traits are "fat", they're actually
         // implemented as two pointers. That's why the double box procedure must be
         // used to pass a dyn trait object through FFI
         let boxed_trait: Box<Box<dyn BaseModel + Send>> = Box::from_raw(ptr as *mut Box<dyn BaseModel + Send>);
-        SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
+        return SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
     }
-    return RSISStat::OK as u32;
 }
 
 #[no_mangle]
