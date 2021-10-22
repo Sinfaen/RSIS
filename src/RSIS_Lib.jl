@@ -10,6 +10,7 @@ export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
+export get_utf8_string
 
 using Libdl
 
@@ -46,6 +47,7 @@ mutable struct LibFuncs
     s_getmessage
     s_getstate
     s_getschedulername
+    s_getutf8
     function LibFuncs(lib)
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
@@ -57,7 +59,8 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :run_scheduler),
             Libdl.dlsym(lib, :get_message),
             Libdl.dlsym(lib, :get_scheduler_state),
-            Libdl.dlsym(lib, :get_scheduler_name))
+            Libdl.dlsym(lib, :get_scheduler_name),
+            Libdl.dlsym(lib, :get_utf8_string))
     end
 end
 
@@ -352,6 +355,17 @@ end
 function simstatus() :: SchedulerState
     stat = ccall(_sym.s_getstate, Int32, ());
     return SchedulerState(stat);
+end
+
+struct utf8_data
+    pointer::Ptr{UInt8}
+    size::UInt64
+end
+
+function get_utf8_string(data::Ptr{Cvoid}) :: String
+    # TODO update for multiple languages. this is rust only for now
+    obj::utf8_data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), data)
+    return unsafe_string(obj.pointer, obj.size)
 end
 
 end

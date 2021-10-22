@@ -24,6 +24,7 @@ using ..Unitful
 # DataType => [Rust datatype, C++ datatype]
 _type_conversions = Dict{DataType, Vector{String}}(
     Char    => ["char", "char"],
+    String  => ["String", "std::string"],
     Int8    => ["i8",   "int8_t"],
     Int16   => ["i16",  "int16_t"],
     Int32   => ["i32",  "int32_t"],
@@ -67,11 +68,17 @@ struct Port
                 throw(ArgumentError("Primitive type: $type is not supported"))
             end
             if !isnothing(default)
-                if !(eltype(default) <: _type_map[type])
-                    throw(ArgumentError("Default value: $(default) is not a $(type)"))
-                end
-                if size(default) != dimension
-                    throw(ArgumentError("Size of default value: $(value) does not match dimension $(dimension)"))
+                if typeof(default) == String
+                    if _type_map[type] != String
+                        throw(ArgumentError("Default value: $(default) is type $(typeof(default)), not $(type)"))
+                    end
+                else
+                    if !(eltype(default) <: _type_map[type])
+                        throw(ArgumentError("Default value: $(default) is type $(eltype(default)), not $(type)"))
+                    end
+                    if size(default) != dimension
+                        throw(ArgumentError("Size of default value: $(value) does not match dimension $(dimension)"))
+                    end
                 end
             end
         end
@@ -360,7 +367,11 @@ function Base.:get(model::ModelReference, fieldname::String) :: Any
     # ATTEMPT TO LOAD DATA HERE!!!!!
     t = _type_map[port.type]
     if length(port.dimension) == 0
-        return unsafe_load(Ptr{t}(ptr))
+        if t == String
+            return get_utf8_string(ptr)
+        else
+            return unsafe_load(Ptr{t}(ptr))
+        end
     else
         # return a deepcopy so that users can't alter the model
         # TODO handle row-major to column-major conversion
@@ -389,6 +400,8 @@ function set!(model::ModelReference, fieldname::String, value::T) where{T}
     end
     if length(port.dimension) == 0
         unsafe_store!(Ptr{t}(ptr), value)
+    elseif t == String
+        println("NOT IMPLEMENTED")
     else
         arr = unsafe_wrap(Array, Ptr{t}(ptr), port.dimension)
         unsafe_copyto!(arr, 1, value, 1, length(value))

@@ -13,6 +13,7 @@ height_sensor_data:
 height_sensor_params:
     limits: {type: Float64, dims: [2], value: [0.1, 0.8], unit: m, desc: Lower & upper range}
     noise: {type: Float64, value: 0.01, desc: Standard deviation of applied gaussian noise}
+    stats_file: {type: String, value: sensor_info.txt, desc: Generated file}
 
 height_sensor:
     inputs: {class: height_sensor_in}

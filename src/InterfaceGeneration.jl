@@ -14,6 +14,7 @@ export generateinterface
 # globals
 _type_defaults = Dict{String, Any}(
     "char"    => ' ',
+    "String"  => "",
     "Int8"    => 0,
     "Int16"   => 0,
     "Int32"   => 0,
@@ -261,6 +262,8 @@ function generateinterface(interface::String; language::String = "cpp")
                     txt = txt * "    pub $n : $(convert_julia_type(f.type, language)),\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : $(f.type)::new(),\n"
+                    elseif f.type == "String"
+                        cs = cs * "            $(n) : \"$(f.defaultvalue)\".to_string(),\n"
                     else
                         cs = cs * "            $(n) : $(f.defaultvalue),\n"
                     end

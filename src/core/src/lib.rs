@@ -135,3 +135,24 @@ pub extern "C" fn get_scheduler_name() -> u32 {
 pub extern "C" fn get_message() -> u32 {
     return RSISStat::OK as u32;
 }
+
+// Utility methods, not related to running the scheduler and framework
+
+#[repr(C, align(8))]
+pub struct UTF8Data {
+    ptr : *const c_void,
+    size : u64,
+}
+
+#[no_mangle]
+pub extern "C" fn get_utf8_string(ptr : *mut c_void) -> UTF8Data {
+    // convert pointer to string object
+    unsafe {
+        let str_ptr = ptr as *mut String;
+        // TODO use into_raw_parts when it is stabilized
+        UTF8Data {
+            ptr : (*str_ptr).as_ptr() as *const c_void,
+            size : (*str_ptr).len() as u64,
+        }
+    }
+}
