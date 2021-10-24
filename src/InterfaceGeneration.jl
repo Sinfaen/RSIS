@@ -8,6 +8,7 @@ using ..YAML
 using ..MScripting
 using ..MLogging
 using ..MModel
+using ..MProject
 
 export generateinterface
 
@@ -149,12 +150,15 @@ Generated: mymodel_interface.rs
 Generation complete
 ```
 """
-function generateinterface(interface::String; language::String = "cpp")
+function generateinterface(interface::String; language::String = "")
     templates = Vector{Tuple{String, String}}()
-    if language == "cpp"
+    if language == ""
+        language = projecttype()
+    end
+    if language == "C++"
         push!(templates, ("_interface.hxx", joinpath(@__DIR__, "templates", "header_cpp.template")))
         push!(templates, ("_interface.cxx", joinpath(@__DIR__, "templates", "source_cpp.template")))
-    elseif language == "rust"
+    elseif language == "Rust"
         push!(templates, ("_interface.rs", joinpath(@__DIR__, "templates", "rust.template")))
     else
         error(ArgumentError("[\"cpp\",\"rust\"] are the only valid language options"))
