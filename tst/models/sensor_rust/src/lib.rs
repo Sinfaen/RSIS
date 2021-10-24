@@ -7,15 +7,34 @@ extern crate memoffset;
 extern crate modellib;
 extern crate libc;
 
-use libc::c_void;
-
 use modellib::BaseModel;
 
 use rand::distributions::Distribution;
 use statrs::distribution::Normal;
 
 mod height_sensor_interface;
-use height_sensor_interface::height_sensor;
+use height_sensor_interface::*;
+
+#[repr(C)]
+pub struct height_sensor {
+    // registered with RSIS
+    pub inputs : height_sensor_in,
+    pub outputs : height_sensor_out,
+    pub data : height_sensor_data,
+    pub params : height_sensor_params,
+    // non viewable
+}
+
+impl height_sensor {
+    pub fn new() -> height_sensor {
+        height_sensor {
+            inputs : height_sensor_in::new(),
+            outputs : height_sensor_out::new(),
+            data : height_sensor_data::new(),
+            params : height_sensor_params::new(),
+        }
+    }
+}
 
 impl BaseModel for height_sensor {
     fn config(&mut self) -> bool {
@@ -47,10 +66,4 @@ impl BaseModel for height_sensor {
     fn stop(&mut self) -> bool {
         true
     }
-}
-
-#[no_mangle]
-pub extern "C" fn create_model() -> *mut c_void {
-    let obj: Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(height_sensor::new()));
-    Box::into_raw(obj) as *mut Box<dyn BaseModel + Send> as *mut c_void
 }

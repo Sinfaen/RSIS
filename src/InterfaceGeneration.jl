@@ -252,15 +252,15 @@ function generateinterface(interface::String; language::String = "")
         cs_text = ""
         reflect = ""
         ref_all = "#[no_mangle]\npub extern \"C\" fn reflect(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
+        # generate constructors & structs
         for name in class_order
+            if name == data["model"]
+                continue
+            end
             fields = class_defs[name]
             txt = "#[repr(C)]\npub struct $(name) {\n"
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
                   "        $(name) {\n"
-            ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
-                  "    let cl = CString::new(\"$(name)\").unwrap();\n" *
-                  "    _cb1(cl.as_ptr());\n"
-            ref_all = ref_all * "    reflect_$(name)(_cb1, _cb2);\n"
             for (n,f) in fields
                 if length(f.dimension) == 0
                     txt = txt * "    pub $n : $(convert_julia_type(f.type, language)),\n"
@@ -271,9 +271,6 @@ function generateinterface(interface::String; language::String = "")
                     else
                         cs = cs * "            $(n) : $(f.defaultvalue),\n"
                     end
-                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                                "    let d_$(n) = CString::new(\"$(f.type)\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(name), $(n)));\n"
                 else
                     txt = txt * "    pub $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
                     if f.iscomposite
@@ -281,16 +278,37 @@ function generateinterface(interface::String; language::String = "")
                     else
                         cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
                     end
-                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                                "    let d_$(n) = CString::new(\"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(name), $(n)));\n"
                 end
             end
             txt = txt * "}\n"
-            cs  = cs  * "        }\n    }\n}\n"
-            ref = ref * "}\n"
             rs_text = rs_text * txt
+            cs  = cs  * "        }\n    }\n}\n"
             cs_text = cs_text * cs
+        end
+        # generate other values
+        for name in class_order
+            if name == data["model"]
+                prepend = "crate::"
+            else
+                prepend = ""
+            end
+            fields = class_defs[name]
+            ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
+                  "    let cl = CString::new(\"$(name)\").unwrap();\n" *
+                  "    _cb1(cl.as_ptr());\n"
+            ref_all = ref_all * "    reflect_$(name)(_cb1, _cb2);\n"
+            for (n,f) in fields
+                if length(f.dimension) == 0
+                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
+                                "    let d_$(n) = CString::new(\"$(f.type)\").unwrap();\n" *
+                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)));\n"
+                else
+                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
+                                "    let d_$(n) = CString::new(\"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\").unwrap();\n" *
+                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)));\n"
+                end
+            end
+            ref = ref * "}\n"
             reflect = reflect * ref
         end
         ref_all = ref_all * "}\n"
