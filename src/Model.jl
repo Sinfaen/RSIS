@@ -313,6 +313,9 @@ function unload(library::String) :: Nothing
     if !UnloadModelLib(library)
         logmsg("Model library not previously loaded.", WARNING)
     end
+    # unload class definitions as well
+    delete!(_classdefinitions, library)
+    return
 end
 
 """
