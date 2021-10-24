@@ -196,13 +196,19 @@ end
 """
     UnloadModelLib(name::String)
 Attempts to unload a shared model library by name.
-Returns whether the model was unloaded.
+Returns whether the library was unloaded.
 This function can throw.
 """
 function UnloadModelLib(name::String) :: Bool
+    global _loaded_models
     if name in keys(_modellibs)
         # unload all model instances
-        # TODO
+        for model in keys(_loaded_models)
+            delete!(_loaded_models, model)
+        end
+        _loaded_models = Dict{String, ModelInstance}()
+
+        # unload the library
         Libdl.dlclose(_modellibs[name].s_lib)
         delete!(_modellibs, name)
         return true
