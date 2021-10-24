@@ -23,6 +23,7 @@ pub struct height_sensor {
     pub data : height_sensor_data,
     pub params : height_sensor_params,
     // non viewable
+    pub dist : Normal,
 }
 
 impl height_sensor {
@@ -32,6 +33,7 @@ impl height_sensor {
             outputs : height_sensor_out::new(),
             data : height_sensor_data::new(),
             params : height_sensor_params::new(),
+            dist : Normal::new(0.0, 1.0).unwrap(),
         }
     }
 }
@@ -45,12 +47,12 @@ impl BaseModel for height_sensor {
         true
     }
     fn init(&mut self) -> bool {
+        self.dist = Normal::new(0.0, self.params.noise).unwrap();
         self.config()
     }
     fn step(&mut self) -> bool {
-        let dist = Normal::new(0.0, self.params.noise).unwrap();
         let mut r = rand::thread_rng();
-        self.data.measurement = self.inputs.signal + dist.sample(&mut r);
+        self.data.measurement = self.inputs.signal + self.dist.sample(&mut r);
         if self.data.measurement < self.params.limits[0] ||
             self.data.measurement > self.params.limits[1]
         {
