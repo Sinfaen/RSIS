@@ -12,14 +12,17 @@ Rust is a relatively new systems engineering language focusing heavily on speed 
 Julia is similar to Python, but with a heavy focus on scientific computation. This naturally lends itself to handling simulation configuration.
 
 ## Road Map
-This framework is experimental and in development.
+This framework is experimental and in development. This road map will exist until the first release.
 - [ ] Add C++ and Fortran model language support
 - [x] Add Model Interface Generation
+- [ ] Allow Custom Components in Model Interface
 - [ ] Add Thread Generation
-- [ ] Add Non Real-Time Scheduling
+- [x] Add Non Real-Time Scheduling
+- [ ] Add multi threaded NRT Scheduling
 - [ ] Add Model Connection
 - [ ] Add Logging Capability
 - [ ] Add Data Replay Capability
+- [ ] Add Save Load Feature
 - [x] Add Project Environment Handling
 - [ ] Add MacOS Soft Real-Time Scheduling
 - [ ] Add Ubuntu Soft Real-Time Scheduling

@@ -1,16 +1,13 @@
-#[cfg(test)]
-mod height_sensor {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+// Height Sensor Model
+// Rust Version
 
-extern crate modellib;
-extern crate libc;
 
 #[macro_use]
 extern crate memoffset;
+extern crate modellib;
+extern crate libc;
+
+use libc::c_void;
 
 use modellib::BaseModel;
 
@@ -50,4 +47,10 @@ impl BaseModel for height_sensor {
     fn stop(&mut self) -> bool {
         true
     }
+}
+
+#[no_mangle]
+pub extern "C" fn create_model() -> *mut c_void {
+    let obj: Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(height_sensor::new()));
+    Box::into_raw(obj) as *mut Box<dyn BaseModel + Send> as *mut c_void
 }
