@@ -14,8 +14,8 @@ use modellib::BaseModel;
 use rand::distributions::Distribution;
 use statrs::distribution::Normal;
 
-mod heightSensor_interface;
-use heightSensor_interface::height_sensor;
+mod height_sensor_interface;
+use height_sensor_interface::height_sensor;
 
 impl BaseModel for height_sensor {
     fn config(&mut self) -> bool {
