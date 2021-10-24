@@ -156,3 +156,21 @@ pub extern "C" fn get_utf8_string(ptr : *mut c_void) -> UTF8Data {
         }
     }
 }
+
+#[no_mangle]
+pub extern "C" fn set_utf8_string(ptr : *mut c_void, data : UTF8Data) -> u32 {
+    // create a new string
+    unsafe {
+        let str_ptr = ptr as *mut String;
+        let slice = std::slice::from_raw_parts(data.ptr as *const u8, data.size as usize);
+        match std::str::from_utf8(slice) {
+            Ok(value) => {
+                (*str_ptr) = value.to_string();
+                return RSISStat::OK as u32;
+            },
+            Err(_) => {
+                return RSISStat::ERR as u32;
+            }
+        }
+    }
+}

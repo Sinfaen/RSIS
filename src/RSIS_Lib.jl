@@ -10,7 +10,7 @@ export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
-export get_utf8_string
+export get_utf8_string, set_utf8_string
 
 using Libdl
 
@@ -48,6 +48,7 @@ mutable struct LibFuncs
     s_getstate
     s_getschedulername
     s_getutf8
+    s_setutf8
     function LibFuncs(lib)
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
@@ -60,7 +61,8 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :get_message),
             Libdl.dlsym(lib, :get_scheduler_state),
             Libdl.dlsym(lib, :get_scheduler_name),
-            Libdl.dlsym(lib, :get_utf8_string))
+            Libdl.dlsym(lib, :get_utf8_string),
+            Libdl.dlsym(lib, :set_utf8_string))
     end
 end
 
@@ -362,10 +364,18 @@ struct utf8_data
     size::UInt64
 end
 
-function get_utf8_string(data::Ptr{Cvoid}) :: String
+function get_utf8_string(obj::Ptr{Cvoid}) :: String
     # TODO update for multiple languages. this is rust only for now
-    obj::utf8_data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), data)
-    return unsafe_string(obj.pointer, obj.size)
+    data::utf8_data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), obj)
+    return unsafe_string(data.pointer, data.size)
+end
+
+function set_utf8_string(obj::Ptr{Cvoid}, str::String) :: Nothing
+    data = utf8_data(pointer(str), ncodeunits(str))
+    stat = ccall(_sym.s_setutf8, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
+    if stat != 0
+        throw(ErrorException("Failed to set string value"))
+    end
 end
 
 end

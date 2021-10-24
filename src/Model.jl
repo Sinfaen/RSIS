@@ -391,17 +391,19 @@ julia> set!(cubesat, "inputs.voltage", 5.0)
 function set!(model::ModelReference, fieldname::String, value::T) where{T}
     _model = _getmodelinstance(model)
     (ptr, port) = _parselocation(_model, fieldname)
-    if size(value) != port.dimension
+    if T != String && size(value) != port.dimension
         throw(ArgumentError("Value size does not match port size: $(port.dimension)"))
     end
     t = _type_map[port.type]
+    if t == String
+        set_utf8_string(ptr, value)
+        return
+    end
     if eltype(value) != t
         throw(ArgumentError("Value type does not match port type: $(port.type)"))
     end
     if length(port.dimension) == 0
         unsafe_store!(Ptr{t}(ptr), value)
-    elseif t == String
-        println("NOT IMPLEMENTED")
     else
         arr = unsafe_wrap(Array, Ptr{t}(ptr), port.dimension)
         unsafe_copyto!(arr, 1, value, 1, length(value))
