@@ -8,6 +8,8 @@ edition = "2018"
 [dependencies]
 libc = "0.2.0"
 memoffset = "0.5.4"
+rand = "0.8.4"
+statrs = "0.15.0"
 
 [dependencies.modellib]
 path = "../../../src/core/modellib"
