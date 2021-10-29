@@ -48,6 +48,7 @@ impl BaseModel for height_sensor {
     }
     fn init(&mut self) -> bool {
         self.dist = Normal::new(0.0, self.params.noise).unwrap();
+        println!("Created file: {}", self.params.stats_file);
         self.config()
     }
     fn step(&mut self) -> bool {

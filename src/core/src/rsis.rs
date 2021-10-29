@@ -4,7 +4,7 @@ extern crate modellib;
 pub use std::ffi::c_void;
 use modellib::BaseModel;
 use std::{thread,time};
-use std::sync::{Arc, Barrier, mpsc, mpsc::Receiver, mpsc::Sender, Mutex};
+use std::sync::{Arc, Barrier, mpsc, mpsc::TryRecvError, mpsc::Receiver, mpsc::Sender, Mutex};
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum SchedulerState {
@@ -101,6 +101,9 @@ impl NRTScheduler {
                             }
                             tx.send(ThreadMsg::OK).unwrap();
                         },
+                        Ok(ThreadMsg::SHUTDOWN) => {
+                            break;
+                        },
                         _ => ()
                     }
                 }
@@ -114,6 +117,8 @@ impl NRTScheduler {
         let mutex_state = Arc::clone(&self.state);
         let mut state = SchedulerState::CONFIG;
         self.runner = Some(thread::spawn(move|| {
+            let mut thread_state_received = vec![false; threadlen];
+            let mut thread_rcv_num = 0;
             loop {
                 let stat = mtor_rx.try_recv();
                 match state {
@@ -172,18 +177,91 @@ impl NRTScheduler {
                     },
                     SchedulerState::RUNNING => {
                         match stat {
-                            Ok(ThreadMsg::OK) => {
-                                state = SchedulerState::PAUSED;
+                            Ok(ThreadMsg::SHUTDOWN) => {
+                                println!("TODO kill threads");
+                            },
+                            _ => ()
+                        }
+                        // poll state
+                        for (pos, rx) in rx_handles.iter_mut().enumerate() {
+                            match rx.try_recv() {
+                                Ok(ThreadMsg::OK) => {
+                                    if !thread_state_received[pos] {
+                                        thread_state_received[pos] = true;
+                                        thread_rcv_num += 1;
+                                    }
+                                    if thread_rcv_num == threadlen {
+                                        thread_rcv_num = 0;
+                                        for state in thread_state_received.iter_mut() {
+                                            *state = false;
+                                        }
+
+                                        state = SchedulerState::PAUSED;
+                                        let mut s = mutex_state.lock().unwrap();
+                                        *s = state;
+                                    }
+                                },
+                                Ok(ThreadMsg::ERR) => {
+                                    println!("Thread {} reported an error", pos);
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Ok(ThreadMsg::END) => {
+                                    state = SchedulerState::ENDED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Ok(ThreadMsg::INIT) => {
+                                    println!("Unexpected received init status");
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Ok(ThreadMsg::EXECUTE(_)) => {
+                                    println!("Unexpectedly received execute status");
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Ok(ThreadMsg::SHUTDOWN) => {
+                                    println!("Unexpectedly received shutdown status");
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Ok(ThreadMsg::RUNNING) => {
+                                    println!("Unexpectedly received shutdown status");
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Err(TryRecvError::Disconnected) => {
+                                    println!("Channel is disconnected");
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                },
+                                Err(TryRecvError::Empty) => () // nothing received yet
+                            }
+                        }
+                    },
+                    SchedulerState::PAUSED => {
+                        match stat {
+                            Ok(ThreadMsg::EXECUTE(steps)) => {
+                                for tx in tx_handles.iter_mut() {
+                                    tx.send(ThreadMsg::EXECUTE(steps)).unwrap();
+                                }
+                                state = SchedulerState::RUNNING;
                                 let mut s = mutex_state.lock().unwrap();
                                 *s = state;
                             },
-                            Ok(ThreadMsg::ERR) => (),
                             _ => ()
                         }
-                    }
+                    },
                     _ => ()
                 }
-                thread::sleep(time::Duration::from_millis(10)); // sleep to prevent hogging the cpu
+                thread::sleep(time::Duration::from_millis(20)); // sleep to prevent hogging the cpu
             }
         }));
         return (mtor_tx, rtom_rx);
@@ -204,7 +282,7 @@ impl Scheduler for NRTScheduler {
         if thread > self.threads.len() {
             return 0 as *mut c_void;
         }
-        let mut obj = ScheduledObject {
+        let obj = ScheduledObject {
             model: *model,
             divisor: divisor,
             offset: offset,
