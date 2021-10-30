@@ -3,6 +3,7 @@
 extern crate libc;
 
 mod rsis;
+mod epoch;
 
 pub use rsis::Scheduler;
 pub use rsis::NRTScheduler;

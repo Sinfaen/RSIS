@@ -6,6 +6,8 @@ use modellib::BaseModel;
 use std::{thread,time};
 use std::sync::{Arc, Barrier, mpsc, mpsc::TryRecvError, mpsc::Receiver, mpsc::Sender, Mutex};
 
+use crate::epoch::EpochTime;
+
 #[derive(Copy,Clone,PartialEq)]
 pub enum SchedulerState {
     CONFIG       = 0,
@@ -82,6 +84,7 @@ impl NRTScheduler {
             let (tx, rx) = mpsc::channel(); // response channel
             self.handles.push(thread::spawn(move|| {
                 loop {
+                    let mut time = EpochTime::new();
                     match rxx.recv() {
                         Ok(ThreadMsg::INIT) => {
                             let mut status = ThreadMsg::OK;
@@ -97,6 +100,7 @@ impl NRTScheduler {
                                 for obj in &mut u[..] {
                                     (*obj).model.step();
                                 }
+                                time.increment(1);
                                 c.wait();
                             }
                             tx.send(ThreadMsg::OK).unwrap();
