@@ -4,7 +4,7 @@ using ..MLibrary
 using ..MModel
 
 export setthread, setnumthreads, schedule, threadinfo
-export initsim, stepsim
+export initsim, stepsim, endsim, setsimduration
 
 mutable struct SModel
     ref::ModelReference
@@ -132,6 +132,25 @@ Step the simulation by the specified number of steps.
 function stepsim(steps::Int64 = 1)
     # TODO add state checking here
     stepscheduler(UInt64(steps));
+end
+
+"""
+    endsim()
+Ends/Halts the simulation. Drops all saved ModelInstances
+as they have been consumed and have reached end of life.
+"""
+function endsim()
+    endscheduler()
+end
+
+"""
+    setsimduration(time::Float64)
+Sets the maximum duration of the simulation.
+Note: models are capable of halting the simulation
+before the end of the simulation duration.
+"""
+function setsimduration(time::Float64)
+    println("TODO")
 end
 
 end

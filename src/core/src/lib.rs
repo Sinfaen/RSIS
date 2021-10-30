@@ -114,6 +114,14 @@ pub extern "C" fn run_scheduler() -> u32 {
 }
 
 #[no_mangle]
+pub extern "C" fn end_scheduler() -> u32 {
+    unsafe {
+        SCHEDULERS.get_mut(0).unwrap().end();
+    }
+    return RSISStat::OK as u32;
+}
+
+#[no_mangle]
 pub extern "C" fn get_thread_number() -> i32 {
     unsafe {
         SCHEDULERS.get_mut(0).unwrap().get_num_threads()

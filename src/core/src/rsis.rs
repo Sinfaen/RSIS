@@ -15,8 +15,9 @@ pub enum SchedulerState {
     INITIALIZED  = 2,
     RUNNING      = 3,
     PAUSED       = 4,
-    ENDED        = 5,
-    ERRORED      = 6,
+    ENDING       = 5,
+    ENDED        = 6,
+    ERRORED      = 7,
 }
 
 #[derive(Copy,Clone,PartialEq)]
@@ -106,12 +107,12 @@ impl NRTScheduler {
                             tx.send(ThreadMsg::OK).unwrap();
                         },
                         Ok(ThreadMsg::SHUTDOWN) => {
+                            tx.send(ThreadMsg::END).unwrap();
                             break;
                         },
                         _ => ()
                     }
                 }
-                println!("thread spawn end");
             }));
             tx_handles.push(txx);
             rx_handles.push(rx);
@@ -182,7 +183,13 @@ impl NRTScheduler {
                     SchedulerState::RUNNING => {
                         match stat {
                             Ok(ThreadMsg::SHUTDOWN) => {
-                                println!("TODO kill threads");
+                                for tx in tx_handles.iter_mut() {
+                                    tx.send(ThreadMsg::SHUTDOWN).unwrap();
+                                }
+                                state = SchedulerState::ENDING;
+                                let mut s = mutex_state.lock().unwrap();
+                                *s = state;
+                                continue;
                             },
                             _ => ()
                         }
@@ -260,7 +267,42 @@ impl NRTScheduler {
                                 let mut s = mutex_state.lock().unwrap();
                                 *s = state;
                             },
+                            Ok(ThreadMsg::SHUTDOWN) => {
+                                for tx in tx_handles.iter_mut() {
+                                    tx.send(ThreadMsg::SHUTDOWN).unwrap();
+                                }
+                                state = SchedulerState::ENDING;
+                                let mut s = mutex_state.lock().unwrap();
+                                *s = state;
+                            },
                             _ => ()
+                        }
+                    },
+                    SchedulerState::ENDING => {
+                        // poll waiting for threads to report finished
+                        let mut end_received = vec![false; threadlen];
+                        let mut end_num = 0;
+                        loop {
+                            for (pos, rx) in rx_handles.iter_mut().enumerate() {
+                                match rx.try_recv() {
+                                    Ok(ThreadMsg::END) => {
+                                        if !end_received[pos] {
+                                            end_received[pos] = true;
+                                            end_num += 1;
+                                        }
+                                        if end_num == threadlen {
+                                            state = SchedulerState::ENDED;
+                                            let mut s = mutex_state.lock().unwrap();
+                                            *s = state;
+
+                                            println!("Simulation completed. {} threads exited successfully.", threadlen);
+                                            return;
+                                        }
+                                    },
+                                    _ => ()
+                                }
+                            }
+                            thread::sleep(time::Duration::from_millis(20)); // sleep to prevent hogging the cpu
                         }
                     },
                     _ => ()
@@ -317,7 +359,15 @@ impl Scheduler for NRTScheduler {
         }
     }
     fn end(&mut self) -> i32 {
-        0
+        match &self.runner_tx {
+            Some(tx) => {
+                tx.send(ThreadMsg::SHUTDOWN).unwrap();
+            },
+            _ => {
+                return 1;
+            }
+        }
+        return 0;
     }
     fn get_state(&self) -> SchedulerState {
         let s = self.state.lock().unwrap();

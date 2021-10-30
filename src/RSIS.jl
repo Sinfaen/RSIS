@@ -50,7 +50,7 @@ export generateinterface
 include("Scheduling.jl")
 using .MScheduling
 export setthread, setnumthreads, threadinfo
-export initsim, stepsim
+export initsim, stepsim, endsim, setsimduration
 
 include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
@@ -74,19 +74,6 @@ end
 Launch RSIS GUI Window
 """
 function gui()
-    println("Not implemented")
-end
-
-function pausesim()
-    println("Not implemented")
-end
-
-"""
-RSIS
-
-Run simulation.
-"""
-function runsim()
     println("Not implemented")
 end
 

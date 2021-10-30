@@ -5,7 +5,7 @@ using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
-export getscheduler, initscheduler, stepscheduler, addthread, schedulemodel
+export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
@@ -21,8 +21,9 @@ using Libdl
     INITIALIZED=2
     RUNNING=3
     PAUSED=4
-    ENDED=5
-    ERRORED=6
+    ENDING=5
+    ENDED=6
+    ERRORED=7
 end
 
 # globals
@@ -44,6 +45,7 @@ mutable struct LibFuncs
     s_stepscheduler
     s_pausescheduler
     s_runscheduler
+    s_endscheduler
     s_getmessage
     s_getstate
     s_getschedulername
@@ -58,6 +60,7 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :step_scheduler),
             Libdl.dlsym(lib, :pause_scheduler),
             Libdl.dlsym(lib, :run_scheduler),
+            Libdl.dlsym(lib, :end_scheduler),
             Libdl.dlsym(lib, :get_message),
             Libdl.dlsym(lib, :get_scheduler_state),
             Libdl.dlsym(lib, :get_scheduler_name),
@@ -357,6 +360,13 @@ function stepscheduler(steps::UInt64) :: Nothing
     stat = ccall(_sym.s_stepscheduler, UInt32, (UInt64,), steps);
     if stat != 0
         throw(ErrorException("Call to step_scheduler in library failed"))
+    end
+end
+
+function endscheduler() :: Nothing
+    stat = ccall(_sym.s_endscheduler, UInt32, ());
+    if stat != 0
+        throw(ErrorException("Call to `end_scheduler` in library failed"))
     end
 end
 
