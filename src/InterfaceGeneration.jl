@@ -74,6 +74,9 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
         throw(ErrorException("Class definition: $(model) not found!"))
     end
     model = data[modelname]
+    if isnothing(model)
+        return modelname
+    end
     for field in model
         if !isa(field.second, OrderedDict)
             throw(ErrorException("Non dictionary detected"))
