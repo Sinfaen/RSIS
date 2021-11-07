@@ -100,6 +100,23 @@ LibraryData() = LibraryData(OrderedDict{String, ClassData}(), "")
 _classdefinitions = Dict{String, LibraryData}()
 _cur_class = "" # current class being defined
 
+# Connection struct + globals
+struct Location
+    model :: ModelReference
+    port  :: String
+    # idx
+end
+struct Connections
+    output :: Dict{String, Set{Location}}
+    input  :: Dict{String, Location}
+end
+_connections = Dict{ModelReference, Connections}()
+function _ensureconnection(model::ModelReference)
+    if !(model in keys(_connections))
+        _connections[model] = Dict{String, Connections}()
+    end
+end
+
 
 function _CreateClass(name::Ptr{UInt8}) :: Nothing
     cl = unsafe_string(name)
@@ -417,16 +434,20 @@ end
 """
     connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String})
 Add a connection between an output port and an input port. The second value of the output
-and input arguments represent the model ports by name.
+and input arguments represent the model ports by name. The `outputs` and `inputs` names
+should not be specified.
 ```jldoctest
-julia> connect((environment_model, "outputs.pos_eci"), (cubesat, "inputs.position"))
+julia> connect((environment_model, "pos_eci"), (cubesat, "position"))
 ```
 """
 function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String})
-    _output = _getmodelinstance(output[1]);
-    (_, oport) = _parselocation(_output, output[2]);
-    _input  = _getmodelinstance(input[1]);
-    (_, iport) = _parselocation(_input, output[2]);
+    in  = Location(input[1],  "inputs." * input[2]);
+    out = Location(output[1], "outputs." * output[2]);
+
+    _output = _getmodelinstance(out.model);
+    (_, oport) = _parselocation(_output, out.port);
+    _input  = _getmodelinstance(in.model);
+    (_, iport) = _parselocation(_input, in.port);
     # data type must match
     if _type_map[oport.type] != _type_map[iport.type]
         throw(ArgumentError("Output port type: $(oport.type) does not match input port type: $(iport.type)"))
@@ -437,8 +458,20 @@ function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelRefere
     end
     # units must match
     # TODO
-    # Register connection
-    println("Not implemented")
+
+    _ensureconnection(out.model)
+    _ensureconnection(in.model)
+    # Register output connection
+    if !(out.port in keys(_connections[out.model].output))
+        _connections[out.model].output[out.port] = Set(in)
+    else
+        push!(_connections[out.model].output[out.port], in)
+    end
+    # Register input connection
+    if in.port in keys(_connections[in.model].input)
+        println("Warning! Redefining input connection")
+    end
+    _connections[in.model].input[in.port] = out;
 end
 
 function convert_julia_type(juliatype::String, language::String = "Rust") :: String
