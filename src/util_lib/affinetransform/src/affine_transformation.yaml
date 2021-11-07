@@ -1,0 +1,20 @@
+# Affine Transformation Interface
+model: affine_transformation
+
+affine_transformation_in:
+  input:  {type: Float64, value: 1.0, desc: Input signal}
+
+affine_transformation_out:
+  output: {type: Float64, value: 1.0, desc: Output range}
+
+affine_transformation_data: null
+
+affine_transformation_params:
+  scaling: {type: Float64, value: 1.0, desc: Output scaling}
+  bias: {type: Float64, value: 0.0, desc: Output bias. applied after scaling}
+
+affine_transformation:
+  inputs: {class: affine_transformation_in}
+  outputs: {class: affine_transformation_out}
+  data: {class: affine_transformation_data}
+  params: {class: affine_transformation_params}
