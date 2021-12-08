@@ -11,7 +11,6 @@ export listcallbacks, triggercallback
 export load, unload, listavailable
 export structnames, structdefinition
 export convert_julia_type
-export set!
 export connect
 
 using ..DataStructures
@@ -374,7 +373,7 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
 end
 
 """
-    get(model::ModelReference, fieldname::String)
+    getindex(model::ModelReference, fieldname::String)
 Attempts to get a signal and return a copy of the value. UNSAFE.
 NOTE: does not correct for row-major to column-major conversion.
 ```jldoctest
@@ -382,7 +381,7 @@ julia> get(cubesat, "data.mass")
 35.6
 ```
 """
-function Base.:get(model::ModelReference, fieldname::String) :: Any
+function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     _model = _getmodelinstance(model)
     (ptr, port) = _parselocation(_model, fieldname)
     # ATTEMPT TO LOAD DATA HERE!!!!!
@@ -401,7 +400,7 @@ function Base.:get(model::ModelReference, fieldname::String) :: Any
 end
 
 """
-    set!(model::ModelReference, fieldname::String, value::Any)
+    setindex!(model::ModelReference, value::Any, fieldname::String)
 Attempts to set a signal to value. UNSAFE. Requires value to match the
 port type.
 NOTE: does not correct for column-major to row-major conversion.
@@ -409,7 +408,7 @@ NOTE: does not correct for column-major to row-major conversion.
 julia> set!(cubesat, "inputs.voltage", 5.0)
 ```
 """
-function set!(model::ModelReference, fieldname::String, value::T) where{T}
+function Base.:setindex!(model::ModelReference, value::T, fieldname::String) where{T}
     _model = _getmodelinstance(model)
     (ptr, port) = _parselocation(_model, fieldname)
     if T != String && size(value) != port.dimension
