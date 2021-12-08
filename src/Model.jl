@@ -12,6 +12,7 @@ export load, unload, listavailable
 export structnames, structdefinition
 export convert_julia_type
 export set!
+export connect
 
 using ..DataStructures
 using ..MScripting
@@ -106,14 +107,14 @@ struct Location
     port  :: String
     # idx
 end
-struct Connections
+mutable struct Connections
     output :: Dict{String, Set{Location}}
     input  :: Dict{String, Location}
 end
 _connections = Dict{ModelReference, Connections}()
 function _ensureconnection(model::ModelReference)
     if !(model in keys(_connections))
-        _connections[model] = Dict{String, Connections}()
+        _connections[model] = Connections(Dict{String, Set{Location}}(), Dict{String, Location}())
     end
 end
 
@@ -440,7 +441,7 @@ should not be specified.
 julia> connect((environment_model, "pos_eci"), (cubesat, "position"))
 ```
 """
-function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String})
+function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String}) :: Nothing
     in  = Location(input[1],  "inputs." * input[2]);
     out = Location(output[1], "outputs." * output[2]);
 
@@ -462,16 +463,17 @@ function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelRefere
     _ensureconnection(out.model)
     _ensureconnection(in.model)
     # Register output connection
-    if !(out.port in keys(_connections[out.model].output))
-        _connections[out.model].output[out.port] = Set(in)
-    else
-        push!(_connections[out.model].output[out.port], in)
+    if !haskey(_connections[out.model].output, out.port)
+        _connections[out.model].output[out.port] = Set()
     end
+    push!(_connections[out.model].output[out.port], in)
+
     # Register input connection
-    if in.port in keys(_connections[in.model].input)
+    if haskey(_connections[in.model].input, in.port)
         println("Warning! Redefining input connection")
     end
     _connections[in.model].input[in.port] = out;
+    return
 end
 
 function convert_julia_type(juliatype::String, language::String = "Rust") :: String
