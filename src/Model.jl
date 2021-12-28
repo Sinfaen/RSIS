@@ -12,6 +12,7 @@ export load, unload, listavailable
 export structnames, structdefinition
 export convert_julia_type
 export connect
+export _parselocation
 
 using ..DataStructures
 using ..MScripting

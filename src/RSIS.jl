@@ -8,13 +8,15 @@ together into a single module.
 """
 module RSIS
 
+using TOML
+using YAML
+using CSV
+
 using DataStructures
+using DataFrames
 
 using Unitful
 using Unitful.DefaultSymbols
-
-using TOML
-using YAML
 
 include("Logging.jl")
 using .MLogging
@@ -58,7 +60,7 @@ export scenario!, savescenario
 
 include("SignalLogger.jl")
 using .MSignalLogger
-export logsignal, logsignalfile, listlogger
+export logsignal, logsignalfile, listlogged
 
 # final global variables
 

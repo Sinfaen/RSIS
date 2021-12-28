@@ -1,15 +1,25 @@
 
 module MSignalLogger
 
+using ..MLibrary
 using ..MScripting
+using ..MModel
 
-export logsignal, logsignalfile, listlogger
+using ..CSV
+using ..DataFrames
+
+export logsignal, logsignalfile, listlogged
+
+_loggedfields = DataFrame("model"=>Vector{String}(), "port"=>Vector{String}(), "rate"=>Vector{Float64}())
+
+## Refactor using the DataFrames package
+## this data is better consumed/output in this manner
 
 """
     logsignalfile(file::String)
-Log the signals as specified by the input YAML file name.
+Log the signals as specified by the input CSV file name.
 ```jldoctest
-julia> logsignalfile("battleship_log_file.yml")
+julia> logsignalfile("ship_logging.csv")
 LOG: Logged 31 fields
 ```
 """
@@ -18,36 +28,32 @@ function logsignalfile(file::String) :: Nothing
 end
 
 """
-    logsignal(model::String, path::String)
+    logsignal(model::ModelReference, path::String, rate::Float64)
 Log the signal as specified by the input model port string.
-To log signals described in a YAML document, see `logsignalfile`
 ```jldoctest
-julia> logsignal("mymodel", "out.thrustVector")
+julia> m = newmodel("assert_checks", "mymodel")
+julia> schedule(m, 10.0)
+julia> logsignal(m, "outputs.position", 10.0)
+julia> logsignal(m, "outputs.thrust",    2.0)
 ```
 """
-function logsignal(model::String, path::String) :: Nothing
+function logsignal(model::String, path::String, rate::Float64) :: Nothing
+    # ensure that model and path exist. Move to initialization?
+    #modelinst = _getmodelinstance(model)
+    #(_, _) = _parselocation(modelinst, path)
+    push!(_loggedfields, (model, path, rate))
     return
 end
 
 """
-    listlogger()
-Lists all signals currently being logged. The signal name is
-composed of the model name, followed by a `:`, following by the
-path to the signal and then the signal name itself (separate by
-periods).
+    listlogged()
+Returns all signals currently being logged
 ```jldoctest
-julia> listlogger
-5-element Vector{String}:
-    "battleship:out.position_ecef"
-    "battleship:out.orientation_ecef"
-    "battleship:out.velocity_ecef"
-    "battleship:data.cg_location_body"
-    "battleship:data.fuel"
+julia> listlogged()
 ```
 """
-function listlogger() :: Vector{String}
-    println("Not implemented")
-    return Vector{String}()
+function listlogged()
+    return _loggedfields
 end
 
 end
