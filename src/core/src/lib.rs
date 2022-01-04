@@ -10,6 +10,9 @@ pub use rsis::NRTScheduler;
 
 
 use modellib::BaseModel;
+use modellib::BaseModelExternal;
+use modellib::BoolCallback;
+use modellib::VoidCallback;
 
 pub use std::ffi::c_void;
 pub use libc::c_char;
@@ -74,6 +77,29 @@ pub extern "C" fn add_model(thread: i64, ptr: *mut c_void, divisor: i64, offset:
         // implemented as two pointers. That's why the double box procedure must be
         // used to pass a dyn trait object through FFI
         let boxed_trait: Box<Box<dyn BaseModel + Send>> = Box::from_raw(ptr as *mut Box<dyn BaseModel + Send>);
+        return SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn add_model_by_callbacks(thread: i64,
+    objp: *mut c_void, configp: *mut c_void, initp:*mut c_void, stepp: *mut c_void, pausep: *mut c_void, stopp: *mut c_void, destp: *mut c_void, divisor: i64, offset: i64) -> *mut c_void
+{
+    if objp.is_null() || configp.is_null() || initp.is_null() || stepp.is_null() || pausep.is_null() || stopp.is_null() || destp.is_null() {
+        return 0 as *mut c_void; // prevent seg fault later on
+    }
+    // construct BaseModelExternal
+    unsafe {
+        let obj = BaseModelExternal {
+            obj : objp,
+            config_fn : std::mem::transmute::<*mut c_void, BoolCallback>(configp),
+            init_fn   : std::mem::transmute::<*mut c_void, BoolCallback>(initp),
+            step_fn   : std::mem::transmute::<*mut c_void, BoolCallback>(stepp),
+            pause_fn  : std::mem::transmute::<*mut c_void, BoolCallback>(pausep),
+            stop_fn   : std::mem::transmute::<*mut c_void, BoolCallback>(stopp),
+            destructor_fn : std::mem::transmute::<*mut c_void, VoidCallback>(destp),
+        };
+        let boxed_trait : Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(obj));
         return SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
     }
 }
