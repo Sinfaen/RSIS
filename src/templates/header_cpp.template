@@ -3,7 +3,8 @@
 #define __{{HEADER_GUARD}}__
 #include <cstdint>
 #include <complex>
-#include <ModelRegistration.hxx>
+#include <string>
+#include "BaseModel.hxx"
 
 {{CLASS_DEFINES}}
 {{REFLECT_DEFINE}}

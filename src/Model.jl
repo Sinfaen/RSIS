@@ -476,16 +476,16 @@ function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelRefere
     return
 end
 
-function convert_julia_type(juliatype::String, language::String = "Rust") :: String
+function convert_julia_type(juliatype::String, language::String = "rust") :: String
     if !(juliatype in keys(_type_map))
         return juliatype
     end
-    if language == "Rust"
+    if language == "rust"
         return _type_conversions[_type_map[juliatype]][1]
-    elseif language == "C++"
+    elseif language == "cpp"
         return _type_conversions[_type_map[juliatype]][2]
     else
-        throw(ArgumentError("language must be [\"Rust\",\"C++\"]"))
+        throw(ArgumentError("language must be [\"rust\",\"cpp\"]"))
     end
 end
 

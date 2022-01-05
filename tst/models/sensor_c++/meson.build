@@ -7,8 +7,12 @@ project('HeightSensor', ['c', 'cpp'],
 
 inc_dir = include_directories(get_option('rsis_headers'))
 
+cc = meson.get_compiler('cpp')
+ext_lib = cc.find_library('librsis-cpp-extension', dirs : [meson.current_source_dir() + '/' + get_option('langext')])
+
 shared_library('heightSensor',
-    'heightSensorLib.cxx',
-    'heightSensor_Model.cxx',
-    'heightSensor_interface.cxx',
-    include_directories : inc_dir)
+    'src/height_sensor.cxx',
+    'src/heightSensor_interface.cxx',
+    include_directories : inc_dir,
+    dependencies : ext_lib)
+

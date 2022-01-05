@@ -12,9 +12,11 @@ using ..TOML
 abstract type ProjectType end
 struct RUST <: ProjectType end
 struct CPP  <: ProjectType end
+struct FORTRAN <: ProjectType end
 
-Base.print(io::IO, ::RUST) = print(io, "Rust")
-Base.print(io::IO, ::CPP)  = print(io, "C++")
+Base.print(io::IO, ::RUST) = print(io, "rust")
+Base.print(io::IO, ::CPP)  = print(io, "cpp")
+Base.print(io::IO, ::FORTRAN) = print(io, "fortran")
 
 # globals
 mutable struct ProjectInfo
@@ -95,6 +97,8 @@ function loadproject(directory::String = ".") :: Nothing
         _loaded_project.type = RUST()
     elseif projectdata["rsisproject"]["type"] == "cpp"
         _loaded_project.type = CPP()
+    elseif projectdata["rsisproject"]["type"] == "fortran"
+        _loaded_project.type = FORTRAN()
     else
         throw(ErrorException("Invalid language type in `rsisproject.toml`"))
     end
@@ -120,6 +124,10 @@ function _newproj(ProjectType::CPP) :: Nothing
     run(`meson setup builddir`)
 end
 
+function _newproj(ProjectType::FORTRAN) :: Nothing
+    run(`fpm new`)
+end
+
 """
     newproject(name::String; language::String = "rust")
 Create a folder containing commonly necessary files for a
@@ -127,6 +135,7 @@ new RSIS project.
 ```jldoctest
 julia> newproject("wave_model") # Defaults to rust
 julia> newproject("integrate_avionics"; language = "cpp")
+julia> newproject("legacy_model"; language = "fortran")
 ```
 """
 function newproject(name::String; language::String = "rust") :: Nothing
@@ -149,8 +158,10 @@ function newproject(name::String; language::String = "rust") :: Nothing
         _loaded_project.type = RUST()
     elseif language == "cpp"
         _loaded_project.type = CPP()
+    elseif language == "fortran"
+        _loaded_project = FORTRAN()
     else
-        throw(ArgumentError("`language` must be one of the following: [\"cpp\", \"rust\"]"))
+        throw(ArgumentError("`language` must be one of the following: [\"rust\", \"cpp\", \"fortran\"]"))
     end
     _newproj(_loaded_project.type)
 end
@@ -192,6 +203,10 @@ function _build(ProjectType::CPP)
     cd(builddir(_loaded_project.type))
     run(`meson compile`)
     cd(_loaded_project.directory)
+end
+
+function _build(ProjectType::FORTRAN)
+    run(`fpm build`)
 end
 
 """

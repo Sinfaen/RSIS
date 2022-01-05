@@ -139,17 +139,20 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
 end
 
 """
-    generateinterface(interface::String; language::String = "cpp")
-Generate a model interface from the specified interface file. Both
-C++ and Rust model interfaces can be generated. The generated files
+    generateinterface(interface::String; language::String = "")
+Generate a model interface from the specified interface file. Rust, C++,
+and Fortran model interfaces can be generated. The generated files
 are put in the same location as the interface file.
 ```jldoctest
-julia> generateinterface("mymodel.yml")
+julia> generateinterface("mymodel.yml") # interface = "cpp"
 Generated: mymodel_interface.hxx
 Generated: mymodel_interface.cxx
 Generation complete
 julia> generateinterface("mymodel.yml"; interface = "rust")
 Generated: mymodel_interface.rs
+Generation complete
+julia> generateinterface("mymodel.yml"; interface = "fortran")
+Generated: mymodel_interface.f90
 Generation complete
 ```
 """
@@ -158,13 +161,15 @@ function generateinterface(interface::String; language::String = "")
     if language == ""
         language = projecttype()
     end
-    if language == "C++"
+    if language == "cpp"
         push!(templates, ("_interface.hxx", joinpath(@__DIR__, "templates", "header_cpp.template")))
         push!(templates, ("_interface.cxx", joinpath(@__DIR__, "templates", "source_cpp.template")))
-    elseif language == "Rust"
+    elseif language == "rust"
         push!(templates, ("_interface.rs", joinpath(@__DIR__, "templates", "rust.template")))
+    elseif language == "fortran"
+        push!(templates, ("_interface.f90", joinpath(@__DIR__, "templates", "f90.template")))
     else
-        error(ArgumentError("[\"cpp\",\"rust\"] are the only valid language options"))
+        error(ArgumentError("[\"rust\",\"cpp\",\"fortran\"] are the only valid language options"))
     end
     words = Dict{String, String}()
 
@@ -192,9 +197,13 @@ function generateinterface(interface::String; language::String = "")
     if language == "cpp"
         words["HEADER_GUARD"] = uppercase(model_name)
         words["HEADER_FILE"]  = "$(model_name)_interface.hxx"
+        words["MODEL_FILE"]   = "$(data["model"]).hxx"
         hxx_text = ""
         cxx_text = ""
         for name in class_order
+            if name == data["model"]
+                continue
+            end
             fields = class_defs[name]
             htext = "class $(name) {\n" *
                     "public:\n" *
@@ -218,6 +227,8 @@ function generateinterface(interface::String; language::String = "")
                 end
                 if f.iscomposite
                     ctext = ctext * "$n()"
+                elseif f.type == "String"
+                    ctext = ctext * "$n(\"$(f.defaultvalue)\")"
                 else
                     if length(f.dimension) == 0
                         ctext = ctext * "$n($(f.defaultvalue))"
@@ -233,13 +244,13 @@ function generateinterface(interface::String; language::String = "")
         end
         words["CLASS_DEFINES"]     = hxx_text
         words["CLASS_DEFINITIONS"] = cxx_text
-        words["REFLECT_DEFINE"] = "void ReflectModels(RSIS::Model::DefineClass_t _class, RSIS::Model::DefineMember_t _member);"
+        words["REFLECT_DEFINE"] = "void ReflectModels(ReflectClass _class, ReflectMember _member);"
 
         # Add reflection generation
         rtext = ""
         for name in class_order
             fields = class_defs[name]
-            rtext = rtext * "void Reflect_$(name)(DefineClass_t _class, DefineMember_t _member) {\n"
+            rtext = rtext * "void Reflect_$(name)(ReflectClass _class, ReflectMember _member) {\n"
             rtext = rtext * "_class(\"$(name)\");\n"
             txt = ""
             for (fieldname, f) in fields

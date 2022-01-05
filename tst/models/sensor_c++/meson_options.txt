@@ -1,1 +1,2 @@
-option('rsis_headers', type : 'string', value : '../../../install/include')
+option('rsis_headers', type: 'string', value: '../../../../src/core/modellib/cpp-meson-lib')
+option('langext', type: 'string', value: '../../../src/core/modellib/cpp-meson-lib/build')
