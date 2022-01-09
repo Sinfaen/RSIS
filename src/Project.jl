@@ -35,7 +35,11 @@ function _libdir(ProjectType::RUST)
 end
 
 function _libdir(ProjectType::CPP)
-    return "builddir"
+    return "build"
+end
+
+function _libdir(ProjectType::FORTRAN)
+    return "build"
 end
 
 function builddir(proj::ProjectInfo)
@@ -125,7 +129,7 @@ function _newproj(ProjectType::CPP) :: Nothing
 end
 
 function _newproj(ProjectType::FORTRAN) :: Nothing
-    run(`fpm new`)
+    run(`fpm new --lib`)
 end
 
 """
@@ -200,7 +204,8 @@ function _build(ProjectType::RUST)
 end
 
 function _build(ProjectType::CPP)
-    cd(builddir(_loaded_project.type))
+    run(`meson build`)
+    cd(builddir(_loaded_project))
     run(`meson compile`)
     cd(_loaded_project.directory)
 end

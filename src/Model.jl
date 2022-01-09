@@ -22,24 +22,23 @@ using ..MProject
 using ..Unitful
 
 ## globals
-# DataType => [Rust datatype, C++ datatype]
-_type_conversions = Dict{DataType, Vector{String}}(
-    Char    => ["char", "char"],
-    String  => ["String", "std::string"],
-    Int8    => ["i8",   "int8_t"],
-    Int16   => ["i16",  "int16_t"],
-    Int32   => ["i32",  "int32_t"],
-    Int64   => ["i64",  "int64_t"],
-    UInt8   => ["u8",   "uint8_t"],
-    UInt16  => ["u16",  "uint16_t"],
-    UInt32  => ["u32",  "uint32_t"],
-    UInt64  => ["u64",  "uint64_t"],
-    Bool    => ["bool", "bool"],
-    Float32 => ["f32",  "float"],
-    Float64 => ["f64",  "double"],
-    # Requires lines: ["use num_complex::Complex;", "#include <complex>"]
-    Complex{Float32} => ["Complex<f32>", "std::complex<float>"],
-    Complex{Float64} => ["Complex<f64>", "std::complex<double>"]
+# DataType => [Rust datatype, C++ datatype, Fortran datatype]
+_type_conversions = Dict{DataType, Vector{Union{Missing,String}}}(
+    Char    => ["char", "char", "character"],
+    String  => ["String", "std::string", "character (len=:), allocatable"],
+    Int8    => ["i8",   "int8_t",  "integer (int8)"],
+    Int16   => ["i16",  "int16_t", "integer (int16)"],
+    Int32   => ["i32",  "int32_t", "integer (int32)"],
+    Int64   => ["i64",  "int64_t", "integer (int64)"],
+    UInt8   => ["u8",   "uint8_t",  missing],
+    UInt16  => ["u16",  "uint16_t", missing],
+    UInt32  => ["u32",  "uint32_t", missing],
+    UInt64  => ["u64",  "uint64_t", missing],
+    Bool    => ["bool", "bool", "logical"],
+    Float32 => ["f32",  "float",  "real (real32)"],
+    Float64 => ["f64",  "double", "real (real64)"],
+    Complex{Float32} => ["Complex<f32>", "std::complex<float>",  "complex*8"],
+    Complex{Float64} => ["Complex<f64>", "std::complex<double>", "complex*16"]
 )
 
 # Create a string -> DataType mapping for all supported datatypes
@@ -480,13 +479,20 @@ function convert_julia_type(juliatype::String, language::String = "rust") :: Str
     if !(juliatype in keys(_type_map))
         return juliatype
     end
+    t = missing
     if language == "rust"
-        return _type_conversions[_type_map[juliatype]][1]
+        t = _type_conversions[_type_map[juliatype]][1]
     elseif language == "cpp"
-        return _type_conversions[_type_map[juliatype]][2]
+        t = _type_conversions[_type_map[juliatype]][2]
+    elseif language == "fortran"
+        t = _type_conversions[_type_map[juliatype]][3]
     else
         throw(ArgumentError("language must be [\"rust\",\"cpp\"]"))
     end
+    if ismissing(t)
+        throw(ErrorException("language $(language) does not support requested type $(juliatype)"))
+    end
+    return t
 end
 
 end

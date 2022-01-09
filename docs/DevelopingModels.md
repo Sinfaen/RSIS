@@ -77,26 +77,28 @@ The `value` key can also be specified for non user defined types, indicating a d
 ### Default Data Types
 The following table represents how Julia datatypes correspond to datatypes in Rust and C++:
 
-| Julia Data Type | Rust Data Type | C++ Data Type |
-| --------------- | -------------- | ------------- |
-| Char | char | char |
-| Bool | bool | bool |
-| Int8 | i8 | int8_t |
-| Int16 | i16 | int16_t |
-| Int32 | i32 | int32_t |
-| Int64 | i64 | int64_t |
-| UInt8 | u8 | uint8_t |
-| UInt16 | u16 | uint16_t |
-| UInt32 | u32 | uint32_t |
-| UInt64 | u64 | uint64_t |
-| Float32 | f32 | float |
-| Float64 | f64 | double |
-| Complex{Float32} | Complex{f32} | std::complex<float> |
-| Complex{Float64} | Complex{f64} | std::complex<double> |
+| Julia | Rust | C++ | Fortran 2008 |
+| ----- | ---- | --- | ----------- |
+| Char | char | char | character |
+| String | String | std::string | character (len=:), allocatable |
+| Bool | bool | bool | logical |
+| Int8 | i8 | int8_t | integer (int8) |
+| Int16 | i16 | int16_t | integer (int16) |
+| Int32 | i32 | int32_t | integer (int32) |
+| Int64 | i64 | int64_t | integer (int64) |
+| UInt8 | u8 | uint8_t | na |
+| UInt16 | u16 | uint16_t | na |
+| UInt32 | u32 | uint32_t | na |
+| UInt64 | u64 | uint64_t | na |
+| Float32 | f32 | float | real (real32) |
+| Float64 | f64 | double | real (real64) |
+| Complex{Float32} | Complex{f32} | std::complex<float> | complex*8 |
+| Complex{Float64} | Complex{f64} | std::complex<double> | complex*16 |
 
 __Notes__:
 - Complex values in Rust are supported with the `num-complex` crate. Complex values in C++ are supported with the `<complex>` header.
 - The lack of support for `int`, `short`, `long`, `long long`, and their unsigned equivalents in C++ is intentional.
+- Fortran integration utilizes `use ISO_FORTRAN_ENV` to specify integers
 
 ### Units
 The `Unitful` package is used to define units for ports. Connected ports that both have a defined unit must have matching units (this rule is relaxed if any or both ports don't have a unit). In order to convert between units, it is suggested that the user add a `Unit Conversion` block provided in the Framework Library.
