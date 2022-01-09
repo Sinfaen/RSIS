@@ -30,7 +30,7 @@ template<typename T, typename U> size_t _offsetof(U T::*member) {
 struct UTF8Data {
     void*    ptr;
     uint64_t size;
-}
+};
 
 extern "C" {
     bool     c_ffi_interface(BaseModel* obj, void* ptrs[7]);

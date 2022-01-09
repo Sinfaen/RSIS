@@ -71,6 +71,20 @@ mutable struct LibFuncs
     end
 end
 
+mutable struct LangExtension
+    s_lib
+    s_ffi
+    s_get_str
+    s_set_str
+    function LangExtension(lib)
+        new(lib,
+            Libdl.dlsym(lib, :c_ffi_interface),
+            Libdl.dlsym(lib, :get_utf8_string),
+            Libdl.dlsym(lib, :set_utf8_string))
+    end
+end
+_cpp_lib = nothing # C++ utility library pointer
+
 mutable struct LibModel
     s_lib
     s_createmodel
@@ -180,6 +194,16 @@ function LoadLibrary()
     _lib = Libdl.dlopen(libpath)
     _sym = LibFuncs(_lib)
     InitLibrary(_sym)
+
+    # Load C++ extension
+    libpath = joinpath(@__DIR__, "core", "modellib", "cpp-meson-lib", "build")
+    try
+        libfile = _libraryprefix() * "rsis-cpp-extension" * _libraryextension()
+    catch e
+        throw(InitError(:RSIS, String(e)))
+    end
+    libpath = joinpath(libpath, libfile)
+    _cpp_lib = LangExtension(Libdl.dlopen(libpath))
     return
 end
 
