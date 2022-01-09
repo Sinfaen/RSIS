@@ -9,4 +9,8 @@
 {{CLASS_DEFINES}}
 {{REFLECT_DEFINE}}
 
+extern "C" {
+    const char* metadata();
+}
+
 #endif // __{{HEADER_GUARD}}__

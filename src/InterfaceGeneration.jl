@@ -261,6 +261,10 @@ function generateinterface(interface::String; language::String = "")
         words["REFLECT_DEFINITIONS"] = rtext
 
         words["REFLECT_CALLS"] = join(["Reflect_$(name)(_class, _member);" for name in class_order], "\n")
+        words["METADATA_TOML"] = """
+        [rsis]
+        name = "$(data["model"])"
+        type = "$(language)" """
     else
         rs_text = ""
         cs_text = ""
@@ -330,7 +334,12 @@ function generateinterface(interface::String; language::String = "")
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
         words["REFLECT_DEFINITIONS"] = reflect * ref_all
         words["STRUCT_NAME"] = last(class_order)
+        words["METADATA_TOML"] = """
+        [rsis]
+        name = \\"$(data["model"])\\"
+        type = \\"$(language)\\" """
     end
+
     pushtexttofile(base_dir, model_name, words, templates)
 
     println("Generation complete")

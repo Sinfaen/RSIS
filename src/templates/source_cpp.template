@@ -7,3 +7,11 @@
 void ReflectModels(ReflectClass _class, ReflectMember _member) {
 {{REFLECT_CALLS}}
 }
+
+const char* METADATA = R"(
+{{METADATA_TOML}}
+)";
+
+const char* metadata() {
+    return METADATA;
+}

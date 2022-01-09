@@ -13,6 +13,7 @@ export simstatus, SchedulerState
 export get_utf8_string, set_utf8_string
 
 using Libdl
+using TOML
 
 # this enum is supposed to match the SchedulerState enum in rust
 @enum SchedulerState begin
@@ -73,11 +74,14 @@ mutable struct LibModel
     s_lib
     s_createmodel
     s_reflect
+    s_metadata
+    metadata::Dict{String,Any}
     function LibModel(libfile::String)
         lib = Libdl.dlopen(libfile)
         new(lib,
             Libdl.dlsym(lib, :create_model),
-            Libdl.dlsym(lib, :reflect))
+            Libdl.dlsym(lib, :reflect),
+            Libdl.dlsym(lib, :metadata))
     end
 end
 
@@ -138,6 +142,22 @@ function _libraryextension() :: String
     end
 end
 
+function _loadlibmetadata(modellib::LibModel) :: Nothing
+    strdata = ccall(modellib.s_metadata, Ptr{UInt8}, ())
+    if strdata == 0
+        println("Warning: Library does not have metadata. Null pointer returned")
+        return
+    end
+    text = unsafe_string(strdata)
+    data = TOML.tryparse(text)
+    if isa(data, TOML.ParserError)
+        println("Warning: Library has invalid metadata. Error: $(data)")
+    else
+        modellib.metadata = data
+    end
+    return
+end
+
 """
     LoadLibrary()
 Load the RSIS shared library
@@ -191,6 +211,7 @@ function LoadModelLib(name::String, filename::String, namespace::String="") :: B
         else
             _namespaces[namespace] = [name]
         end
+        _loadlibmetadata(_modellibs[name])
         return true
     end
     return false

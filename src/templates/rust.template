@@ -4,6 +4,7 @@ extern crate modellib;
 extern crate libc;
 
 use libc::c_void;
+use libc::c_char;
 use std::ffi::CString;
 
 use modellib::BaseModel;
@@ -20,4 +21,12 @@ use modellib::ReflectMember;
 pub extern "C" fn create_model() -> *mut c_void {
     let obj: Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(crate::{{STRUCT_NAME}}::new()));
     Box::into_raw(obj) as *mut Box<dyn BaseModel + Send> as *mut c_void
+}
+
+pub static METADATA : &str = "\
+{{METADATA_TOML}}\0";
+
+#[no_mangle]
+pub extern "C" fn metadata() -> *const c_char {
+    METADATA.as_ptr() as *const c_char
 }
