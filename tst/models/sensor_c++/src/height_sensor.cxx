@@ -31,8 +31,4 @@ BaseModel* CreateModel() {
     return new height_sensor();
 }
 
-void Reflect(void* _cb1, void* _cb2) {
-    ReflectModels((ReflectClass)_cb1, (ReflectMember)_cb2);
-}
-
 }

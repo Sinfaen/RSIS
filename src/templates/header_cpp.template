@@ -7,9 +7,9 @@
 #include "BaseModel.hxx"
 
 {{CLASS_DEFINES}}
-{{REFLECT_DEFINE}}
 
 extern "C" {
+    void reflect(ReflectClass _class, ReflectMember _member);
     void*       create_model();
     const char* metadata();
 }

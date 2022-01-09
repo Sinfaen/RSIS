@@ -4,7 +4,7 @@
 
 {{CLASS_DEFINITIONS}}
 {{REFLECT_DEFINITIONS}}
-void ReflectModels(ReflectClass _class, ReflectMember _member) {
+void reflect(ReflectClass _class, ReflectMember _member) {
 {{REFLECT_CALLS}}
 }
 

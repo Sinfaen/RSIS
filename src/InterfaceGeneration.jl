@@ -244,7 +244,6 @@ function generateinterface(interface::String; language::String = "")
         end
         words["CLASS_DEFINES"]     = hxx_text
         words["CLASS_DEFINITIONS"] = cxx_text
-        words["REFLECT_DEFINE"] = "void ReflectModels(ReflectClass _class, ReflectMember _member);"
 
         # Add reflection generation
         rtext = ""
