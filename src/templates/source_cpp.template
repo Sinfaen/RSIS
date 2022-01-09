@@ -8,6 +8,10 @@ void ReflectModels(ReflectClass _class, ReflectMember _member) {
 {{REFLECT_CALLS}}
 }
 
+void* create_model() {
+    return new {{STRUCT_NAME}}();
+}
+
 const char* METADATA = R"(
 {{METADATA_TOML}}
 )";

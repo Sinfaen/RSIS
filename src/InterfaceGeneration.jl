@@ -333,12 +333,12 @@ function generateinterface(interface::String; language::String = "")
         words["STRUCT_DEFINITIONS"] = rs_text
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
         words["REFLECT_DEFINITIONS"] = reflect * ref_all
-        words["STRUCT_NAME"] = last(class_order)
         words["METADATA_TOML"] = """
         [rsis]
         name = \\"$(data["model"])\\"
         type = \\"$(language)\\" """
     end
+    words["STRUCT_NAME"] = last(class_order)
 
     pushtexttofile(base_dir, model_name, words, templates)
 

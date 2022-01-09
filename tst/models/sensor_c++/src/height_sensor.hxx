@@ -1,7 +1,7 @@
 #ifndef __HEIGHT_SENSOR_HXX_
 #define __HEIGHT_SENSOR_HXX_
 
-#include "heightSensor_interface.hxx"
+#include "height_sensor_interface.hxx"
 
 class height_sensor : public BaseModel {
 public:

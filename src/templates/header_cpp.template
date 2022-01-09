@@ -10,6 +10,7 @@
 {{REFLECT_DEFINE}}
 
 extern "C" {
+    void*       create_model();
     const char* metadata();
 }
 

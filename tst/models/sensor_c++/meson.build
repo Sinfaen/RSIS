@@ -12,7 +12,7 @@ ext_lib = cc.find_library('librsis-cpp-extension', dirs : [meson.current_source_
 
 shared_library('heightSensor',
     'src/height_sensor.cxx',
-    'src/heightSensor_interface.cxx',
+    'src/height_sensor_interface.cxx',
     include_directories : inc_dir,
     dependencies : ext_lib)
 
