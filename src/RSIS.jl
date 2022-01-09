@@ -24,7 +24,7 @@ export setlogfile, logmsg
 
 include("RSIS_Lib.jl")
 using .MLibrary
-export getscheduler
+export getscheduler, libraryinfo
 export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
 export simstatus, SchedulerState

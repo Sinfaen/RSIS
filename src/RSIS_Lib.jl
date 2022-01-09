@@ -11,6 +11,7 @@ export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
 export get_utf8_string, set_utf8_string
+export libraryinfo
 
 using Libdl
 using TOML
@@ -277,6 +278,23 @@ function getscheduler()
     end
     msgptr = ccall(_sym.s_getmessage, Cstring, ())
     println(unsafe_string(msgptr))
+end
+
+"""
+    libraryinfo(library::String)
+Returns the metadata bundled along with a library.
+```jldoctest
+julia> load("testM")
+julia> libraryinfo("testM")
+Dict{String,Any} with 1 entry:
+  "rsis" => Dict{String, Any}("name"=>"sensor", "type"=> "rust")
+```
+"""
+function libraryinfo(library::String) :: Dict{String, Any}
+    if !(library in keys(_modellibs))
+        throw(ArgumentError("Module: $(library) is not loaded"))
+    end
+    return _modellibs[library].metadata
 end
 
 """
