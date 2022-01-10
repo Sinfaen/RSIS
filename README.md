@@ -13,6 +13,7 @@ The RSIS Framework is used to build Real-Time simulations.
 ## Dependencies
 - Julia
     - DataStructures
+    - DataFrames
     - Unitful
     - YAML
 - Rust
@@ -21,9 +22,13 @@ The RSIS Framework is used to build Real-Time simulations.
 ### Optional Dependencies
 C++ Projects
 - Meson
+Fortran Projects
+- fpm (Fortran Package Manager)
 
 ## Core Library Build Steps
 ```bash
 $ cd src/core
+$ cargo build
+$ cd modellib/cpp-meson-lib
 $ cargo build
 ```

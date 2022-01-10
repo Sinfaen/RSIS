@@ -253,7 +253,7 @@ function generateinterface(interface::String; language::String = "")
             rtext = rtext * "_class(\"$(name)\");\n"
             txt = ""
             for (fieldname, f) in fields
-                txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"int\", _offsetof(&$(name)::$(fieldname)));\n"
+                txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)));\n"
             end
             rtext = rtext * txt * "}\n\n"
         end
