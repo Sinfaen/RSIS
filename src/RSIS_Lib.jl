@@ -166,7 +166,7 @@ function _loadlibmetadata(modellib::LibModel) :: Nothing
     text = unsafe_string(strdata)
     data = TOML.tryparse(text)
     if isa(data, TOML.ParserError)
-        println("Warning: Library has invalid metadata. Error: $(data)")
+        error("Metadata parse failure: $(data)")
     else
         modellib.metadata = data
     end
@@ -180,6 +180,7 @@ Load the RSIS shared library
 function LoadLibrary()
     global _lib
     global _sym
+    global _cpp_lib
 
     # detect operating system
     libpath = joinpath(@__DIR__, "core", "target", "debug");
@@ -443,17 +444,32 @@ struct utf8_data
     size::UInt64
 end
 
-function get_utf8_string(obj::Ptr{Cvoid}) :: String
-    # TODO update for multiple languages. this is rust only for now
-    data::utf8_data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), obj)
+function get_utf8_string(obj::Ptr{Cvoid}, lang::String = "rust") :: String
+    data = utf8_data(Ptr{UInt8}(), 0);
+    if lang == "rust"
+        data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), obj)
+    elseif lang == "cpp"
+        data = ccall(_cpp_lib.s_get_str, utf8_data, (Ptr{Cvoid},), obj)
+    else
+        throw(ArgumentError("Unknown language. No action performed"))
+    end
     return unsafe_string(data.pointer, data.size)
 end
 
-function set_utf8_string(obj::Ptr{Cvoid}, str::String) :: Nothing
+function set_utf8_string(obj::Ptr{Cvoid}, str::String, lang::String = "rust") :: Nothing
     data = utf8_data(pointer(str), ncodeunits(str))
-    stat = ccall(_sym.s_setutf8, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
-    if stat != 0
-        throw(ErrorException("Failed to set string value"))
+    if lang == "rust"
+        stat = ccall(_sym.s_setutf8, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
+        if stat != 0
+            throw(ErrorException("Failed to set string value"))
+        end
+    elseif lang == "cpp"
+        stat = ccall(_cpp_lib.s_set_str, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
+        if stat != 0
+            throw(ErrorException("Failed to set string value, C++"))
+        end
+    else
+        throw(ArgumentError("Unknown language. No action performed"))
     end
 end
 

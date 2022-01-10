@@ -45,7 +45,7 @@ bool c_ffi_interface(BaseModel* obj, void* ptrs[7]) {
 
 UTF8Data get_utf8_string(void* ptr) {
     UTF8Data data;
-    std::string* sobj = (std::string*) &ptr;
+    std::string* sobj = (std::string*) ptr;
     data.ptr  = (void*) sobj->c_str();
     data.size = sobj->size();
     return data;

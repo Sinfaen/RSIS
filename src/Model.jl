@@ -343,8 +343,14 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
     curstruct = _classdefinitions[model.modulename].last # assumes that overarching is the last defined
     ptr = model.obj
 
-    # returned value is a Box<Box<dyn trait>>
-    ptr = Ptr{Cvoid}(unsafe_load(Ptr{UInt64}(ptr)))
+    libdata = libraryinfo(model.modulename)
+    if libdata["rsis"]["type"] == "rust"
+        # returned value is a Box<Box<dyn trait>>
+        # ASSUMPTION: the first regular pointer of the fat pointer is what we need
+        ptr = Ptr{Cvoid}(unsafe_load(Ptr{UInt64}(ptr)))
+    else
+        # c++, do nothing as pointer that we have is the actual pointer to the object
+    end
 
     downtree = split(fieldname, ".")
     for (i, token) in enumerate(downtree)
@@ -385,10 +391,13 @@ function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     _model = _getmodelinstance(model)
     (ptr, port) = _parselocation(_model, fieldname)
     # ATTEMPT TO LOAD DATA HERE!!!!!
+
+    libdata = libraryinfo(_model.modulename)
+
     t = _type_map[port.type]
     if length(port.dimension) == 0
         if t == String
-            return get_utf8_string(ptr)
+            return get_utf8_string(ptr, libdata["rsis"]["type"])
         else
             return unsafe_load(Ptr{t}(ptr))
         end
@@ -411,12 +420,13 @@ julia> set!(cubesat, "inputs.voltage", 5.0)
 function Base.:setindex!(model::ModelReference, value::T, fieldname::String) where{T}
     _model = _getmodelinstance(model)
     (ptr, port) = _parselocation(_model, fieldname)
+    libdata = libraryinfo(_model.modulename)
     if T != String && size(value) != port.dimension
         throw(ArgumentError("Value size does not match port size: $(port.dimension)"))
     end
     t = _type_map[port.type]
     if t == String
-        set_utf8_string(ptr, value)
+        set_utf8_string(ptr, value, libdata["rsis"]["type"])
         return
     end
     if eltype(value) != t
