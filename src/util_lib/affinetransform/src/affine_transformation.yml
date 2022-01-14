@@ -2,10 +2,10 @@
 model: affine_transformation
 
 affine_transformation_in:
-  input:  {type: Float64, value: 1.0, desc: Input signal}
+  signal:  {type: Float64, value: 1.0, desc: Input signal}
 
 affine_transformation_out:
-  output: {type: Float64, value: 1.0, desc: Output range}
+  signal: {type: Float64, value: 1.0, desc: Output range}
 
 affine_transformation_data: null
 

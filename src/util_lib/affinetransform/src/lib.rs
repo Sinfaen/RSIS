@@ -41,7 +41,7 @@ impl BaseModel for affine_transformation {
         self.config()
     }
     fn step(&mut self) -> bool {
-        self.outputs.output = self.inputs.input * self.params.scaling + self.params.bias;
+        self.outputs.signal = self.inputs.signal * self.params.scaling + self.params.bias;
         true
     }
     fn pause(&mut self) -> bool {
