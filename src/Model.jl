@@ -129,10 +129,11 @@ function _CreateClass(name::Ptr{UInt8}) :: Nothing
     return
 end
 
-function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::UInt) :: Nothing
+function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::UInt, units::Ptr{UInt8}) :: Nothing
     classname = unsafe_string(cl)
     member    = unsafe_string(memb)
     definition = unsafe_string(def)
+    unitstr    = unsafe_string(units)
     _data = _classdefinitions[_cur_class]
     if !(classname in keys(_data.structs))
         logmsg("Class: $(classname) for member: $(member) does not exist. Creating default.", WARNING)
@@ -150,9 +151,9 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
             end
             push!(dims, val)
         end
-        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), "", !(String(tt[1]) in keys(_type_map))), offset)
+        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), unitstr, !(String(tt[1]) in keys(_type_map))), offset)
     else
-        _data.structs[classname].fields[member] = (Port(definition, (), "", !(definition in keys(_type_map))), offset)
+        _data.structs[classname].fields[member] = (Port(definition, (), unitstr, !(definition in keys(_type_map))), offset)
     end
     return
 end
@@ -166,7 +167,7 @@ function GetClassData(name::String, namespace::String = "") :: Nothing
     _classdefinitions[_cur_class] = LibraryData()
     GetModelData(name, namespace,
         @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
-        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt)))
+        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt, Ptr{UInt8})))
     _cur_class = ""
     return
 end

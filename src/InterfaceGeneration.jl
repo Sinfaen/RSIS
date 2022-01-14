@@ -14,7 +14,7 @@ export generateinterface
 
 # globals
 _type_defaults = Dict{String, Any}(
-    "char"    => ' ',
+    "Char"    => ' ',
     "String"  => "",
     "Int8"    => 0,
     "Int16"   => 0,
@@ -107,7 +107,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             if !isa(dims, Vector)
                 throw(ErrorException("Dimension specified for field $(field.first) is not a list"))
             end
-            unit=nothing
+            unit=""
             if "unit" in _keys
                 u = field.second["unit"]
                 try
@@ -254,9 +254,9 @@ function generateinterface(interface::String; language::String = "")
             txt = ""
             for (fieldname, f) in fields
                 if length(f.dimension) == 0
-                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)));\n"
+                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)), \"$(f.units)\");\n"
                 else
-                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\", _offsetof(&$(name)::$(fieldname)));\n"
+                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\", _offsetof(&$(name)::$(fieldname)), \"$(f.units)\");\n"
                 end
             end
             rtext = rtext * txt * "}\n\n"
@@ -322,11 +322,13 @@ function generateinterface(interface::String; language::String = "")
                 if length(f.dimension) == 0
                     ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
                                 "    let d_$(n) = CString::new(\"$(f.type)\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)));\n"
+                                "    let u_$(n) = CString::new(\"$(f.units)\").unwrap();\n" *
+                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)), u_$(n).as_ptr());\n"
                 else
                     ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
                                 "    let d_$(n) = CString::new(\"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)));\n"
+                                "    let u_$(n) = CString::new(\"$(f.units)\").unwrap();\n" *
+                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)), u_$(n).as_ptr());\n"
                 end
             end
             ref = ref * "}\n"

@@ -52,4 +52,4 @@ impl Drop for BaseModelExternal {
 unsafe impl Send for BaseModelExternal {}
 
 pub type ReflectClass  = extern fn(*const c_char);
-pub type ReflectMember = extern fn(*const c_char, *const c_char, *const c_char, usize);
+pub type ReflectMember = extern fn(*const c_char, *const c_char, *const c_char, usize, *const c_char);

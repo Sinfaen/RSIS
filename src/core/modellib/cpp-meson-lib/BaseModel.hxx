@@ -21,7 +21,7 @@ public:
 void DeleteModel(BaseModel* obj);
 
 typedef void (*ReflectClass)(const char*);
-typedef void (*ReflectMember)(const char*, const char*, const char*, unsigned int);
+typedef void (*ReflectMember)(const char*, const char*, const char*, unsigned int, const char*);
 
 template<typename T, typename U> size_t _offsetof(U T::*member) {
     return (char*)&((T*)nullptr->*member) - (char*)nullptr;
