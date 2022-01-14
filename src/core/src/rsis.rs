@@ -50,6 +50,8 @@ pub struct ScheduledObject {
     pub model : Box<dyn BaseModel + Send>,
     pub divisor : i64,
     pub offset : i64,
+
+    pub counter : i64,
 }
 
 pub struct ThreadState {
@@ -99,7 +101,13 @@ impl NRTScheduler {
                         Ok(ThreadMsg::EXECUTE(value)) => {
                             for _ in 0..value {
                                 for obj in &mut u[..] {
-                                    (*obj).model.step();
+                                    if (*obj).counter == 0 {
+                                        (*obj).model.step();
+                                    }
+                                    (*obj).counter += 1;
+                                    if (*obj).counter == (*obj).divisor {
+                                        (*obj).counter = 0;
+                                    }
                                 }
                                 time.increment(1);
                                 c.wait();
@@ -332,6 +340,7 @@ impl Scheduler for NRTScheduler {
             model: *model,
             divisor: divisor,
             offset: offset,
+            counter: 0,
         };
         self.threads[thread].models.push(obj);
         return &self.threads[thread].models.last().unwrap().model as *const Box<dyn BaseModel + Send> as *mut c_void;

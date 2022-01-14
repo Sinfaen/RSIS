@@ -119,7 +119,7 @@ function initsim(;blocking::Bool = false) :: Nothing
         # schedule models
         for model in thread.scheduled
             # Convert 1 based indexing to 0 based indexing for the thread id
-            schedulemodel(model.ref, i - 1, Int64(model.frequency / thread.frequency), model.offset)
+            schedulemodel(model.ref, i - 1, Int64(thread.frequency / model.frequency), model.offset)
         end
     end
     initscheduler()
