@@ -253,7 +253,11 @@ function generateinterface(interface::String; language::String = "")
             rtext = rtext * "_class(\"$(name)\");\n"
             txt = ""
             for (fieldname, f) in fields
-                txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)));\n"
+                if length(f.dimension) == 0
+                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)));\n"
+                else
+                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\", _offsetof(&$(name)::$(fieldname)));\n"
+                end
             end
             rtext = rtext * txt * "}\n\n"
         end
