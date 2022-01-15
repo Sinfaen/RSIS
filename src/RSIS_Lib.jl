@@ -114,9 +114,9 @@ end
 function Base.show(io::IO, obj::ModelReference)
     try
         _model = _getmodelinstance(obj)
-        println(io, "RSIS model: $(obj.name), from library $(_model.modulename)")
+        print(io, "App($(obj.name))")
     catch
-        println(io, "RSIS model: $(obj.name), does not exist")
+        print(io, "Invalid")
     end
 end
 

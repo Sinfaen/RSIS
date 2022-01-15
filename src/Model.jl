@@ -11,7 +11,7 @@ export listcallbacks, triggercallback
 export load, unload, listavailable
 export structnames, structdefinition
 export convert_julia_type
-export connect
+export connect, listconnections
 export _parselocation
 
 using ..DataStructures
@@ -107,13 +107,12 @@ struct Location
     # idx
 end
 mutable struct Connections
-    output :: Dict{String, Set{Location}}
-    input  :: Dict{String, Location}
+    input_link :: Dict{String, Location}
 end
 _connections = Dict{ModelReference, Connections}()
 function _ensureconnection(model::ModelReference)
     if !(model in keys(_connections))
-        _connections[model] = Connections(Dict{String, Set{Location}}(), Dict{String, Location}())
+        _connections[model] = Connections(Dict{String, Location}())
     end
 end
 
@@ -470,20 +469,27 @@ function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelRefere
     # units must match
     # TODO
 
-    _ensureconnection(out.model)
     _ensureconnection(in.model)
-    # Register output connection
-    if !haskey(_connections[out.model].output, out.port)
-        _connections[out.model].output[out.port] = Set()
-    end
-    push!(_connections[out.model].output[out.port], in)
-
     # Register input connection
-    if haskey(_connections[in.model].input, in.port)
+    if haskey(_connections[in.model].input_link, in.port)
         println("Warning! Redefining input connection")
     end
-    _connections[in.model].input[in.port] = out;
+    _connections[in.model].input_link[in.port] = out;
     return
+end
+
+"""
+    listconnections()
+Returns a list of all the connections within the scenario
+"""
+function listconnections() :: Vector{Tuple{Location, Location}}
+    cncts = Vector{Tuple{Location, Location}}()
+    for (model, _map) in _connections
+        for (_iport, _oloc) in _map.input_link
+            push!(cncts, (_oloc, Location(model, _iport)))
+        end
+    end
+    return cncts
 end
 
 function convert_julia_type(juliatype::String, language::String = "rust") :: String
