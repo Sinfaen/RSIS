@@ -23,9 +23,8 @@ _config = Configuration()
 
 """
     scenario!(filename::String)
-Load a scenario YAML file from the filepaths. The file
-extension defaults to '.yml'. Loading a new scenario overrides
-the previously loaded scenario if it exists.
+Load a scenario YAML file from the filepaths. Loading a
+new scenario overrides the previously loaded scenario if it exists.
 ```jldoctest
 julia> scenario!("cloudy_day_test")
 julia> scenario!("closed_loop_sim.scene")
@@ -40,12 +39,9 @@ function scenario!(filename::String) :: Nothing
     data = YAML.load_file(locations[1])
 
     if "models" in keys(data)
-        for model in data["models"]
-            # TODO
-            println(model)
+        for (model, _) in data["models"]
+            load(model)
         end
-    else
-        println("No models specified. Is there something wrong here?")
     end
 end
 
