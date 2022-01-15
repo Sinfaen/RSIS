@@ -5,6 +5,7 @@ extern crate libc;
 mod rsis;
 mod scheduler;
 mod epoch;
+mod connection;
 
 pub use scheduler::Scheduler;
 pub use rsis::NRTScheduler;
@@ -14,6 +15,8 @@ use modellib::BaseModel;
 use modellib::BaseModelExternal;
 use modellib::BoolCallback;
 use modellib::VoidCallback;
+
+use connection::Connection;
 
 pub use std::ffi::c_void;
 pub use libc::c_char;
@@ -103,6 +106,26 @@ pub extern "C" fn add_model_by_callbacks(thread: i64,
         let boxed_trait : Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(obj));
         return SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
     }
+}
+
+#[no_mangle]
+pub extern "C" fn add_connection(src: *mut c_void, dst: *mut c_void, size: usize, thread: i64, divisor: i64, offset: i64) -> u32 {
+    if src.is_null() || dst.is_null() || size == 0 {
+        return RSISStat::BADARG as u32;
+    }
+    let obj = Connection {
+        src : src as *mut i8,
+        dst : dst as *mut i8,
+        size : size,
+    };
+    unsafe {
+        let boxed_trait : Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(obj));
+        let ptr = SCHEDULERS.get_mut(0).unwrap().add_model(boxed_trait, thread as usize, divisor, offset);
+        if ptr.is_null() {
+            return RSISStat::ERR as u32;
+        }
+    }
+    return RSISStat::OK as u32;
 }
 
 #[no_mangle]
