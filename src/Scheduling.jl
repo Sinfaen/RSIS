@@ -2,6 +2,7 @@
 module MScheduling
 using ..MLibrary
 using ..MModel
+using ..Unitful
 
 export setthread, setnumthreads, schedule, threadinfo
 export initsim, stepsim, endsim, setsimduration
@@ -25,6 +26,8 @@ end
 # globals
 _threads = Vector{SThread}()
 push!(_threads, SThread())
+
+_base_sim_frequency = Rational{Int64}(0) # must be set by init_scheduler
 
 function _resetthreads() :: Nothing
     empty!(_threads)
@@ -110,12 +113,14 @@ julia> initsim(blocking = true)
 ```
 """
 function initsim(;blocking::Bool = false) :: Nothing
+    global _base_sim_frequency
     _verifyfrequencies();
 
     # create threads
     for (i,thread) in enumerate(_threads)
         addthread(float(thread.frequency))
-        println("Thread $(i): $(Float64(thread.frequency)) Hz")
+        _base_sim_frequency = max(_base_sim_frequency, thread.frequency)
+        @info "Thread $(i): $(Float64(thread.frequency)) Hz"
         # schedule models
         for model in thread.scheduled
             # find the connections that this model depends on, and schedule them first
@@ -141,7 +146,28 @@ Step the simulation by the specified number of steps.
 """
 function stepsim(steps::Int64 = 1)
     # TODO add state checking here
+    @info "Stepping $(steps) steps"
     stepscheduler(UInt64(steps));
+end
+
+"""
+    stepsim(time::Unitful.Quantity)
+Step the simulation by the specified time. The first argument
+must be convertable to a time value as understood by Unitful
+```jldoctest
+julia> stepsim(15.3u"s")
+julia> stepsim(3.2u"minute")
+julia> stepsim(1u"hr")
+```
+"""
+function stepsim(time::Unitful.Quantity{T, D, U}) where {T, D, U}
+    time_in_seconds = ustrip(u"s", time)
+    if length(size(time_in_seconds)) != 0
+        # can this logic be improved?
+        throw(ArgumentError("`time` is not a scalar. Dimension: $(size(time_in_seconds))"))
+    end
+    steps = floor(time_in_seconds * _base_sim_frequency)
+    stepsim(Int64(steps))
 end
 
 """
@@ -149,8 +175,10 @@ end
 Ends/Halts the simulation. Drops all saved ModelInstances
 as they have been consumed and have reached end of life.
 """
-function endsim()
+function endsim() :: Nothing
     endscheduler()
+    _base_sim_frequency = Int64(0)
+    return
 end
 
 """
