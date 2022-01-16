@@ -6,6 +6,7 @@ using ..DataStructures
 using ..Unitful
 using ..YAML
 using ..MScripting
+using ..MInterface
 using ..MLogging
 using ..MModel
 using ..MProject

@@ -10,39 +10,16 @@ export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, listavailable
 export structnames, structdefinition
-export convert_julia_type
 export connect, listconnections
 export _parselocation
 
 using ..DataStructures
 using ..MScripting
 using ..MLibrary
+using ..MInterface
 using ..MLogging
 using ..MProject
 using ..Unitful
-
-## globals
-# DataType => [Rust datatype, C++ datatype, Fortran datatype]
-_type_conversions = Dict{DataType, Vector{Union{Missing,String}}}(
-    Char    => ["char", "char", "character"],
-    String  => ["String", "std::string", "character (len=:), allocatable"],
-    Int8    => ["i8",   "int8_t",  "integer (int8)"],
-    Int16   => ["i16",  "int16_t", "integer (int16)"],
-    Int32   => ["i32",  "int32_t", "integer (int32)"],
-    Int64   => ["i64",  "int64_t", "integer (int64)"],
-    UInt8   => ["u8",   "uint8_t",  missing],
-    UInt16  => ["u16",  "uint16_t", missing],
-    UInt32  => ["u32",  "uint32_t", missing],
-    UInt64  => ["u64",  "uint64_t", missing],
-    Bool    => ["bool", "bool", "logical"],
-    Float32 => ["f32",  "float",  "real (real32)"],
-    Float64 => ["f64",  "double", "real (real64)"],
-    Complex{Float32} => ["Complex<f32>", "std::complex<float>",  "complex*8"],
-    Complex{Float64} => ["Complex<f64>", "std::complex<double>", "complex*16"]
-)
-
-# Create a string -> DataType mapping for all supported datatypes
-_type_map = Dict([Pair("$(_type)", _type) for _type in keys(_type_conversions)])
 
 
 # Additional library paths to search
@@ -64,16 +41,14 @@ struct Port
 
     function Port(type::String, dimension::Tuple, units::Any, composite::Bool=false; note::String="", porttype::PortType=PORT, default=nothing)
         if !composite
-            if !(type in keys(_type_map))
-                throw(ArgumentError("Primitive type: $type is not supported"))
-            end
+            _type = _gettype(type)
             if !isnothing(default)
                 if typeof(default) == String
-                    if _type_map[type] != String
+                    if _type != String
                         throw(ArgumentError("Default value: $(default) is type $(typeof(default)), not $(type)"))
                     end
                 else
-                    if !(eltype(default) <: _type_map[type])
+                    if !(eltype(default) <: _type)
                         throw(ArgumentError("Default value: $(default) is type $(eltype(default)), not $(type)"))
                     end
                     if size(default) != dimension
@@ -159,9 +134,9 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
             end
             push!(dims, val)
         end
-        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), unitstr, !(String(tt[1]) in keys(_type_map))), offset)
+        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), unitstr, !_istypesupported(String(tt[1]))), offset)
     else
-        _data.structs[classname].fields[member] = (Port(definition, (), unitstr, !(definition in keys(_type_map))), offset)
+        _data.structs[classname].fields[member] = (Port(definition, (), unitstr, !_istypesupported(definition)), offset)
     end
     return
 end
@@ -374,7 +349,7 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
             if port.iscomposite
                 throw(ErrorException("$(token) is not a signal"))
             end
-            if !(port.type in keys(_type_map))
+            if !_istypesupported(port.type)
                 throw(ErrorException("Signal $(token) has type $(port.type) which is not supported"))
             end
             # return information to caller
@@ -403,7 +378,7 @@ function Base.:getindex(model::ModelReference, fieldname::String) :: Any
 
     libdata = libraryinfo(_model.modulename)
 
-    t = _type_map[port.type]
+    t = _gettype(port.type)
     if length(port.dimension) == 0
         if t == String
             return get_utf8_string(ptr, libdata["rsis"]["type"])
@@ -433,7 +408,7 @@ function Base.:setindex!(model::ModelReference, value::T, fieldname::String) whe
     if T != String && size(value) != port.dimension
         throw(ArgumentError("Value size does not match port size: $(port.dimension)"))
     end
-    t = _type_map[port.type]
+    t = _gettype(port.type)
     if t == String
         set_utf8_string(ptr, value, libdata["rsis"]["type"])
         return
@@ -468,7 +443,7 @@ function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelRefere
     _input  = _getmodelinstance(in.model);
     (_, iport) = _parselocation(_input, in.port);
     # data type must match
-    if _type_map[oport.type] != _type_map[iport.type]
+    if _gettype(oport.type) != _gettype(iport.type)
         throw(ArgumentError("Output port type: $(oport.type) does not match input port type: $(iport.type)"))
     end
     # dimension must match
@@ -515,26 +490,6 @@ function listconnections(model::ModelReference) :: Vector{Tuple{Location, Locati
         end
     end
     return cncts
-end
-
-function convert_julia_type(juliatype::String, language::String = "rust") :: String
-    if !(juliatype in keys(_type_map))
-        return juliatype
-    end
-    t = missing
-    if language == "rust"
-        t = _type_conversions[_type_map[juliatype]][1]
-    elseif language == "cpp"
-        t = _type_conversions[_type_map[juliatype]][2]
-    elseif language == "fortran"
-        t = _type_conversions[_type_map[juliatype]][3]
-    else
-        throw(ArgumentError("language must be [\"rust\",\"cpp\"]"))
-    end
-    if ismissing(t)
-        throw(ErrorException("language $(language) does not support requested type $(juliatype)"))
-    end
-    return t
 end
 
 end
