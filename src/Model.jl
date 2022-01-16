@@ -17,7 +17,7 @@ using ..DataStructures
 using ..MScripting
 using ..MLibrary
 using ..MInterface
-using ..MLogging
+using ..Logging
 using ..MProject
 using ..Unitful
 
@@ -105,7 +105,7 @@ function _CreateClass(name::Ptr{UInt8}) :: Nothing
     cl = unsafe_string(name)
     _data = _classdefinitions[_cur_class]
     if cl in keys(_data.structs)
-        logmsg("Class: $(cl) redefined.", WARNING)
+        @warn "Class: $(cl) redefined."
     end
     _data.structs[cl] = ClassData()
     _data.last = cl # workaround
@@ -119,7 +119,7 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
     unitstr    = unsafe_string(units)
     _data = _classdefinitions[_cur_class]
     if !(classname in keys(_data.structs))
-        logmsg("Class: $(classname) for member: $(member) does not exist. Creating default.", WARNING)
+        @warn "Class: $(classname) for member: $(member) does not exist. Creating default."
         _data.structs[classname] = ClassData()
     end
     # parse definition passed as a string
@@ -129,7 +129,7 @@ function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset
         for token in split(tt[2], ",")
             val = tryparse(Int, token)
             if isnothing(val)
-                logmsg("Unable to parse: $(token) as a dimension", ERROR)
+                @error "Unable to parse: $(token) as a dimension"
                 val = -1
             end
             push!(dims, val)
@@ -219,7 +219,7 @@ julia> listavailable(fullpath = true)
 function listavailable(;fullpath::Bool = false) :: Vector{String}
     all = Vector{String}()
     if !isprojectloaded()
-        logmsg("Load a project to see available libraries.", LOG)
+        @info "Load a project to see available libraries."
     else
         bdir = getprojectbuilddirectory()
         file_ext = _libraryextension()
@@ -255,7 +255,7 @@ function listavailable(;fullpath::Bool = false) :: Vector{String}
                 #
             end
         else
-            logmsg("Project build directory does not exist", ERROR)
+            @error "Project build directory does not exist"
         end
     end
     return all
@@ -277,7 +277,7 @@ function load(library::String; namespace::String="") :: Nothing
     # to core functionality
     filename = "$(_libraryprefix())$(library)$(_libraryextension())"
     if !isprojectloaded()
-        logmsg("Load a project to see available libraries.", ERROR)
+        @error "Load a project to see available libraries."
         return
     end
     bdir = getprojectbuilddirectory()
@@ -287,7 +287,7 @@ function load(library::String; namespace::String="") :: Nothing
                 if file == filename
                     # load library
                     if !LoadModelLib(library, joinpath(root, file), namespace)
-                        logmsg("Model library alread loaded.", LOG)
+                        @info "Model library alread loaded."
                     end
                     GetClassData(library, namespace);
                     return
@@ -295,7 +295,7 @@ function load(library::String; namespace::String="") :: Nothing
             end
         end
     else
-        logmsg("Project build directory does not exist", ERROR)
+        @error "Project build directory does not exist"
     end
     throw(ErrorException("File not found: $(library) [$(filename)]"))
 end
@@ -312,7 +312,7 @@ Model library not previously loaded.
 """
 function unload(library::String) :: Nothing
     if !UnloadModelLib(library)
-        logmsg("Model library not previously loaded.", WARNING)
+        @warn "Model library not previously loaded."
     end
     # unload class definitions as well
     delete!(_classdefinitions, library)

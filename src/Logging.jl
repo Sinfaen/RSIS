@@ -1,44 +1,25 @@
 
+# Provides the RSIS core framework access to the Logging module
+# TODO: support the event framework
 module MLogging
 
-export setlogfile, logmsg
+export clear_event_mapping, add_event_mapping
 
-export LOG, WARNING, ERROR, CUSTOM
+using ..Logging
 
 # globals
+_event_map = Dict{Int64, String}();
 
 # types
-
-@enum MsgType::Int32 begin
-    LOG     = 0
-    WARNING = 1
-    ERROR   = 2
-    CUSTOM  = 3
+function clear_event_mapping()
+    _event_map = Dict{Int64, String}();
 end
 
-_msgtypetostring = Dict(zip(instances(MsgType), String.(Symbol.(instances(MsgType)))))
-
-"""
-    setlogfile(filename::String)
-Set the log file corresponding to this run.
-"""
-function setlogfile(filename::String)
-end
-
-"""
-    writelogfile()
-Write the current contents of the log file to filesystem
-"""
-function writelogfile()
-end
-
-"""
-    logmsg(message::String)
-Log a message to the simulation log file
-"""
-function logmsg(message::String, type::MsgType)
-    # TODO initial implementation
-    println("[" * _msgtypetostring[type] * "]: " * message)
+function add_event_mapping(id::Int64, message::String) :: Nothing
+    if id in keys(_event_map)
+        @warn "ID($id) overwritten"
+    end
+    _event_map[id] = message;
 end
 
 end

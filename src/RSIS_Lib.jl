@@ -367,7 +367,7 @@ function deletemodel!(name::String)::Nothing
     if name in keys(_loaded_models)
         delete!(_loaded_models, name)
     else
-        logmsg("No model with name: $name, exists", LOG)
+        @info "No model with name: $name, exists"
     end
     return
 end
@@ -395,7 +395,7 @@ function listmodelsbytag(tag::String)::Nothing
             message = message * name * "\n"
         end
     end
-    logmsg(message, LOG)
+    @info message
 end
 
 function addthread(frequency::Float64)

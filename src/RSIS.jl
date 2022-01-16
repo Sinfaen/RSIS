@@ -18,9 +18,10 @@ using DataFrames
 using Unitful
 using Unitful.DefaultSymbols
 
+using Logging
+
 include("Logging.jl")
 using .MLogging
-export setlogfile, logmsg
 
 include("RSIS_Lib.jl")
 using .MLibrary

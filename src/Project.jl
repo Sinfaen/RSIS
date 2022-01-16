@@ -7,7 +7,7 @@ export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
 export ProjectType, RUST, CPP, FORTRAN
 
-using ..MLogging
+using ..Logging
 using ..MScripting
 using ..TOML
 
@@ -118,7 +118,7 @@ function loadproject(directory::String = ".") :: Nothing
     checkbuilddirectory(_loaded_project)
     _loaded_project.directory = _dir
     _loaded_project.loaded    = true
-    logmsg(projectinfo(), LOG)
+    @info projectinfo()
     return
 end
 

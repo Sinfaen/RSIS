@@ -4,7 +4,7 @@ module MScripting
 export addfilepath, removefilepath, printfilepaths, where, search, script
 export script, logscripts, printscriptlog
 
-using ..MLogging
+using ..Logging
 
 # globals
 _file_paths   = Vector{String}()
@@ -37,7 +37,7 @@ with the first existing match added.
 function addfilepath(directory::String) :: Nothing
     if isabspath(directory)
         if directory in _file_paths
-            logmsg("File Path directory already added", WARNING)
+            @warn "File Path directory already added"
         else
             push!(_file_paths, directory)
         end
@@ -57,7 +57,7 @@ function addfilepath(directory::String) :: Nothing
             end
         end
         if !found
-            logmsg("Could not resolve: $directory", WARNING)
+            @warn "Could not resolve: $directory"
         end
     end
     return
@@ -94,7 +94,7 @@ function printfilepaths()
     for fp in _file_paths
         message = message * "> $fp\n"
     end
-    logmsg(message, LOG)
+    @info message
 end
 
 """
@@ -111,7 +111,7 @@ julia> script("foo.jl")
 function script(filename::String) :: Nothing
     found_path = search(filename)
     if length(found_path) == 0
-        logmsg("Script \"$(filename)\" not found!", ERROR)
+        @error "Script \"$(filename)\" not found!"
     else
         if _script_record.recording
             addrecord!(_script_record, @__FILE__, filename)
@@ -137,10 +137,10 @@ julia> where("check_user_environment.jl")
 function where(filename::String)
     locations = search(filename, false)
     if length(locations) == 0
-        logmsg("File not found", ERROR)
+        @error "File not found"
     else
         for fp in locations
-            logmsg(fp, LOG)
+            @info fp
         end
     end
 end
@@ -222,7 +222,7 @@ function printscriptlog() :: Nothing
         message = message * sep * log[2] * "\n"
     end
 
-    logmsg(message, LOG)
+    @info message
 
     _script_record.recording = false
     clearrecord!(_script_record)
