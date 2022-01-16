@@ -86,6 +86,15 @@ struct Port
     end
 end
 
+function Base.sizeof(port::Port)
+    if port.iscomposite
+        throw(ErrorException("Port: $(port) is a struct type"))
+    else
+        # note. prod(()) returns 1
+        return sizeof(convert_julia_type(port.type)) * prod(port.dimension)
+    end
+end
+
 mutable struct ClassData
     fields::OrderedDict{String, Tuple{Port, UInt}}
 end
@@ -480,12 +489,28 @@ end
 
 """
     listconnections()
-Returns a list of all the connections within the scenario
+Returns a list of all the connections within the scenario.
+The first element is the output, the second is the input
 """
 function listconnections() :: Vector{Tuple{Location, Location}}
     cncts = Vector{Tuple{Location, Location}}()
     for (model, _map) in _connections
         for (_iport, _oloc) in _map.input_link
+            push!(cncts, (_oloc, Location(model, _iport)))
+        end
+    end
+    return cncts
+end
+
+"""
+    listconnections(model::ModelReference)
+Returns a list of input connections by model.
+The first element is the output, the second is the input
+"""
+function listconnections(model::ModelReference) :: Vector{Tuple{Location, Location}}
+    cncts = Vector{Tuple{Location, Location}}()
+    if model in keys(_connections)
+        for (_iport, _oloc) in _connections[model].input_link
             push!(cncts, (_oloc, Location(model, _iport)))
         end
     end

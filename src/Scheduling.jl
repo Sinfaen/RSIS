@@ -118,6 +118,16 @@ function initsim(;blocking::Bool = false) :: Nothing
         println("Thread $(i): $(Float64(thread.frequency)) Hz")
         # schedule models
         for model in thread.scheduled
+            # find the connections that this model depends on, and schedule them first
+            cncts = listconnections(model.ref)
+            model_in = _getmodelinstance(model.ref)
+            for (out, in) in cncts
+                (ptr_in, port_in)   = _parselocation(model_in, in.port)
+                model_out = _getmodelinstance(out.model)
+                (ptr_out, port_out) = _parselocation(model_out, out.port)
+                # port sizes should be checked by now
+                createconnection(ptr_out, ptr_in, UInt64(sizeof(port_out)), i - 1, Int64(thread.frequency / model.frequency), model.offset)
+            end
             # Convert 1 based indexing to 0 based indexing for the thread id
             schedulemodel(model.ref, i - 1, Int64(thread.frequency / model.frequency), model.offset)
         end

@@ -5,7 +5,7 @@ using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
-export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel
+export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
 export ModelInstance, ModelReference
@@ -43,6 +43,7 @@ mutable struct LibFuncs
     s_shutdown
     s_newthread
     s_addmodel
+    s_addconnection
     s_initscheduler
     s_stepscheduler
     s_pausescheduler
@@ -58,6 +59,7 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :library_shutdown),
             Libdl.dlsym(lib, :new_thread),
             Libdl.dlsym(lib, :add_model),
+            Libdl.dlsym(lib, :add_connection),
             Libdl.dlsym(lib, :init_scheduler),
             Libdl.dlsym(lib, :step_scheduler),
             Libdl.dlsym(lib, :pause_scheduler),
@@ -403,7 +405,7 @@ function addthread(frequency::Float64)
     end
 end
 
-function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, offset::Int64)
+function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, offset::Int64) :: Nothing
     _model = _getmodelinstance(model)
     # the framework moves the object around, get the new pointer
     newptr = ccall(_sym.s_addmodel, Ptr{Cvoid}, (Int64, Ptr{Cvoid}, Int64, Int64), thread, _model.obj, divisor, offset)
@@ -411,6 +413,15 @@ function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, off
         throw(ErrorException("Call to `add_model` in library failed"))
     end
     _model.obj = newptr
+    return
+end
+
+function createconnection(src::Ptr{Cvoid}, dst::Ptr{Cvoid}, size::UInt64, thread::Int64, divisor::Int64, offset::Int64) :: Nothing
+    stat = ccall(_sym.s_addconnection, UInt32, (Ptr{Cvoid}, Ptr{Cvoid}, UInt64, Int64, Int64, Int64), src, dst, size, thread, divisor, offset)
+    if stat != 0
+        throw(ErrorException("Call to `add_connection` failed with error $(stat)"))
+    end
+    return
 end
 
 function initscheduler() :: Nothing
