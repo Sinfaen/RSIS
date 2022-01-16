@@ -14,23 +14,6 @@ using ..MProject
 export generateinterface
 
 # globals
-_type_defaults = Dict{String, Any}(
-    "Char"    => ' ',
-    "String"  => "",
-    "Int8"    => 0,
-    "Int16"   => 0,
-    "Int32"   => 0,
-    "Int64"   => 0,
-    "UInt8"   => 0,
-    "UInt16"  => 0,
-    "UInt32"  => 0,
-    "UInt64"  => 0,
-    "Bool"    => false,
-    "Float32" => 0,
-    "Float64" => 0,
-    "Complex{Float32}" => 0+0im,
-    "Complex{Float64}" => 0+0im
-)
 
 """
 Helper function for generateinterface
@@ -121,7 +104,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                     end
                 end
             end
-            initial = _type_defaults[field.second["type"]]
+            initial = _type_default(field.second["type"])
             if "value" in _keys
                 initial = field.second["value"]
             end
@@ -163,11 +146,14 @@ function generateinterface(interface::String; language::String = "")
         language = projecttype()
     end
     if language == "cpp"
+        _language = CPP()
         push!(templates, ("_interface.hxx", joinpath(@__DIR__, "templates", "header_cpp.template")))
         push!(templates, ("_interface.cxx", joinpath(@__DIR__, "templates", "source_cpp.template")))
     elseif language == "rust"
+        _language = RUST()
         push!(templates, ("_interface.rs", joinpath(@__DIR__, "templates", "rust.template")))
     elseif language == "fortran"
+        _language = FORTRAN()
         push!(templates, ("_interface.f90", joinpath(@__DIR__, "templates", "f90.template")))
     else
         error(ArgumentError("[\"rust\",\"cpp\",\"fortran\"] are the only valid language options"))
@@ -216,7 +202,7 @@ function generateinterface(interface::String; language::String = "")
             end
             first = true;
             for (n,f) in fields
-                htext = htext * "    $(convert_julia_type(f.type, language)) $n"
+                htext = htext * "    $(convert_julia_type(f.type, _language)) $n"
                 if length(f.dimension) != 0
                     htext = htext * "[$(join(f.dimension, "]["))]"
                 end
@@ -285,7 +271,7 @@ function generateinterface(interface::String; language::String = "")
                   "        $(name) {\n"
             for (n,f) in fields
                 if length(f.dimension) == 0
-                    txt = txt * "    pub $n : $(convert_julia_type(f.type, language)),\n"
+                    txt = txt * "    pub $n : $(convert_julia_type(f.type, _language)),\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : $(f.type)::new(),\n"
                     elseif f.type == "String"
@@ -294,7 +280,7 @@ function generateinterface(interface::String; language::String = "")
                         cs = cs * "            $(n) : $(f.defaultvalue),\n"
                     end
                 else
-                    txt = txt * "    pub $n : [$(convert_julia_type(f.type, language)); $(join(f.dimension, ","))],\n"
+                    txt = txt * "    pub $n : [$(convert_julia_type(f.type, _language)); $(join(f.dimension, ","))],\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
                     else

@@ -66,7 +66,7 @@ function Base.sizeof(port::Port)
         throw(ErrorException("Port: $(port) is a struct type"))
     else
         # note. prod(()) returns 1
-        return sizeof(convert_julia_type(port.type)) * prod(port.dimension)
+        return sizeof(_gettype(port.type)) * prod(port.dimension)
     end
 end
 

@@ -5,6 +5,8 @@ export loadproject, newproject, projectinfo, projecttype
 export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
+export ProjectType, RUST, CPP, FORTRAN
+
 using ..MLogging
 using ..MScripting
 using ..TOML

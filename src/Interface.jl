@@ -1,25 +1,33 @@
 
 module MInterface
 
-export convert_julia_type, _gettype, _istypesupported
+using ..MProject
 
-# DataType => [Rust datatype, C++ datatype, Fortran datatype]
-_type_conversions = Dict{DataType, Vector{Union{Missing,String}}}(
-    Char    => ["char", "char", "character"],
-    String  => ["String", "std::string", "character (len=:), allocatable"],
-    Int8    => ["i8",   "int8_t",  "integer (int8)"],
-    Int16   => ["i16",  "int16_t", "integer (int16)"],
-    Int32   => ["i32",  "int32_t", "integer (int32)"],
-    Int64   => ["i64",  "int64_t", "integer (int64)"],
-    UInt8   => ["u8",   "uint8_t",  missing],
-    UInt16  => ["u16",  "uint16_t", missing],
-    UInt32  => ["u32",  "uint32_t", missing],
-    UInt64  => ["u64",  "uint64_t", missing],
-    Bool    => ["bool", "bool", "logical"],
-    Float32 => ["f32",  "float",  "real (real32)"],
-    Float64 => ["f64",  "double", "real (real64)"],
-    Complex{Float32} => ["Complex<f32>", "std::complex<float>",  "complex*8"],
-    Complex{Float64} => ["Complex<f64>", "std::complex<double>", "complex*16"]
+export convert_julia_type, _gettype, _istypesupported, _type_default
+
+struct InterfaceData
+    rust::Union{Missing, String}
+    cpp ::Union{Missing, String}
+    fortran::Union{Missing, String}
+    default::Any
+end
+
+_type_conversions = Dict{DataType, InterfaceData}(
+    Char    => InterfaceData("char", "char", "character", ' '),
+    String  => InterfaceData("String", "std::string", "character (len=:), allocatable", ""),
+    Int8    => InterfaceData("i8",   "int8_t",  "integer (int8)",  0),
+    Int16   => InterfaceData("i16",  "int16_t", "integer (int16)", 0),
+    Int32   => InterfaceData("i32",  "int32_t", "integer (int32)", 0),
+    Int64   => InterfaceData("i64",  "int64_t", "integer (int64)", 0),
+    UInt8   => InterfaceData("u8",   "uint8_t",  missing, 0),
+    UInt16  => InterfaceData("u16",  "uint16_t", missing, 0),
+    UInt32  => InterfaceData("u32",  "uint32_t", missing, 0),
+    UInt64  => InterfaceData("u64",  "uint64_t", missing, 0),
+    Bool    => InterfaceData("bool", "bool", "logical", false),
+    Float32 => InterfaceData("f32",  "float",  "real (real32)", 0),
+    Float64 => InterfaceData("f64",  "double", "real (real64)", 0),
+    Complex{Float32} => InterfaceData("Complex<f32>", "std::complex<float>",  "complex*8",  0+0im),
+    Complex{Float64} => InterfaceData("Complex<f64>", "std::complex<double>", "complex*16", 0+0im)
 )
 
 # Create a string -> DataType mapping for all supported datatypes
@@ -37,20 +45,27 @@ function _gettype(name::String) :: DataType
     end
 end
 
-function convert_julia_type(juliatype::String, language::String = "rust") :: String
+function _type_default(name::String) :: Any
+    return _type_conversions[_type_map[name]]
+end
+
+function _julia_type(name::DataType, ProjectType::RUST)
+    return _type_conversions[name].rust
+end
+
+function _julia_type(name::DataType, ProjectType::CPP)
+    return _type_conversions[name].cpp
+end
+
+function _julia_type(name::DataType, ProjectType::FORTRAN)
+    return _type_conversions[name].fortran
+end
+
+function convert_julia_type(juliatype::String, language::ProjectType) :: String
     if !(juliatype in keys(_type_map))
         return juliatype
     end
-    t = missing
-    if language == "rust"
-        t = _type_conversions[_type_map[juliatype]][1]
-    elseif language == "cpp"
-        t = _type_conversions[_type_map[juliatype]][2]
-    elseif language == "fortran"
-        t = _type_conversions[_type_map[juliatype]][3]
-    else
-        throw(ArgumentError("language must be [\"rust\",\"cpp\"]"))
-    end
+    t = _julia_type(_gettype(juliatype), language)
     if ismissing(t)
         throw(ErrorException("language $(language) does not support requested type $(juliatype)"))
     end
