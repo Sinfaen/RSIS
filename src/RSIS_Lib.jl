@@ -4,7 +4,7 @@ using Base: Int32, _getmeta
 using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
-export newmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
+export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
 export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export GetModelData, _getmodelinstance
@@ -370,6 +370,18 @@ function deletemodel!(name::String)::Nothing
         @info "No model with name: $name, exists"
     end
     return
+end
+
+"""
+    getmodel(name::String)
+Get a model reference by name
+"""
+function getmodel(name::String) :: ModelReference
+    if name in keys(_loaded_models)
+        return ModelReference(name)
+    else
+        throw(ErrorException("Model with name ($name) does not exist"))
+    end
 end
 
 """
