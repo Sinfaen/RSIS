@@ -17,6 +17,7 @@ pub enum ThreadMsg {
     // command
     INIT,
     EXECUTE(u64),
+    PAUSE,
     SHUTDOWN,
     // result
     RUNNING,
@@ -85,6 +86,9 @@ impl NRTScheduler {
                             }
                             tx.send(ThreadMsg::OK).unwrap();
                         },
+                        Ok(ThreadMsg::PAUSE) => {
+                            break;
+                        }
                         Ok(ThreadMsg::SHUTDOWN) => {
                             tx.send(ThreadMsg::END).unwrap();
                             break;
@@ -214,6 +218,12 @@ impl NRTScheduler {
                                     let mut s = mutex_state.lock().unwrap();
                                     *s = state;
                                 },
+                                Ok(ThreadMsg::PAUSE) => {
+                                    println!("Unexpectedly received pause status");
+                                    state = SchedulerState::ERRORED;
+                                    let mut s = mutex_state.lock().unwrap();
+                                    *s = state;
+                                }
                                 Ok(ThreadMsg::SHUTDOWN) => {
                                     println!("Unexpectedly received shutdown status");
                                     state = SchedulerState::ERRORED;
@@ -331,6 +341,17 @@ impl Scheduler for NRTScheduler {
         match &self.runner_tx {
             Some(tx) => {
                 tx.send(ThreadMsg::EXECUTE(steps)).unwrap();
+                return 0;
+            },
+            _ => {
+                return 1;
+            }
+        }
+    }
+    fn pause(&mut self) -> i32 {
+        match &self.runner_tx {
+            Some(tx) => {
+                tx.send(ThreadMsg::PAUSE).unwrap();
                 return 0;
             },
             _ => {

@@ -155,6 +155,11 @@ pub extern "C" fn step_scheduler(steps: u64) -> u32 {
 
 #[no_mangle]
 pub extern "C" fn pause_scheduler() -> u32 {
+    unsafe {
+        if SCHEDULERS.get_mut(0).unwrap().pause() != 0 {
+            return RSISStat::ERR as u32;
+        }
+    }
     return RSISStat::OK as u32;
 }
 
