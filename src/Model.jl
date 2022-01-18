@@ -450,8 +450,13 @@ function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelRefere
     if oport.dimension != iport.dimension
         throw(ArgumentError("Output port dimension: $(oport.dimension) does not match input port dimension: $(iport.dimension)"))
     end
-    # units must match
-    # TODO
+    # check units only if they both exist
+    if !isempty(iport.units) && !isempty(oport.units)
+        # simple string equality check for now
+        if iport.units != oport.units
+            throw(ArgumentError("Output port units: $(oport.units) does not match input port units: $(iport.units)"))
+        end
+    end
 
     _ensureconnection(in.model)
     # Register input connection
