@@ -4,6 +4,7 @@ module MScenario
 export scenario!, savescenario
 
 using ..YAML
+using ..MLibrary
 using ..MModel
 using ..MScripting
 
@@ -38,11 +39,19 @@ function scenario!(filename::String) :: Nothing
 
     data = YAML.load_file(locations[1])
 
+    num_libs = 0
+    num_mods = 0
     if "models" in keys(data)
-        for (model, _) in data["models"]
-            load(model)
+        for (library, instances) in data["models"]
+            load(library)
+            num_libs += 1
+            for (instance, _) in instances
+                newmodel(library, instance)
+                num_mods += 1
+            end
         end
     end
+    @info "Scenario loaded: $num_libs libraries, $num_mods models"
 end
 
 """
