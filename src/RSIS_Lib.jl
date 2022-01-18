@@ -388,14 +388,12 @@ function listlibraries() :: Vector{String}
     return collect(keys(_modellibs))
 end
 
-function listmodelsbytag(tag::String)::Nothing
-    message = "Models listed with tag: $tag\n"
-    for (name, model) in _loaded_models
-        if tag in model.tags
-            message = message * name * "\n"
-        end
-    end
-    @info message
+"""
+    listmodelsbytag(tag)::String)
+Returns a vector of all loaded models by tag
+"""
+function listmodelsbytag(tag::String) :: Vector{String}
+    return [name for (name, model) in _loaded_models if tag in model.tags]
 end
 
 function addthread(frequency::Float64)
