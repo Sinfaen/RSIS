@@ -179,11 +179,11 @@ function projectinfo() :: String
     return "$(_loaded_project.type) Project loaded at: $(_loaded_project.directory)"
 end
 
-function projecttype() :: String
+function projecttype() :: ProjectType
     if !isprojectloaded()
         throw(ErrorException("No project loaded"))
     end
-    return "$(_loaded_project.type)"
+    return _loaded_project.type
 end
 
 """

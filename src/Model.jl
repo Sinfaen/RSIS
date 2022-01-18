@@ -196,24 +196,18 @@ end
 Returns a list of model libraries that can be loaded with
 `load`. The project build directory is recursively searched
 for shared libraries; file extension set by OS. Additional
-library search paths can be set with `addlibpath`. If the
-`fullPath` argument is `true`, the absolute filename is
-returned instead.
+library search paths can be set with `addlibpath`. Tuples of the
+library name and the absolute filepath are returned.
 ```
 julia> listavailable()
-3-element Vector{String}:
- fsw_hr_model
- fsw_lr_model
- gravity_model
-julia> listavailable(fullpath = true)
-3-element Vector{String}:
- /home/foo/target/release/libfsw_hr_model.dylib
- /home/foo/target/release/libfsw_lr_model.dylib
- /home/foo/target/release/libgravity_model.dylib
+3-element Vector{Tuple{String, String}}:
+ ("fsw_hr_model", "/home/foo/target/release/libfsw_hr_model.dylib")
+ ("fsw_lr_model", "/home/foo/target/release/libfsw_lr_model.dylib")
+ ("gravity_model", "/home/foo/target/release/libgravity_model.dylib")
 ```
 """
-function listavailable(;fullpath::Bool = false) :: Vector{String}
-    all = Vector{String}()
+function listavailable() :: Vector{Tuple{String, String}}
+    all = Vector{Tuple{String, String}}()
     if !isprojectloaded()
         @info "Load a project to see available libraries."
     else
@@ -221,15 +215,11 @@ function listavailable(;fullpath::Bool = false) :: Vector{String}
         file_ext = _libraryextension()
         file_prefix = _libraryprefix()
         if isdir(bdir)
-            if projecttype() == "Rust"
+            if projecttype() == RUST()
                 for file in readdir(bdir)
                     fe = splitext(file)
                     if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                        if fullpath
-                            push!(all, abspath(bdir, file))
-                        else
-                            push!(all, fe[1][1+length(file_prefix):end])
-                        end
+                        push!(all, (fe[1][1+length(file_prefix):end], abspath(bdir, file)))
                     end
                 end
             else # C++
@@ -237,11 +227,7 @@ function listavailable(;fullpath::Bool = false) :: Vector{String}
                     for file in files
                         fe = splitext(file)
                         if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                            if fullpath
-                                push!(all, abspath(root, file))
-                            else
-                                push!(all, fe[1][1+length(file_prefix):end])
-                            end
+                            push!(all, (fe[1][1+length(file_prefix):end], abspath(root, file)))
                         end
                     end
                 end
@@ -278,22 +264,18 @@ function load(library::String; namespace::String="") :: Nothing
     end
     bdir = getprojectbuilddirectory()
     if isdir(bdir)
-        for (root, dirs, files) in walkdir(bdir)
-            for file in files
-                if file == filename
-                    # load library
-                    if !LoadModelLib(library, joinpath(root, file), namespace)
-                        @info "Model library alread loaded."
-                    end
-                    GetClassData(library, namespace);
-                    return
+        for (name, path) in listavailable()
+            if name == library
+                # load library
+                if !LoadModelLib(library, path, namespace)
+                    @info "Model library alread loaded."
                 end
+                GetClassData(library, namespace);
+                return
             end
         end
-    else
-        @error "Project build directory does not exist"
     end
-    throw(ErrorException("File not found: $(library) [$(filename)]"))
+    throw(ErrorException("Could not locate library: [$library]"))
 end
 
 """
