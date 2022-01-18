@@ -215,21 +215,10 @@ function listavailable() :: Vector{Tuple{String, String}}
         file_ext = _libraryextension()
         file_prefix = _libraryprefix()
         if isdir(bdir)
-            if projecttype() == RUST()
-                for file in readdir(bdir)
-                    fe = splitext(file)
-                    if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                        push!(all, (fe[1][1+length(file_prefix):end], abspath(bdir, file)))
-                    end
-                end
-            else # C++
-                for (root, dirs, files) in walkdir(bdir)
-                    for file in files
-                        fe = splitext(file)
-                        if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                            push!(all, (fe[1][1+length(file_prefix):end], abspath(root, file)))
-                        end
-                    end
+            for file in readdir(bdir)
+                fe = splitext(file)
+                if fe[2] == file_ext && startswith(fe[1], file_prefix)
+                    push!(all, (fe[1][1+length(file_prefix):end], abspath(bdir, file)))
                 end
             end
             # check additional paths
