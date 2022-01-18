@@ -57,7 +57,7 @@ export generateinterface
 include("Scheduling.jl")
 using .MScheduling
 export setthread, setnumthreads, threadinfo
-export initsim, stepsim, endsim, setsimduration
+export initsim, stepsim, endsim, setstoptime, settimelimit
 
 include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
@@ -66,6 +66,7 @@ export scenario!, savescenario
 include("SignalLogger.jl")
 using .MSignalLogger
 export logsignal, logsignalfile, listlogged
+export setlogfilelimit
 
 # final global variables
 

@@ -5,7 +5,7 @@ using ..MModel
 using ..Unitful
 
 export setthread, setnumthreads, schedule, threadinfo
-export initsim, stepsim, endsim, setsimduration
+export initsim, stepsim, endsim, setstoptime, settimelimit
 
 mutable struct SModel
     ref::ModelReference
@@ -28,6 +28,9 @@ _threads = Vector{SThread}()
 push!(_threads, SThread())
 
 _base_sim_frequency = Rational{Int64}(0) # must be set by init_scheduler
+
+_max_sim_duration = Float64(-1)
+_time_limits = Dict{String, Float64}()
 
 function _resetthreads() :: Nothing
     empty!(_threads)
@@ -178,17 +181,62 @@ as they have been consumed and have reached end of life.
 function endsim() :: Nothing
     endscheduler()
     _base_sim_frequency = Int64(0)
+    _time_limits = Dict{String, Float64}()
     return
 end
 
 """
-    setsimduration(time::Float64)
-Sets the maximum duration of the simulation.
-Note: models are capable of halting the simulation
-before the end of the simulation duration.
+    setstoptime(time::Number) # seconds
+Sets the maximum duration of the simulation in seconds.
+If the duration is set to (-1), no limit is applied.
+
+Note: other entities can still impose limits on the length of a
+simulation, e.g. native datalogging components.
 """
-function setsimduration(time::Float64)
-    println("TODO")
+function setstoptime(time::Number) :: Nothing
+    if time < 0
+        if time != -1
+            throw(ArgumentError("Invalid duration specified: $time [s]"))
+        end
+    end
+    _max_sim_duration = Float64(time);
+    return
+end
+
+"""
+    setstoptime(time::Unitful.Quantity{T, D, U})
+Sets the maximum duration of the simulation in units of time.
+```jldoctest
+julia> setstoptime(20u"minute")
+```
+"""
+function setstoptime(time::Unitful.Quantity{T, D, U}) where {T, D, U}
+    time_in_seconds = ustrip(u"s", time)
+    if length(size(time_in_seconds)) != 0
+        # can this logic be improved?
+        throw(ArgumentError("`time` is not a scalar. Dimension: $(size(time_in_seconds))"))
+    end
+    setstoptime(time_in_seconds)
+end
+
+"""
+    settimelimit(name::String, time::Number)
+Sets an additional time limit restraint on the simulation.
+This exists to support data logging primarily, but is extended
+to the user as well. Ending a simulation clears these restraints.
+```jldoctest
+julia> settimelimit("GITLAB_CI_TIME_LIMIT", ENV["CI_TOKEN_DURATION"])
+```
+"""
+function settimelimit(name::String, time::Number) :: Nothing
+    if name in keys(_time_limits)
+        @warn "Time limit for $name being overridden"
+    end
+    if _time_limits < 0
+        throw(ArgumentError("Time limit $name: $time is negative"))
+    end
+    _time_limits[name] = time;
+    return
 end
 
 end

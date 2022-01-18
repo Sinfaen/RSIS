@@ -4,13 +4,34 @@ module MSignalLogger
 using ..MLibrary
 using ..MScripting
 using ..MModel
+using ..MScheduling
 
 using ..CSV
 using ..DataFrames
 
 export logsignal, logsignalfile, listlogged
+export setlogfilelimit
 
 _loggedfields = DataFrame("model"=>Vector{String}(), "port"=>Vector{String}(), "rate"=>Vector{Float64}())
+
+_log_file_size = 100 # 100 MB
+
+"""
+    setlogfilelimit(limit::Float64)
+Set the maximum size of a log (per thread) in MB.
+
+TODO: refactor to use Unitful
+```jldoctest
+julia> setlogfilelimit(800.0) # MB. max CI artifact size
+```
+"""
+function setlogfilelimit(limit::Float64) :: Nothing
+    if limit < 0
+        throw(ErrorException("File size limit specified: $limit, is negative"))
+    end
+    _log_file_size = limit;
+    return
+end
 
 ## Refactor using the DataFrames package
 ## this data is better consumed/output in this manner
