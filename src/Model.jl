@@ -175,21 +175,17 @@ end
 
 """
     structdefinition(library::String, name::String)
-Returns a vector of all defined fields for a class defined in a library.
+Returns a vector of all defined fields for a struct defined by a library.
 ```jldoctest
 julia> structdefinition("cubesat", "cubesat_params")
-1-element Vector{Tuple{String, String, UInt64}}:
- ("signal", "Float64", 0x0000000000000000)
+1-element Vector{Tuple{String, String, String, UInt64}}:
+ ("signal", "Float64", "kg", 0x0000000000000000)
 ```
 """
 function structdefinition(library::String, name::String) :: Vector{Tuple{String, String, String, UInt}}
     data = _classdefinitions[library]
     if name in keys(data.structs)
-        fields = Vector{Tuple{String, String, String, UInt}}()
-        for (_name, field) in data.structs[name].fields
-            push!(fields, (_name, field[1].type, field[1].units, field[2]))
-        end
-        return fields
+        return [(_name, field[1].type, field[1].units, field[2]) for (_name, field) in data.structs[name].fields]
     else
         throw(ArgumentError("$(name) not defined!"))
     end
