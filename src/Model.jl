@@ -11,6 +11,7 @@ export listcallbacks, triggercallback
 export load, unload, listavailable
 export structnames, structdefinition
 export connect, listconnections
+export addlibpath, clearlibpaths
 export _parselocation
 
 using ..DataStructures
@@ -23,7 +24,7 @@ using ..Unitful
 
 
 # Additional library paths to search
-_additional_lib_paths = Vector{String}()
+_additional_lib_paths = OrderedSet{String}()
 
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3
 
@@ -192,7 +193,38 @@ function structdefinition(library::String, name::String) :: Vector{Tuple{String,
 end
 
 """
-    listavailable(;fullpath::Bool = false)
+    addlibpath(directory::String)
+Adds an external directory to the library search path. Relative paths
+are resolved against the current working directory.
+```jldoctest
+julia> loadproject("programs/project1")
+julia> addlibpath("/home/foo/release_area")
+julia> listavailable()
+2-element Vector{Tuple{String,String}}
+ ("model1", "/home/foo/programs/project1/debug/target/libmodel1.so")
+ ("extmod", "/home/foo/release_area/libextmod.so")
+```
+"""
+function addlibpath(directory::String) :: Nothing
+    if isabspath(directory)
+        path = directory
+    else
+        path = joinpath(pwd(), directory)
+    end
+    if isdir(path)
+        push!(_additional_lib_paths, path)
+    else
+        @warn "Path: $path does not exist"
+    end
+    return
+end
+
+function clearlibpaths() :: Nothing
+    _additional_lib_paths = Vector{String}()
+end
+
+"""
+    listavailable()
 Returns a list of model libraries that can be loaded with
 `load`. The project build directory is recursively searched
 for shared libraries; file extension set by OS. Additional
@@ -211,22 +243,17 @@ function listavailable() :: Vector{Tuple{String, String}}
     if !isprojectloaded()
         @info "Load a project to see available libraries."
     else
-        bdir = getprojectbuilddirectory()
-        file_ext = _libraryextension()
+        file_ext    = _libraryextension()
         file_prefix = _libraryprefix()
-        if isdir(bdir)
-            for file in readdir(bdir)
-                fe = splitext(file)
-                if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                    push!(all, (fe[1][1+length(file_prefix):end], abspath(bdir, file)))
+        for dir in vcat(getprojectbuilddirectory(), collect(_additional_lib_paths))
+            if isdir(dir)
+                for file in readdir(dir)
+                    fe = splitext(file)
+                    if fe[2] == file_ext && startswith(fe[1], file_prefix)
+                        push!(all, (fe[1][1+length(file_prefix):end], abspath(dir, file)))
+                    end
                 end
             end
-            # check additional paths
-            for path in _additional_lib_paths
-                #
-            end
-        else
-            @error "Project build directory does not exist"
         end
     end
     return all

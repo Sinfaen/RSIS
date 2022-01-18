@@ -48,6 +48,7 @@ using .MModel
 export load, unload, listavailable
 export structnames, structdefinition
 export connect, listconnections
+export addlibpath, clearlibpaths
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration
