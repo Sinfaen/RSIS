@@ -42,6 +42,12 @@ pub struct NRTScheduler {
     pub runner_rx : Option<Receiver<ThreadResult>>,
 }
 
+fn send_cmd_to_threads(handles : &mut Vec::<Sender<ThreadCommand>>, cmd : ThreadCommand) {
+    for tx in handles.iter_mut() {
+        tx.send(cmd).unwrap();
+    }
+}
+
 impl NRTScheduler {
     fn start_runner(&mut self) -> (Sender<ThreadCommand>, Receiver<ThreadResult>) {
         let (mtor_tx, mtor_rx) = mpsc::channel();
@@ -113,9 +119,7 @@ impl NRTScheduler {
                 match state {
                     SchedulerState::CONFIG => {
                         if stat == Ok(ThreadCommand::INIT) {
-                            for tx in tx_handles.iter_mut() {
-                                tx.send(ThreadCommand::INIT).unwrap();
-                            }
+                            send_cmd_to_threads(&mut tx_handles, ThreadCommand::INIT);
                             state = SchedulerState::INITIALIZING;
                             let mut s = mutex_state.lock().unwrap();
                             *s = state;
@@ -154,9 +158,7 @@ impl NRTScheduler {
                     SchedulerState::INITIALIZED => {
                         match stat {
                             Ok(ThreadCommand::EXECUTE(steps)) => {
-                                for tx in tx_handles.iter_mut() {
-                                    tx.send(ThreadCommand::EXECUTE(steps)).unwrap();
-                                }
+                                send_cmd_to_threads(&mut tx_handles, ThreadCommand::EXECUTE(steps));
                                 state = SchedulerState::RUNNING;
                                 let mut s = mutex_state.lock().unwrap();
                                 *s = state;
@@ -167,9 +169,7 @@ impl NRTScheduler {
                     SchedulerState::RUNNING => {
                         match stat {
                             Ok(ThreadCommand::SHUTDOWN) => {
-                                for tx in tx_handles.iter_mut() {
-                                    tx.send(ThreadCommand::SHUTDOWN).unwrap();
-                                }
+                                send_cmd_to_threads(&mut tx_handles, ThreadCommand::SHUTDOWN);
                                 state = SchedulerState::ENDING;
                                 let mut s = mutex_state.lock().unwrap();
                                 *s = state;
@@ -220,17 +220,13 @@ impl NRTScheduler {
                     SchedulerState::PAUSED => {
                         match stat {
                             Ok(ThreadCommand::EXECUTE(steps)) => {
-                                for tx in tx_handles.iter_mut() {
-                                    tx.send(ThreadCommand::EXECUTE(steps)).unwrap();
-                                }
+                                send_cmd_to_threads(&mut tx_handles, ThreadCommand::EXECUTE(steps));
                                 state = SchedulerState::RUNNING;
                                 let mut s = mutex_state.lock().unwrap();
                                 *s = state;
                             },
                             Ok(ThreadCommand::SHUTDOWN) => {
-                                for tx in tx_handles.iter_mut() {
-                                    tx.send(ThreadCommand::SHUTDOWN).unwrap();
-                                }
+                                send_cmd_to_threads(&mut tx_handles, ThreadCommand::SHUTDOWN);
                                 state = SchedulerState::ENDING;
                                 let mut s = mutex_state.lock().unwrap();
                                 *s = state;
