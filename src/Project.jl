@@ -109,6 +109,7 @@ function loadproject(directory::String = ".") :: Nothing
         throw(ErrorException("Invalid language type in `rsisproject.toml`"))
     end
 
+    clearfilepaths()
     if "filepaths" in keys(projectdata["rsisproject"])
         for path in projectdata["rsisproject"]["filepaths"]
             addfilepath(path)

@@ -32,7 +32,7 @@ export simstatus, SchedulerState
 
 include("Scripting.jl")
 using .MScripting
-export addfilepath, removefilepath, printfilepaths, where, search
+export addfilepath, removefilepath, clearfilepaths, listfilepaths, where, search
 export script, logscripts, printscriptlog
 
 include("Project.jl") # pulls in MLogging, MScripting

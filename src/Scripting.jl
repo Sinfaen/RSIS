@@ -1,7 +1,7 @@
 
 module MScripting
 
-export addfilepath, removefilepath, printfilepaths, where, search, script
+export addfilepath, removefilepath, clearfilepaths, listfilepaths, where, search, script
 export script, logscripts, printscriptlog
 
 using ..Logging
@@ -76,25 +76,30 @@ function removefilepath(directory::String)
 end
 
 """
-    printfilepaths()
-Print global search
+    clearfilepaths()
+Empties the global file path list.
+"""
+function clearfilepaths() :: Nothing
+    global _file_paths
+    _file_paths = Vector{String}();
+    return
+end
+
+"""
+    listfilepaths()
+Returns a list of global search file paths
 ```jldoctest
 julia> addfilepath("./marker")
 julia> addfilepath("/usr/local/bin")
 julia> addfilepath("./marker")
-julia> printfilepaths()
-[LOG]:
-> ./marker
-> /usr/local/bin
+julia> listfilepaths()
+2-element Vector{String}:
+ ./marker
+ /usr/local/bin
 ```
 """
-function printfilepaths()
-    message = "\n"
-    message = message * "> ./\n"
-    for fp in _file_paths
-        message = message * "> $fp\n"
-    end
-    @info message
+function listfilepaths() :: Vector{String}
+    return copy(_file_paths)
 end
 
 """
