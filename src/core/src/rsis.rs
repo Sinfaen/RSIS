@@ -22,8 +22,8 @@ pub enum ThreadCommand {
 
 #[derive(Copy,Clone,PartialEq)]
 pub enum ThreadResult {
-    OK,
-    ERR,
+    OK(ThreadCommand),
+    ERR(ThreadCommand),
     END
 }
 
@@ -69,10 +69,10 @@ impl NRTScheduler {
                     let mut time = EpochTime::new();
                     match rxx.recv() {
                         Ok(ThreadCommand::INIT) => {
-                            let mut status = ThreadResult::OK;
+                            let mut status = ThreadResult::OK(ThreadCommand::INIT);
                             for obj in &mut u[..] {
                                 if !(*obj).model.init() {
-                                    status = ThreadResult::ERR;
+                                    status = ThreadResult::ERR(ThreadCommand::INIT);
                                 }
                             }
                             tx.send(status).unwrap();
@@ -88,13 +88,30 @@ impl NRTScheduler {
                                         (*obj).counter = 0;
                                     }
                                 }
+                                // Check for pause command
+                                match rxx.try_recv() {
+                                    Ok(ThreadCommand::PAUSE) => {
+                                        for obj in &mut u[..] {
+                                            (*obj).model.pause();
+                                        }
+                                        tx.send(ThreadResult::OK(ThreadCommand::PAUSE)).unwrap();
+                                        break;
+                                    },
+                                    _ => {
+                                        // do nothing
+                                    }
+                                }
                                 time.increment(1);
                                 c.wait();
                             }
-                            tx.send(ThreadResult::OK).unwrap();
+                            // call pausing function
+                            for obj in &mut u[..] {
+                                (*obj).model.pause();
+                            }
+                            tx.send(ThreadResult::OK(ThreadCommand::EXECUTE(value))).unwrap();
                         },
                         Ok(ThreadCommand::PAUSE) => {
-                            break;
+                            continue;
                         }
                         Ok(ThreadCommand::SHUTDOWN) => {
                             tx.send(ThreadResult::END).unwrap();
@@ -130,10 +147,10 @@ impl NRTScheduler {
                         let mut alldone = true;
                         for (pos, rx) in rx_handles.iter_mut().enumerate() {
                             match rx.try_recv() {
-                                Ok(ThreadResult::OK) => {
+                                Ok(ThreadResult::OK(_)) => {
                                     thread_state[pos] = SchedulerState::INITIALIZED;
                                 },
-                                Ok(ThreadResult::ERR) => {
+                                Ok(ThreadResult::ERR(_)) => {
                                     thread_state[pos] = SchedulerState::ERRORED;
                                     println!("Thread {} reported an error in initialization.", pos);
                                 },
@@ -168,6 +185,9 @@ impl NRTScheduler {
                     },
                     SchedulerState::RUNNING => {
                         match stat {
+                            Ok(ThreadCommand::PAUSE) => {
+                                send_cmd_to_threads(&mut tx_handles, ThreadCommand::PAUSE);
+                            },
                             Ok(ThreadCommand::SHUTDOWN) => {
                                 send_cmd_to_threads(&mut tx_handles, ThreadCommand::SHUTDOWN);
                                 state = SchedulerState::ENDING;
@@ -180,7 +200,7 @@ impl NRTScheduler {
                         // poll state
                         for (pos, rx) in rx_handles.iter_mut().enumerate() {
                             match rx.try_recv() {
-                                Ok(ThreadResult::OK) => {
+                                Ok(ThreadResult::OK(_)) => {
                                     if !thread_state_received[pos] {
                                         thread_state_received[pos] = true;
                                         thread_rcv_num += 1;
@@ -196,7 +216,7 @@ impl NRTScheduler {
                                         *s = state;
                                     }
                                 },
-                                Ok(ThreadResult::ERR) => {
+                                Ok(ThreadResult::ERR(_)) => {
                                     println!("Thread {} reported an error", pos);
                                     state = SchedulerState::ERRORED;
                                     let mut s = mutex_state.lock().unwrap();
