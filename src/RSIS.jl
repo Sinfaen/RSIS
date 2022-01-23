@@ -20,9 +20,6 @@ using Unitful.DefaultSymbols
 
 using Logging
 
-include("Logging.jl")
-using .MLogging
-
 include("RSIS_Lib.jl")
 using .MLibrary
 export getscheduler, libraryinfo
@@ -53,6 +50,10 @@ export addlibpath, clearlibpaths
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration
 export generateinterface
+
+include("Events.jl")
+using .MEvents
+export clear_event_map, add_event_map
 
 include("Scheduling.jl")
 using .MScheduling

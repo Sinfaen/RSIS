@@ -1,7 +1,6 @@
 
 module MLibrary
 using Base: Int32, _getmeta
-using ..MLogging
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
