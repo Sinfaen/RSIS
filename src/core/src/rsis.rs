@@ -316,6 +316,9 @@ impl Scheduler for NRTScheduler {
     fn get_num_threads(&self) -> i32 {
         self.threads.len() as i32
     }
+    fn config(&mut self, toml : String) -> i32 {
+        0
+    }
     fn init(&mut self) -> i32 {
         let (tx, rx) = self.start_runner();
         tx.send(ThreadCommand::INIT).unwrap(); // todo deal with unwrap

@@ -238,3 +238,20 @@ pub extern "C" fn set_utf8_string(ptr : *mut c_void, data : UTF8Data) -> u32 {
         }
     }
 }
+
+
+#[no_mangle]
+pub extern "C" fn config_scheduler(data : UTF8Data) -> u32 {
+    unsafe {
+        let slice = std::slice::from_raw_parts(data.ptr as *const u8, data.size as usize);
+        match std::str::from_utf8(slice) {
+            Ok(value) => {
+                SCHEDULERS.get_mut(0).unwrap().config(value.to_string());
+                return RSISStat::OK as u32;
+            },
+            Err(_) => {
+                return RSISStat::ERR as u32;
+            }
+        }
+    }
+}

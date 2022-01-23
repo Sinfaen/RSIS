@@ -22,6 +22,7 @@ pub trait Scheduler {
     fn add_model(&mut self, model: Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> *mut c_void;
     fn get_num_threads(&self) -> i32;
 
+    fn config(&mut self, toml : String) -> i32;
     fn init(&mut self) -> i32;
     fn step(&mut self, steps: u64) -> i32;
     fn pause(&mut self) -> i32;
