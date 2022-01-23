@@ -308,7 +308,7 @@ impl Scheduler for NRTScheduler {
             model: *model,
             divisor: divisor,
             offset: offset,
-            counter: 0,
+            counter: offset % divisor,
         };
         self.threads[thread].models.push(obj);
         return &self.threads[thread].models.last().unwrap().model as *const Box<dyn BaseModel + Send> as *mut c_void;
