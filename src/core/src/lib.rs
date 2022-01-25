@@ -6,6 +6,7 @@ mod rsis;
 mod scheduler;
 mod epoch;
 mod connection;
+mod channel;
 
 pub use scheduler::Scheduler;
 pub use rsis::NRTScheduler;

@@ -1,11 +1,17 @@
 
+mod framework;
+
 extern crate libc;
 use libc::c_char;
 use libc::c_void;
 
+pub use framework::Framework;
+pub use framework::ChannelRx;
+pub use framework::ChannelTx;
+
 pub trait BaseModel {
     fn config(&mut self) -> bool;
-    fn init(&mut self) -> bool;
+    fn init(&mut self, interface : &mut Box<dyn Framework>) -> bool;
     fn step(&mut self) -> bool;
     fn pause(&mut self) -> bool;
     fn stop(&mut self) -> bool;
@@ -29,7 +35,7 @@ impl BaseModel for BaseModelExternal {
     fn config(&mut self) -> bool {
         unsafe { (self.config_fn)(self.obj) }
     }
-    fn init(&mut self) -> bool {
+    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> bool {
         unsafe { (self.init_fn)(self.obj) }
     }
     fn step(&mut self) ->  bool {

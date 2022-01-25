@@ -10,6 +10,7 @@
 // and create these as efficiently as possible
 
 use modellib::BaseModel;
+use modellib::Framework;
 use std::ptr;
 
 pub struct Connection {
@@ -22,7 +23,7 @@ impl BaseModel for Connection {
     fn config(&mut self) -> bool {
         true
     }
-    fn init(&mut self) -> bool {
+    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> bool {
         true
     }
     fn step(&mut self) ->  bool {

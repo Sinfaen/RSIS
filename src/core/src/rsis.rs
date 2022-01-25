@@ -5,8 +5,11 @@ use crate::scheduler::SchedulerState;
 use crate::scheduler::Scheduler;
 use crate::scheduler::ScheduledObject;
 
+use crate::channel::RSISInterface;
+
 pub use std::ffi::c_void;
 use modellib::BaseModel;
+use modellib::Framework;
 use std::{thread,time};
 use std::sync::{Arc, Barrier, mpsc, mpsc::TryRecvError, mpsc::Receiver, mpsc::Sender, Mutex};
 
@@ -40,6 +43,8 @@ pub struct NRTScheduler {
     pub runner : Option<thread::JoinHandle<()>>,
     pub runner_tx : Option<Sender<ThreadCommand>>,
     pub runner_rx : Option<Receiver<ThreadResult>>,
+
+    pub interface : RSISInterface,
 }
 
 fn send_cmd_to_threads(handles : &mut Vec::<Sender<ThreadCommand>>, cmd : ThreadCommand) {
@@ -61,9 +66,10 @@ impl NRTScheduler {
         let barrier = Arc::new(Barrier::new(threadlen));
         for ts in &mut self.threads[..] {
             let c = Arc::clone(&barrier);
+            let mut interface : Box<dyn Framework> = Box::new(RSISInterface::clone(&self.interface));
             let mut u: Vec<_> = ts.models.drain(..).collect();
             let (txx, rxx) = mpsc::channel(); // trigger channel
-            let (tx, rx) = mpsc::channel(); // response channel
+            let (tx, rx)   = mpsc::channel(); // response channel
             self.handles.push(thread::spawn(move|| {
                 loop {
                     let mut time = EpochTime::new();
@@ -71,7 +77,7 @@ impl NRTScheduler {
                         Ok(ThreadCommand::INIT) => {
                             let mut status = ThreadResult::OK(ThreadCommand::INIT);
                             for obj in &mut u[..] {
-                                if !(*obj).model.init() {
+                                if !(*obj).model.init(&mut interface) {
                                     status = ThreadResult::ERR(ThreadCommand::INIT);
                                 }
                             }
@@ -375,6 +381,7 @@ impl NRTScheduler {
             runner : None,
             runner_tx : None,
             runner_rx : None,
+            interface : RSISInterface::new(),
         }
     }
 }

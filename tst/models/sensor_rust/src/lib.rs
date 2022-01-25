@@ -8,6 +8,7 @@ extern crate modellib;
 extern crate libc;
 
 use modellib::BaseModel;
+use modellib::Framework;
 
 use rand::distributions::Distribution;
 use statrs::distribution::Normal;
@@ -46,7 +47,7 @@ impl BaseModel for height_sensor {
         }
         true
     }
-    fn init(&mut self) -> bool {
+    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> bool {
         self.dist = Normal::new(0.0, self.params.noise).unwrap();
         println!("Created file: {}", self.params.stats_file);
         self.config()
