@@ -27,8 +27,6 @@ Fortran Projects
 
 ## Core Library Build Steps
 ```bash
-$ cd src/core
-$ cargo build
-$ cd modellib/cpp-meson-lib
-$ cargo build
+$ cd utilities
+$ julia -L build.jl -e "build()"
 ```
