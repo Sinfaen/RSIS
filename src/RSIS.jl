@@ -20,6 +20,13 @@ using Unitful.DefaultSymbols
 
 using Logging
 
+module MVersion
+export versioninfo
+function versioninfo()
+    return "0.2.1" # what is a better option?
+end
+end
+
 include("RSIS_Lib.jl")
 using .MLibrary
 export getscheduler, libraryinfo
@@ -32,20 +39,23 @@ using .MScripting
 export addfilepath, removefilepath, clearfilepaths, listfilepaths, where, search
 export script, logscripts, printscriptlog
 
-include("Project.jl") # pulls in MLogging, MScripting
-using .MProject
-export newproject, loadproject, projectinfo, build!, clean!
-export getprojectdirectory, getprojectbuilddirectory
+include("Defines.jl")
+using .MDefines
 
 include("Interface.jl")
 using .MInterface
 
-include("Model.jl") # pulls in MLogging, MProject, MScripting, MLibrary
+include("Model.jl") # pulls in MLogging, MScripting, MLibrary, MInterface
 using .MModel
 export load, unload, listavailable
 export structnames, structdefinition
 export connect, listconnections
 export addlibpath, clearlibpaths
+
+include("Project.jl") # pulls in MLogging, MScripting, MModel
+using .MProject
+export newproject, loadproject, projectinfo, build!, clean!
+export getprojectdirectory, getprojectbuilddirectory
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration

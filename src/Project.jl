@@ -5,47 +5,37 @@ export loadproject, newproject, projectinfo, projecttype
 export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
-export ProjectType, RUST, CPP, FORTRAN
-
 using ..Logging
 using ..MScripting
+using ..MModel
+using ..MDefines
 using ..TOML
-
-abstract type ProjectType end
-struct RUST <: ProjectType end
-struct CPP  <: ProjectType end
-struct FORTRAN <: ProjectType end
-
-Base.print(io::IO, ::RUST) = print(io, "rust")
-Base.print(io::IO, ::CPP)  = print(io, "cpp")
-Base.print(io::IO, ::FORTRAN) = print(io, "fortran")
+using ..MVersion
 
 # globals
 mutable struct ProjectInfo
     loaded::Bool
-    builddirexists::Bool
     directory::String
     type::ProjectType
-    target::String
     function ProjectInfo()
-        new(false, false, "", RUST(), "debug")
+        new(false, "", RUST())
     end
 end
 
-function _libdir(ProjectType::RUST)
-    return joinpath("target", _loaded_project.target)
+function _builddir(ProjectType::RUST, target::BuildTarget)
+    return joinpath("target", "$(target)")
 end
 
-function _libdir(ProjectType::CPP)
-    return "build"
+function _builddir(ProjectType::CPP, target::BuildTarget)
+    return "build_$(target)"
 end
 
-function _libdir(ProjectType::FORTRAN)
-    return "build"
+function _builddir(ProjectType::FORTRAN, target::BuildTarget)
+    return "build_$(target)" # TODO
 end
 
-function builddir(proj::ProjectInfo)
-    return joinpath(proj.directory, _libdir(proj.type))
+function builddir(proj::ProjectInfo, target::BuildTarget)
+    return joinpath(proj.directory, _builddir(proj.type, target))
 end
 
 _loaded_project = ProjectInfo()
@@ -60,15 +50,6 @@ end
 
 function getprojectbuilddirectory() :: String
     return builddir(_loaded_project)
-end
-
-function checkbuilddirectory(proj::ProjectInfo) :: Nothing
-    if proj.loaded
-        proj.builddirexists = isdir(builddir(proj))
-    else
-        proj.builddirexists = false
-    end
-    return
 end
 
 """
@@ -99,7 +80,7 @@ function loadproject(directory::String = ".") :: Nothing
     end
 
     # All good here, start doing stuff
-    if projectdata["rsisproject"]["type"] == "rust"
+    if projectdata["rsisproject"]["type"]     == "rust"
         _loaded_project.type = RUST()
     elseif projectdata["rsisproject"]["type"] == "cpp"
         _loaded_project.type = CPP()
@@ -109,6 +90,10 @@ function loadproject(directory::String = ".") :: Nothing
         throw(ErrorException("Invalid language type in `rsisproject.toml`"))
     end
 
+    _loaded_project.directory = _dir
+    _loaded_project.loaded    = true
+
+    # Let the rest of the framework tie into this
     clearfilepaths()
     if "filepaths" in keys(projectdata["rsisproject"])
         for path in projectdata["rsisproject"]["filepaths"]
@@ -116,9 +101,10 @@ function loadproject(directory::String = ".") :: Nothing
         end
     end
 
-    checkbuilddirectory(_loaded_project)
-    _loaded_project.directory = _dir
-    _loaded_project.loaded    = true
+    clearlibpaths()
+    addlibpath(builddir(_loaded_project, DEBUG()); force = true)
+    addlibpath(builddir(_loaded_project, RELEASE()); force = true)
+
     @info projectinfo()
     return
 end
@@ -188,57 +174,69 @@ function projecttype() :: ProjectType
 end
 
 """
-    buildtarget!(target::String)
-Set the build target of the project, which affects further builds.
+Generate a TOML tag file alongside the model with associated
+metadata
 """
-function buildtarget!(target::String)
-    if target != "debug" && target != "release"
-        throw(ArgumentError("Unknown `target`: $(target). Must be debug or release"))
-    end
-    _loaded_project.target = target;
+function _generate_tagfile(proj::ProjectInfo, target::BuildTarget)
+    data = Dict(
+        "rsisapp" => Dict(
+            "type"   => "$(proj.type)",
+            "target" => "$(target)"
+        ),
+        "rsis" => Dict(
+            "version" => versioninfo()
+        )
+    );
 end
 
-function _build(ProjectType::RUST)
-    if (_loaded_project.target == "debug")
+function _build(ProjectType::RUST, target::BuildTarget)
+    if target isa DEBUG
         run(`cargo build`)
     else
         run(`cargo build --release`)
     end
 end
 
-function _build(ProjectType::CPP)
-    run(`meson build`)
-    cd(builddir(_loaded_project))
+function _build(ProjectType::CPP, target::BuildTarget)
+    st = "$(target)"
+    if !isdir("build_$st")
+        run(`meson setup build_$st -Dbuildtype=$st --prefix=/`)
+    end
+    cd("build_$st")
     run(`meson compile`)
     cd(_loaded_project.directory)
 end
 
-function _build(ProjectType::FORTRAN)
+function _build(ProjectType::FORTRAN, target::BuildTarget)
     run(`fpm build`)
 end
 
 """
-    build!()
+    build!(;target::String = "debug")
 Compile a loaded RSIS project. Actions are dependent on the
 type of the project.
 """
-function build!() :: Nothing
+function build!(;target::String = "debug") :: Nothing
     if !isprojectloaded()
-        println("No project loaded. Aborting")
+        @error "No project loaded. Aborting"
         return
     end
-    if _loaded_project.target == "debug" || _loaded_project.target == "release"
-        cd(_loaded_project.directory)
-        _build(_loaded_project.type)
+    if target == "debug"
+        tt = DEBUG()
+    elseif target == "release"
+        tt = RELEASE()
     else
-        throw(ArgumentError("Invalid `target` specified. Must be debug or release"))
+        throw(ArgumentError("target must be either [debug,release]"))
     end
+    cd(_loaded_project.directory)
+    _build(_loaded_project.type, tt)
+    _generate_tagfile(_loaded_project, tt)
     return
 end
 
 """
     clean!()
-Destroy build directory.
+Destroy build directory(s).
 """
 function clean!() :: Nothing
     if !isprojectloaded()
@@ -246,7 +244,7 @@ function clean!() :: Nothing
     end
 
     cd(_loaded_project.directory)
-    rm(_libdir(_loaded_project.type); recursive=true)
+    rm(_builddir(_loaded_project.type); recursive=true)
 end
 
 end

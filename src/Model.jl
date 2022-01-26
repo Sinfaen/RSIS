@@ -19,7 +19,6 @@ using ..MScripting
 using ..MLibrary
 using ..MInterface
 using ..Logging
-using ..MProject
 using ..Unitful
 
 
@@ -193,9 +192,10 @@ function structdefinition(library::String, name::String) :: Vector{Tuple{String,
 end
 
 """
-    addlibpath(directory::String)
+    addlibpath(directory::String; force::Bool = false)
 Adds an external directory to the library search path. Relative paths
-are resolved against the current working directory.
+are resolved against the current working directory. If `force`
+is specified, add the path if it doesn't exist
 ```jldoctest
 julia> loadproject("programs/project1")
 julia> addlibpath("/home/foo/release_area")
@@ -205,13 +205,13 @@ julia> listavailable()
  ("extmod", "/home/foo/release_area/libextmod.so")
 ```
 """
-function addlibpath(directory::String) :: Nothing
+function addlibpath(directory::String; force::Bool = false) :: Nothing
     if isabspath(directory)
         path = directory
     else
         path = joinpath(pwd(), directory)
     end
-    if isdir(path)
+    if force || isdir(path)
         push!(_additional_lib_paths, path)
     else
         @warn "Path: $path does not exist"
@@ -220,7 +220,9 @@ function addlibpath(directory::String) :: Nothing
 end
 
 function clearlibpaths() :: Nothing
-    _additional_lib_paths = Vector{String}()
+    global _additional_lib_paths
+    _additional_lib_paths = OrderedSet{String}()
+    return
 end
 
 """
@@ -240,18 +242,14 @@ julia> listavailable()
 """
 function listavailable() :: Vector{Tuple{String, String}}
     all = Vector{Tuple{String, String}}()
-    if !isprojectloaded()
-        @info "Load a project to see available libraries."
-    else
-        file_ext    = _libraryextension()
-        file_prefix = _libraryprefix()
-        for dir in vcat(getprojectbuilddirectory(), collect(_additional_lib_paths))
-            if isdir(dir)
-                for file in readdir(dir)
-                    fe = splitext(file)
-                    if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                        push!(all, (fe[1][1+length(file_prefix):end], abspath(dir, file)))
-                    end
+    file_ext    = _libraryextension()
+    file_prefix = _libraryprefix()
+    for dir in collect(_additional_lib_paths)
+        if isdir(dir)
+            for file in readdir(dir)
+                fe = splitext(file)
+                if fe[2] == file_ext && startswith(fe[1], file_prefix)
+                    push!(all, (fe[1][1+length(file_prefix):end], abspath(dir, file)))
                 end
             end
         end
@@ -273,22 +271,14 @@ julia> load("anothermodel"; namespace="TEST")
 function load(library::String; namespace::String="") :: Nothing
     # Find library in search path, then pass absolute filepath
     # to core functionality
-    filename = "$(_libraryprefix())$(library)$(_libraryextension())"
-    if !isprojectloaded()
-        @error "Load a project to see available libraries."
-        return
-    end
-    bdir = getprojectbuilddirectory()
-    if isdir(bdir)
-        for (name, path) in listavailable()
-            if name == library
-                # load library
-                if !LoadModelLib(library, path, namespace)
-                    @info "Model library alread loaded."
-                end
-                GetClassData(library, namespace);
-                return
+    for (name, path) in listavailable()
+        if name == library
+            # load library
+            if !LoadModelLib(library, path, namespace)
+                @info "Model library alread loaded."
             end
+            GetClassData(library, namespace);
+            return
         end
     end
     throw(ErrorException("Could not locate library: [$library]"))

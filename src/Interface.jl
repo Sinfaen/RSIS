@@ -1,7 +1,7 @@
 
 module MInterface
 
-using ..MProject
+using ..MDefines
 
 export convert_julia_type, _gettype, _istypesupported, _type_default
 
