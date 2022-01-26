@@ -187,21 +187,19 @@ function LoadLibrary()
     install = normpath(joinpath(@__DIR__, "..", "install", "debug"))
 
     # detect operating system
-    libpath = joinpath(@__DIR__, "core", "target", "debug");
-    libfile = ""
-    try
-        libfile = _libraryprefix() * "rsis" * _libraryextension()
-    catch e
-        throw(InitError(:RSIS, String(e)))
+    libpath = Libdl.find_library(_libraryprefix() * "rsis", [install])
+    if isempty(libpath)
+        throw(InitError("Unable to locate rsis library"))
     end
-
-    libpath = joinpath(libpath, libfile)
     _lib = Libdl.dlopen(libpath)
     _sym = LibFuncs(_lib)
     InitLibrary(_sym)
 
     # Load C++ extension
-    libpath = Libdl.find_library(_libraryprefix() * "rsis-cpp-extension", [install])
+    libpath = Libdl.find_library("librsis-cpp-extension", [install])
+    if isempty(libpath)
+        throw(InitError("Unable to locate rsis cpp extension"))
+    end
     _cpp_lib = LangExtension(Libdl.dlopen(libpath))
     return
 end

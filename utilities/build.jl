@@ -8,6 +8,7 @@ end
 
 _libraries = [
     LibraryInstall(["src", "core", "modellib", "cpp-meson-lib"], CPP)
+    LibraryInstall(["src", "core"], RUST)
 ]
 
 function _clean(data::LibraryInstall) :: Nothing
@@ -31,9 +32,20 @@ function _compile_release(data::LibraryInstall, install::String, for_release=fal
     if data.language == RUST
         if for_release
             run(`cargo build --release`)
-            cp(joinpath("target", "release", ""))
+            basepath = joinpath("target", "release")
         else
             run(`cargo build`)
+            basepath = joinpath("target", "debug")
+        end
+        # kludge: --out-dir is unstable and nightly-only
+        # copy all possible file extensions instead
+        for path in readdir(basepath)
+            bp = joinpath(basepath, path)
+            if isfile(bp) && endswith(bp, r".so|.dll|.dylib")
+                np = joinpath(install, path)
+                println("Installing $path to $np")
+                cp(bp, np)
+            end
         end
     elseif data.language == CPP
         if for_release
