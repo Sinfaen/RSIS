@@ -21,7 +21,7 @@ The RSIS Framework is used to build Real-Time simulations.
 
 ### Optional Dependencies
 C++ Projects
-- Meson
+- Meson (>= 0.61.1)
 Fortran Projects
 - fpm (Fortran Package Manager)
 

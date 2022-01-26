@@ -183,6 +183,9 @@ function LoadLibrary()
     global _sym
     global _cpp_lib
 
+    # debug install directory
+    install = normpath(joinpath(@__DIR__, "..", "install", "debug"))
+
     # detect operating system
     libpath = joinpath(@__DIR__, "core", "target", "debug");
     libfile = ""
@@ -198,13 +201,7 @@ function LoadLibrary()
     InitLibrary(_sym)
 
     # Load C++ extension
-    libpath = joinpath(@__DIR__, "core", "modellib", "cpp-meson-lib", "build")
-    try
-        libfile = _libraryprefix() * "rsis-cpp-extension" * _libraryextension()
-    catch e
-        throw(InitError(:RSIS, String(e)))
-    end
-    libpath = joinpath(libpath, libfile)
+    libpath = Libdl.find_library(_libraryprefix() * "rsis-cpp-extension", [install])
     _cpp_lib = LangExtension(Libdl.dlopen(libpath))
     return
 end
