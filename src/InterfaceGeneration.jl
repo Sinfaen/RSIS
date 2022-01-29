@@ -5,6 +5,7 @@ module MInterfaceGeneration
 using ..DataStructures
 using ..Unitful
 using ..YAML
+using ..MDefines
 using ..MScripting
 using ..MInterface
 using ..MModel
@@ -142,7 +143,7 @@ Generation complete
 function generateinterface(interface::String; language::String = "")
     templates = Vector{Tuple{String, String}}()
     if language == ""
-        language = projecttype()
+        language = "$(projecttype())"
     end
     if language == "cpp"
         _language = CPP()
