@@ -7,7 +7,8 @@ struct LibraryInstall
 end
 
 _libraries = [
-    LibraryInstall(["src", "core", "modellib", "cpp-meson-lib"], CPP)
+    LibraryInstall(["src", "core", "modellib", "cpp-meson-lib"], CPP),
+    LibraryInstall(["src", "core", "modellib"], RUST),
     LibraryInstall(["src", "core"], RUST)
 ]
 
@@ -41,7 +42,7 @@ function _compile_release(data::LibraryInstall, install::String, for_release=fal
         # copy all possible file extensions instead
         for path in readdir(basepath)
             bp = joinpath(basepath, path)
-            if isfile(bp) && endswith(bp, r".so|.dll|.dylib")
+            if isfile(bp) && endswith(bp, r"\.so|\.dll|\.dylib|\.rlib")
                 np = joinpath(install, path)
                 println("Installing $path to $np")
                 cp(bp, np)
