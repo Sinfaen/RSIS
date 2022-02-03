@@ -19,6 +19,7 @@ using ..MScripting
 using ..MLibrary
 using ..MInterface
 using ..Logging
+using ..TOML
 using ..Unitful
 
 
@@ -231,25 +232,33 @@ Returns a list of model libraries that can be loaded with
 `load`. The project build directory is recursively searched
 for shared libraries; file extension set by OS. Additional
 library search paths can be set with `addlibpath`. Tuples of the
-library name and the absolute filepath are returned.
+library name, build type, and the absolute filepath are returned.
+The tag file must exist alongside the library.
 ```
 julia> listavailable()
-3-element Vector{Tuple{String, String}}:
- ("fsw_hr_model", "/home/foo/target/release/libfsw_hr_model.dylib")
- ("fsw_lr_model", "/home/foo/target/release/libfsw_lr_model.dylib")
- ("gravity_model", "/home/foo/target/release/libgravity_model.dylib")
+3-element Vector{Tuple{String, String, String}}:
+ ("fsw_hr_model", "debug", "/home/foo/target/debug")
+ ("fsw_lr_model", "release", "/home/foo/target/release")
+ ("gravity_model", "debug", "/home/foo/target/debug")
 ```
 """
-function listavailable() :: Vector{Tuple{String, String}}
-    all = Vector{Tuple{String, String}}()
+function listavailable() :: Vector{Tuple{String, String, String}}
+    all = Vector{Tuple{String, String, String}}()
     file_ext    = _libraryextension()
     file_prefix = _libraryprefix()
+
+    dpat = r"^rsis_(.*)\.app\.debug\.toml";
+    rpat = r"^rsis_(.*)\.app\.release\.toml";
     for dir in collect(_additional_lib_paths)
         if isdir(dir)
             for file in readdir(dir)
-                fe = splitext(file)
-                if fe[2] == file_ext && startswith(fe[1], file_prefix)
-                    push!(all, (fe[1][1+length(file_prefix):end], abspath(dir, file)))
+                # check for toml tag file
+                if occursin(dpat, file)
+                    m = match(dpat, file)
+                    push!(all, (m[1], "debug", abspath(dir)))
+                elseif occursin(rpat, file)
+                    m = match(rpat, file)
+                    push!(all, (m[1], "release", abspath(dir)))
                 end
             end
         end
@@ -258,27 +267,42 @@ function listavailable() :: Vector{Tuple{String, String}}
 end
 
 """
-    load(library::String; namespace::String="")
+    load(library::String; namespace::String="", type::String="")
 Load a shared library containing a model implementation.
 If a namespace is defined, any reflection data defined during
 the load process is defined within that namespace, allowing
 for multiple models to define classes with the same name.
+
+If both debug and release versions of a model exist, they can be chosen
+via the `specify` argument. The default option is the first model found on
+the path.
 ```jldoctest
 julia> load("mymodel")
 julia> load("anothermodel"; namespace="TEST")
+julia> load("coreapp"; specify="release")
 ```
 """
-function load(library::String; namespace::String="") :: Nothing
+function load(library::String; namespace::String="", specify::String="") :: Nothing
     # Find library in search path, then pass absolute filepath
     # to core functionality
-    for (name, path) in listavailable()
+    for (name, type, path) in listavailable()
         if name == library
-            # load library
-            if !LoadModelLib(library, path, namespace)
-                @info "Model library alread loaded."
+            # load tag file to get file name
+            if isempty(specify) || specify == type
+                open(joinpath(path, "rsis_$(name).app.$(type).toml"), "r") do io
+                    data = TOML.parse(io);
+                    # TODO add check on reported rsis version
+                    file = data["rsisapp"]["file"]
+                    # load library
+                    if !LoadModelLib(library, joinpath(path, file), namespace)
+                        @info "Model library alread loaded."
+                    else
+                        @info "Loaded $(file): $(type)"
+                    end
+                    GetClassData(library, namespace);
+                end
+                return
             end
-            GetClassData(library, namespace);
-            return
         end
     end
     throw(ErrorException("Could not locate library: [$library]"))

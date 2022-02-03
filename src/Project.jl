@@ -6,6 +6,7 @@ export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
 using ..Logging
+using ..MLibrary
 using ..MScripting
 using ..MModel
 using ..MDefines
@@ -17,8 +18,9 @@ mutable struct ProjectInfo
     loaded::Bool
     directory::String
     type::ProjectType
+    name::String
     function ProjectInfo()
-        new(false, "", RUST())
+        new(false, "", RUST(), "")
     end
 end
 
@@ -27,7 +29,8 @@ function _builddir(ProjectType::RUST, target::BuildTarget)
 end
 
 function _builddir(ProjectType::CPP, target::BuildTarget)
-    return "build_$(target)"
+    # Meson can't build both debug and release in the same directory
+    return "build"
 end
 
 function _builddir(ProjectType::FORTRAN, target::BuildTarget)
@@ -82,10 +85,19 @@ function loadproject(directory::String = ".") :: Nothing
     # All good here, start doing stuff
     if projectdata["rsisproject"]["type"]     == "rust"
         _loaded_project.type = RUST()
+        open("Cargo.toml") do f
+            cargo = TOML.parse(f)
+            _loaded_project.name = cargo["package"]["name"]
+        end
     elseif projectdata["rsisproject"]["type"] == "cpp"
         _loaded_project.type = CPP()
+        _loaded_project.name = projectdata["rsisproject"]["name"] # not easy to get out of the meson setup
     elseif projectdata["rsisproject"]["type"] == "fortran"
         _loaded_project.type = FORTRAN()
+        open("fpm.toml") do f
+            fpm = TOML.parse(f)
+            _loaded_project.name = fpm["name"]
+        end
     else
         throw(ErrorException("Invalid language type in `rsisproject.toml`"))
     end
@@ -177,16 +189,28 @@ end
 Generate a TOML tag file alongside the model with associated
 metadata
 """
-function _generate_tagfile(proj::ProjectInfo, target::BuildTarget)
+function _generate_tagfile(proj::ProjectInfo, target::BuildTarget) :: Nothing
     data = Dict(
         "rsisapp" => Dict(
-            "type"   => "$(proj.type)",
+            "file"  => _libraryprefix() * proj.name * _libraryextension(),
             "target" => "$(target)"
         ),
         "rsis" => Dict(
             "version" => versioninfo()
         )
     );
+    filename = "rsis_$(proj.name).app.$(target).toml";
+    if proj.type == RUST()
+        folder = joinpath("target", "$(target)")
+    elseif proj.type == CPP()
+        folder = "build"
+    else # Fortran
+        folder = joinpath("target", "$(target)"); # ??
+    end
+    open(joinpath(proj.directory, folder, filename), "w") do io
+        TOML.print(io, data);
+    end
+    return;
 end
 
 function _build(ProjectType::RUST, target::BuildTarget)
@@ -198,11 +222,12 @@ function _build(ProjectType::RUST, target::BuildTarget)
 end
 
 function _build(ProjectType::CPP, target::BuildTarget)
+    # Meson doesn't support debug & release in the same buil directory
     st = "$(target)"
-    if !isdir("build_$st")
-        run(`meson setup build_$st -Dbuildtype=$st --prefix=/`)
+    if !isdir("build")
+        run(`meson setup build -Dbuildtype=$st --prefix=/`)
     end
-    cd("build_$st")
+    cd("build")
     run(`meson compile`)
     cd(_loaded_project.directory)
 end
@@ -231,6 +256,7 @@ function build!(;target::String = "debug") :: Nothing
     cd(_loaded_project.directory)
     _build(_loaded_project.type, tt)
     _generate_tagfile(_loaded_project, tt)
+    println("Completed building $(_loaded_project.name)")
     return
 end
 

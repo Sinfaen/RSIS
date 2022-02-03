@@ -1,6 +1,7 @@
 
 [rsisproject]
 type = "cpp"
+name = "height_sensor"
 filepaths = [
     "src"
 ]
