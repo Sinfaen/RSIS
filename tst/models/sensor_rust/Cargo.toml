@@ -7,9 +7,10 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2.0"
-memoffset = "0.5.4"
 rand = "0.8.4"
 statrs = "0.15.0"
+rmp-serde = "1.0.0"
+rmpv = "1.0.0"
 
 [dependencies.modellib]
 path = "../../../src/core/modellib"

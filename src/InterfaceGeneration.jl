@@ -258,13 +258,10 @@ function generateinterface(interface::String; language::String = "")
     else
         rs_text = ""
         cs_text = ""
-        reflect = ""
-        ref_all = "#[no_mangle]\npub extern \"C\" fn reflect(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
+        d_text = ""
+        s_text = ""
         # generate constructors & structs
         for name in class_order
-            if name == data["model"]
-                continue
-            end
             fields = class_defs[name]
             txt = "#[repr(C)]\npub struct $(name) {\n"
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
@@ -292,39 +289,50 @@ function generateinterface(interface::String; language::String = "")
             rs_text = rs_text * txt
             cs  = cs  * "        }\n    }\n}\n"
             cs_text = cs_text * cs
+
+            # generate meta access code
+            stxt = "pub fn s_$(name)(obj : &$(name), mut ii : Iter<'_, u32>) -> Result<Vec<u8>, rmp_serde::encode::Error> {\n    match ii.next() {\n"
+            dtxt = "pub fn d_$(name)(obj : &mut $(name), mut ii : Iter<'_, u32>, data : &[u8]) -> Option<rmp_serde::decode::Error> {\n    match ii.next() {\n"
+            d_any_non_composite = false
+            for (ii, (n, f)) in enumerate(fields)
+                stxt = stxt * "        Some($(ii - 1)) => return "
+                dtxt = dtxt * "        Some($(ii - 1)) => "
+                if f.iscomposite
+                    # serialization
+                    stxt = stxt * "s_$(f.type)(&obj.$(n), ii),\n"
+                    # deserialization
+                    dtxt = dtxt * "return d_$(f.type)(&mut obj.$(n), ii, data),\n"
+                else
+                    # serialization
+                    stxt = stxt * "rmp_serde::to_vec(&obj.$(n)),\n"
+                    # deserialization
+                    dtxt = dtxt * "{\n            match rmp_serde::decode::from_read(data) {\n" 
+                    dtxt = dtxt * "                Ok(val) => obj.$(n) = val,\n"
+                    dtxt = dtxt * "                Err(e) => return Some(e),\n            }\n        },\n"
+                    d_any_non_composite = true
+                end
+            end
+            stxt = stxt * "        _ => return Err(rmp_serde::encode::Error::Syntax(\"Invalid index\".to_string())),\n"
+            stxt = stxt * "    }\n}\n"
+            s_text = s_text * stxt;
+
+            dtxt = dtxt * "        _ => return Some(rmp_serde::decode::Error::Syntax(\"Invalid index\".to_string())),\n"
+            if d_any_non_composite
+                dtxt = dtxt * "    }\n    None\n}\n"
+            else
+                dtxt = dtxt * "    }\n}\n"
+            end
+            d_text = d_text * dtxt;
         end
         # generate other values
         for name in class_order
-            if name == data["model"]
-                prepend = "crate::"
-            else
-                prepend = ""
-            end
-            fields = class_defs[name]
-            ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
-                  "    let cl = CString::new(\"$(name)\").unwrap();\n" *
-                  "    _cb1(cl.as_ptr());\n"
-            ref_all = ref_all * "    reflect_$(name)(_cb1, _cb2);\n"
-            for (n,f) in fields
-                if length(f.dimension) == 0
-                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                                "    let d_$(n) = CString::new(\"$(f.type)\").unwrap();\n" *
-                                "    let u_$(n) = CString::new(\"$(f.units)\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)), u_$(n).as_ptr());\n"
-                else
-                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                                "    let d_$(n) = CString::new(\"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\").unwrap();\n" *
-                                "    let u_$(n) = CString::new(\"$(f.units)\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)), u_$(n).as_ptr());\n"
-                end
-            end
-            ref = ref * "}\n"
-            reflect = reflect * ref
+            #
         end
-        ref_all = ref_all * "}\n"
         words["STRUCT_DEFINITIONS"] = rs_text
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
-        words["REFLECT_DEFINITIONS"] = reflect * ref_all
+        words["SERIALIZATION"] = s_text
+        words["DESERIALIZATION"] = d_text
+        words["NAME"] = data["model"]
         words["METADATA_TOML"] = """
         [rsis]
         name = \\"$(data["model"])\\"
