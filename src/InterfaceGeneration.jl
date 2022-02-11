@@ -5,6 +5,7 @@ module MInterfaceGeneration
 using ..DataStructures
 using ..Unitful
 using ..YAML
+using ..TOML
 using ..MDefines
 using ..MScripting
 using ..MInterface
@@ -180,6 +181,9 @@ function generateinterface(interface::String; language::String = "")
     base_dir   = dirname(path_interface[1])
     model_name = splitext(interface)[1]
 
+    metadata = Dict{String, Any}()
+    metadata["rsis"] = Dict("name" => data["model"], "type" => language)
+
     # create text
     if language == "cpp"
         words["HEADER_GUARD"] = uppercase(model_name)
@@ -249,12 +253,7 @@ function generateinterface(interface::String; language::String = "")
             rtext = rtext * txt * "}\n\n"
         end
         words["REFLECT_DEFINITIONS"] = rtext
-
         words["REFLECT_CALLS"] = join(["Reflect_$(name)(_class, _member);" for name in class_order], "\n")
-        words["METADATA_TOML"] = """
-        [rsis]
-        name = "$(data["model"])"
-        type = "$(language)" """
     else
         rs_text = ""
         cs_text = ""
@@ -291,6 +290,7 @@ function generateinterface(interface::String; language::String = "")
             cs_text = cs_text * cs
 
             # generate meta access code
+            metadata[name] = Dict{String, Any}()
             stxt = "pub fn s_$(name)(obj : &$(name), mut ii : Iter<'_, u32>) -> Result<Vec<u8>, rmp_serde::encode::Error> {\n    match ii.next() {\n"
             dtxt = "pub fn d_$(name)(obj : &mut $(name), mut ii : Iter<'_, u32>, data : &[u8]) -> Option<rmp_serde::decode::Error> {\n    match ii.next() {\n"
             d_any_non_composite = false
@@ -302,6 +302,7 @@ function generateinterface(interface::String; language::String = "")
                     stxt = stxt * "s_$(f.type)(&obj.$(n), ii),\n"
                     # deserialization
                     dtxt = dtxt * "return d_$(f.type)(&mut obj.$(n), ii, data),\n"
+                    metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
                     # serialization
                     stxt = stxt * "rmp_serde::to_vec(&obj.$(n)),\n"
@@ -310,6 +311,7 @@ function generateinterface(interface::String; language::String = "")
                     dtxt = dtxt * "                Ok(val) => obj.$(n) = val,\n"
                     dtxt = dtxt * "                Err(e) => return Some(e),\n            }\n        },\n"
                     d_any_non_composite = true
+                    metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
                 end
             end
             stxt = stxt * "        _ => return Err(rmp_serde::encode::Error::Syntax(\"Invalid index\".to_string())),\n"
@@ -332,13 +334,11 @@ function generateinterface(interface::String; language::String = "")
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
         words["SERIALIZATION"] = s_text
         words["DESERIALIZATION"] = d_text
-        words["NAME"] = data["model"]
-        words["METADATA_TOML"] = """
-        [rsis]
-        name = \\"$(data["model"])\\"
-        type = \\"$(language)\\" """
     end
-    words["STRUCT_NAME"] = last(class_order)
+    words["NAME"] = data["model"]
+    open(joinpath([base_dir, "$(model_name).meta"]), "w") do io
+        TOML.print(io, metadata)
+    end
 
     pushtexttofile(base_dir, model_name, words, templates)
 

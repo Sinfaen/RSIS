@@ -5,8 +5,6 @@ extern crate libc;
 extern crate rmp_serde;
 extern crate rmpv;
 
-use libc::c_char;
-
 use modellib::BufferStruct;
 use std::slice::Iter;
 
@@ -17,14 +15,6 @@ use std::slice::Iter;
 {{SERIALIZATION}}
 
 {{DESERIALIZATION}}
-
-pub static METADATA : &str = "\
-{{METADATA_TOML}}\0";
-
-#[no_mangle]
-pub extern "C" fn metadata() -> *const c_char {
-    METADATA.as_ptr() as *const c_char
-}
 
 pub fn handle_msg_get(interface : &{{NAME}}, id : BufferStruct, data : BufferStruct) -> u32 {
     let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
