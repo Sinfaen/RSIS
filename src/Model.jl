@@ -72,18 +72,17 @@ function Base.sizeof(port::Port)
 end
 
 mutable struct ClassData
-    fields::OrderedDict{String, Tuple{Port, UInt}}
+    fields::Dict{String, Tuple{UInt, Port}}
 end
-ClassData() = ClassData(OrderedDict{String, Tuple{Port, UInt}}())
+ClassData() = ClassData(Dict{String, Tuple{UInt, Port}}())
 
 mutable struct LibraryData
-    structs::OrderedDict{String, ClassData}
-    last::String # last is not defined for structs, so use this keepsake
+    structs::Dict{String, ClassData}
+    toplevel::String
 end
-LibraryData() = LibraryData(OrderedDict{String, ClassData}(), "")
+LibraryData() = LibraryData(Dict{String, ClassData}(), "")
 
 _classdefinitions = Dict{String, LibraryData}()
-_cur_class = "" # current class being defined
 
 # Connection struct + globals
 struct Location
@@ -101,58 +100,41 @@ function _ensureconnection(model::ModelReference)
     end
 end
 
-
-function _CreateClass(name::Ptr{UInt8}) :: Nothing
-    cl = unsafe_string(name)
-    _data = _classdefinitions[_cur_class]
-    if cl in keys(_data.structs)
-        @warn "Class: $(cl) redefined."
+function _recurse_data_tree(classdef::LibraryData, data::Dict{String, Any}, dname::String) :: Nothing
+    if dname in keys(classdef.structs)
+        return
     end
-    _data.structs[cl] = ClassData()
-    _data.last = cl # workaround
-    return
-end
-
-function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::UInt, units::Ptr{UInt8}) :: Nothing
-    classname = unsafe_string(cl)
-    member    = unsafe_string(memb)
-    definition = unsafe_string(def)
-    unitstr    = unsafe_string(units)
-    _data = _classdefinitions[_cur_class]
-    if !(classname in keys(_data.structs))
-        @warn "Class: $(classname) for member: $(member) does not exist. Creating default."
-        _data.structs[classname] = ClassData()
-    end
-    # parse definition passed as a string
-    if occursin("[", definition) # array detection
-        tt = split(definition[2:end-1], ";")
-        dims = []
-        for token in split(tt[2], ",")
-            val = tryparse(Int, token)
-            if isnothing(val)
-                @error "Unable to parse: $(token) as a dimension"
-                val = -1
-            end
-            push!(dims, val)
+    dat = ClassData()
+    for (name, tags) in data[dname]
+        if !("id" in keys(tags))
+            @error "Corrupt metadata"
+            continue
         end
-        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), unitstr, !_istypesupported(String(tt[1]))), offset)
-    else
-        _data.structs[classname].fields[member] = (Port(definition, (), unitstr, !_istypesupported(definition)), offset)
+        if "class" in keys(tags)
+            _recurse_data_tree(classdef, data, tags["class"]) # go down subtree
+            dat.fields[name] = (UInt(tags["id"]), Port(tags["class"], (), "", !_istypesupported(tags["class"])))
+        elseif "type" in keys(tags)
+            if !("unit" in keys(tags) && "dims" in keys(tags))
+                @error "Corrupt field metadata"
+                continue
+            end
+            dat.fields[name] = (UInt(tags["id"]), Port(tags["type"], Tuple(tags["dims"]), tags["unit"], !_istypesupported(tags["type"])))
+        else
+            @error "Invalid metadata detected"
+        end
     end
+    classdef.structs[dname] = dat
     return
 end
 
-function GetClassData(name::String, namespace::String = "") :: Nothing
+function GetClassData(name::String, namespace::String, data::Dict{String, Any}) :: Nothing
     if name in keys(_classdefinitions)
-        throw(ErrorException("Library $(name) already loaded."))
+        @error "Library $(name) already loaded. Metadata overwrite/corruption may occur"
     end
-    global _cur_class
-    _cur_class = name
-    _classdefinitions[_cur_class] = LibraryData()
-    GetModelData(name, namespace,
-        @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
-        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt, Ptr{UInt8})))
-    _cur_class = ""
+    ldata = LibraryData()
+    _recurse_data_tree(ldata, data, data["rsis"]["name"])
+    ldata.toplevel = data["rsis"]["name"]
+    _classdefinitions[name] = ldata
     return
 end
 
@@ -186,7 +168,9 @@ julia> structdefinition("cubesat", "cubesat_params")
 function structdefinition(library::String, name::String) :: Vector{Tuple{String, String, String, UInt}}
     data = _classdefinitions[library]
     if name in keys(data.structs)
-        return [(_name, field[1].type, field[1].units, field[2]) for (_name, field) in data.structs[name].fields]
+        terms = [(_name, field[2].type, field[2].units, field[1]) for (_name, field) in data.structs[name].fields]
+        sort!(terms, by=x->x[4])
+        return terms
     else
         throw(ArgumentError("$(name) not defined!"))
     end
@@ -278,13 +262,14 @@ via the `specify` argument. The default option is the first model found on
 the path.
 ```jldoctest
 julia> load("mymodel")
+[ Info: Loaded mymodel
 julia> load("anothermodel"; namespace="TEST")
+[ Info: Loaded anothermodel => [TEST]
 julia> load("coreapp"; specify="release")
 ```
 """
 function load(library::String; namespace::String="", specify::String="") :: Nothing
-    # Find library in search path, then pass absolute filepath
-    # to core functionality
+    # Find library in search path, then pass absolute filepath to core functionality
     for (name, type, path) in listavailable()
         if name == library
             # load tag file to get file name
@@ -292,14 +277,14 @@ function load(library::String; namespace::String="", specify::String="") :: Noth
                 open(joinpath(path, "rsis_$(name).app.$(type).toml"), "r") do io
                     data = TOML.parse(io);
                     # TODO add check on reported rsis version
-                    file = data["rsisapp"]["file"]
+                    file = data["binary"]["file"]
                     # load library
                     if !LoadModelLib(library, joinpath(path, file), namespace)
-                        @info "Model library alread loaded."
+                        @info "Model library already loaded."
                     else
-                        @info "Loaded $(file): $(type)"
+                        GetClassData(library, namespace, data)
+                        @info "Loaded $(file): $(type)$(if isempty(namespace) "" else " => [$(namespace)]" end)"
                     end
-                    GetClassData(library, namespace);
                 end
                 return
             end
@@ -315,12 +300,13 @@ Unload a shared library containing a model implementation
 julia> load("mymodel")
 julia> unload("mymodel")
 julia> unload("mymodel")
-Model library not previously loaded.
+┌ Warning: Model library not previously loaded
+└ @ RSIS.MModel ~/rsis/src/Model.jl:324
 ```
 """
 function unload(library::String) :: Nothing
     if !UnloadModelLib(library)
-        @warn "Model library not previously loaded."
+        @warn "Model library not previously loaded"
     end
     # unload class definitions as well
     delete!(_classdefinitions, library)

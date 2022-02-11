@@ -6,7 +6,7 @@ export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
 export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
-export GetModelData, _getmodelinstance
+export _getmodelinstance
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
 export get_utf8_string, set_utf8_string
@@ -89,15 +89,15 @@ _cpp_lib = nothing # C++ utility library pointer
 mutable struct LibModel
     s_lib
     s_createmodel
-    s_reflect
-    s_metadata
+    s_metaget
+    s_metaset
     metadata::Dict{String,Any}
     function LibModel(libfile::String)
         lib = Libdl.dlopen(libfile)
         new(lib,
             Libdl.dlsym(lib, :create_model),
-            Libdl.dlsym(lib, :reflect),
-            Libdl.dlsym(lib, :metadata))
+            Libdl.dlsym(lib, :meta_get),
+            Libdl.dlsym(lib, :meta_set))
     end
 end
 
@@ -156,22 +156,6 @@ function _libraryextension() :: String
     else
         throw(ErrorException("Unknown operating system"))
     end
-end
-
-function _loadlibmetadata(modellib::LibModel) :: Nothing
-    strdata = ccall(modellib.s_metadata, Ptr{UInt8}, ())
-    if strdata == 0
-        println("Warning: Library does not have metadata. Null pointer returned")
-        return
-    end
-    text = unsafe_string(strdata)
-    data = TOML.tryparse(text)
-    if isa(data, TOML.ParserError)
-        error("Metadata parse failure: $(data)")
-    else
-        modellib.metadata = data
-    end
-    return
 end
 
 """
@@ -233,7 +217,6 @@ function LoadModelLib(name::String, filename::String, namespace::String="") :: B
         else
             _namespaces[namespace] = [name]
         end
-        _loadlibmetadata(_modellibs[name])
         return true
     end
     return false
@@ -260,19 +243,6 @@ function UnloadModelLib(name::String) :: Bool
         return true
     end
     return false
-end
-
-"""
-    GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid})
-Call into model library to access metadata. Pass in provided callback functions
-for registration of model data.
-"""
-function GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid}) :: Nothing
-    if name in keys(_modellibs)
-        ccall(_modellibs[name].s_reflect, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), classfunc, membfunc);
-    else
-        throw(ErrorException("No model loaded with name: $(name)"))
-    end
 end
 
 function InitLibrary(symbols::LibFuncs)

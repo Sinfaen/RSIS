@@ -14,6 +14,10 @@ pub struct BufferStruct {
     pub size : usize,
 }
 
+pub type BoolCallback = unsafe extern "C" fn(obj : *mut c_void) -> bool;
+pub type VoidCallback = unsafe extern "C" fn(obj : *mut c_void);
+pub type SizeCallback = unsafe extern "C" fn(size : usize) -> *mut u8;
+
 pub trait BaseModel {
     fn config(&mut self) -> bool;
     fn init(&mut self, interface : &mut Box<dyn Framework>) -> bool;
@@ -21,12 +25,10 @@ pub trait BaseModel {
     fn pause(&mut self) -> bool;
     fn stop(&mut self) -> bool;
 
-    fn msg_get(&self, id : BufferStruct, data : BufferStruct) -> u32;
+    fn msg_get(&self, id : BufferStruct, cb : SizeCallback) -> u32;
     fn msg_set(&mut self, id : BufferStruct, data : BufferStruct) -> u32;
 }
 
-pub type BoolCallback = unsafe extern "C" fn(obj : *mut c_void) -> bool;
-pub type VoidCallback = unsafe extern "C" fn(obj : *mut c_void);
 
 /// Used for wrapping models that come from other language, like C++ and Fortran
 pub struct BaseModelExternal {
@@ -55,7 +57,7 @@ impl BaseModel for BaseModelExternal {
     fn stop(&mut self) -> bool {
         unsafe { (self.stop_fn)(self.obj) }
     }
-    fn msg_get(&self, _id : BufferStruct, _data : BufferStruct) -> u32 {
+    fn msg_get(&self, _id : BufferStruct, _cb : SizeCallback) -> u32 {
         1
     }
     fn msg_set(&mut self, _id : BufferStruct, _data : BufferStruct) -> u32 {
@@ -72,9 +74,9 @@ impl Drop for BaseModelExternal {
 unsafe impl Send for BaseModelExternal {}
 
 #[no_mangle]
-pub extern "C" fn meta_get(ptr : *mut c_void, id : BufferStruct, data : BufferStruct) -> u32 {
+pub extern "C" fn meta_get(ptr : *mut c_void, id : BufferStruct, cb : SizeCallback) -> u32 {
     let app : Box<Box<dyn BaseModel + Send>> = unsafe { Box::from_raw(ptr as *mut Box<dyn BaseModel + Send>) };
-    let stat = (*app).msg_get(id, data);
+    let stat = (*app).msg_get(id, cb);
     Box::into_raw(app); // release ownership of the box
     stat
 }

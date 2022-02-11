@@ -6,6 +6,7 @@ extern crate rmp_serde;
 extern crate rmpv;
 
 use modellib::BufferStruct;
+use modellib::SizeCallback;
 use std::slice::Iter;
 
 {{STRUCT_DEFINITIONS}}
@@ -16,14 +17,12 @@ use std::slice::Iter;
 
 {{DESERIALIZATION}}
 
-pub fn handle_msg_get(interface : &{{NAME}}, id : BufferStruct, data : BufferStruct) -> u32 {
+pub fn handle_msg_get(interface : &{{NAME}}, id : BufferStruct, cb : SizeCallback) -> u32 {
     let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
-    let slice = unsafe { std::slice::from_raw_parts_mut(data.ptr as *mut u8, data.size) };
     match s_height_sensor(&interface, indices.iter()) {
         Ok(packed) => {
-            if packed.len() != data.size {
-                return 2;
-            }
+            let ptr = unsafe { (cb)(packed.len()) };
+            let slice = unsafe { std::slice::from_raw_parts_mut(ptr, packed.len()) };
             // copy data
             slice.clone_from_slice(packed.as_slice());
         },

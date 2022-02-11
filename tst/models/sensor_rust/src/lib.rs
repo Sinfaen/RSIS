@@ -7,6 +7,7 @@ extern crate libc;
 use libc::c_void;
 
 use modellib::BufferStruct;
+use modellib::SizeCallback;
 use modellib::BaseModel;
 use modellib::Framework;
 
@@ -63,8 +64,8 @@ impl BaseModel for height_sensor_model {
     fn stop(&mut self) -> bool {
         true
     }
-    fn msg_get(&self, id : BufferStruct, data : BufferStruct) -> u32 {
-        handle_msg_get(&self.intf, id, data)
+    fn msg_get(&self, id : BufferStruct, cb : SizeCallback) -> u32 {
+        handle_msg_get(&self.intf, id, cb)
     }
     fn msg_set(&mut self, id : BufferStruct, data : BufferStruct) -> u32 {
         handle_msg_set(&mut self.intf, id, data)
