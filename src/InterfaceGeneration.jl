@@ -336,7 +336,7 @@ function generateinterface(interface::String; language::String = "")
         words["DESERIALIZATION"] = d_text
     end
     words["NAME"] = data["model"]
-    open(joinpath([base_dir, "$(model_name).meta"]), "w") do io
+    open(joinpath([base_dir, "$(projectlibname()).meta"]), "w") do io
         TOML.print(io, metadata)
     end
 

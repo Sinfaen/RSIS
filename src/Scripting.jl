@@ -132,11 +132,12 @@ Searches RSIS filepaths for input script. Print the result.
 # Examples:
 ```jldoctest
 julia> where("log_nav_data.jl")
-[LOG]: /home/user1/sim/inp/nav/log_nav_data.jl
-[LOG]: /home/user1/sim/logging/nav/log_nav_data.jl
+[ Info: /home/user1/sim/inp/nav/log_nav_data.jl
+[ Info: /home/user1/sim/logging/nav/log_nav_data.jl
 
 julia> where("check_user_environment.jl")
-[ERROR]: File not found.
+┌ Error: File not found
+└ @ RSIS.MScripting ~/rsis/src/Scripting.jl:146
 ```
 """
 function where(filename::String)
