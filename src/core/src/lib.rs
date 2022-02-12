@@ -210,38 +210,6 @@ pub struct UTF8Data {
 }
 
 #[no_mangle]
-pub extern "C" fn get_utf8_string(ptr : *mut c_void) -> UTF8Data {
-    // convert pointer to string object
-    unsafe {
-        let str_ptr = ptr as *mut String;
-        // TODO use into_raw_parts when it is stabilized
-        UTF8Data {
-            ptr : (*str_ptr).as_ptr() as *const c_void,
-            size : (*str_ptr).len() as u64,
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn set_utf8_string(ptr : *mut c_void, data : UTF8Data) -> u32 {
-    // create a new string
-    unsafe {
-        let str_ptr = ptr as *mut String;
-        let slice = std::slice::from_raw_parts(data.ptr as *const u8, data.size as usize);
-        match std::str::from_utf8(slice) {
-            Ok(value) => {
-                (*str_ptr) = value.to_string();
-                return RSISStat::OK as u32;
-            },
-            Err(_) => {
-                return RSISStat::ERR as u32;
-            }
-        }
-    }
-}
-
-
-#[no_mangle]
 pub extern "C" fn config_scheduler(data : UTF8Data) -> u32 {
     unsafe {
         let slice = std::slice::from_raw_parts(data.ptr as *const u8, data.size as usize);

@@ -6,11 +6,9 @@ export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
 export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
-export _getmodelinstance
+export _getmodelinstance, _meta_get, _meta_set
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
-export get_utf8_string, set_utf8_string
-export libraryinfo
 
 using Libdl
 using TOML
@@ -66,9 +64,7 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :end_scheduler),
             Libdl.dlsym(lib, :get_message),
             Libdl.dlsym(lib, :get_scheduler_state),
-            Libdl.dlsym(lib, :get_scheduler_name),
-            Libdl.dlsym(lib, :get_utf8_string),
-            Libdl.dlsym(lib, :set_utf8_string))
+            Libdl.dlsym(lib, :get_scheduler_name))
     end
 end
 
@@ -79,9 +75,7 @@ mutable struct LangExtension
     s_set_str
     function LangExtension(lib)
         new(lib,
-            Libdl.dlsym(lib, :c_ffi_interface),
-            Libdl.dlsym(lib, :get_utf8_string),
-            Libdl.dlsym(lib, :set_utf8_string))
+            Libdl.dlsym(lib, :c_ffi_interface))
     end
 end
 _cpp_lib = nothing # C++ utility library pointer
@@ -97,7 +91,8 @@ mutable struct LibModel
         new(lib,
             Libdl.dlsym(lib, :create_model),
             Libdl.dlsym(lib, :meta_get),
-            Libdl.dlsym(lib, :meta_set))
+            Libdl.dlsym(lib, :meta_set),
+            Dict{String,Any}())
     end
 end
 
@@ -222,6 +217,29 @@ function LoadModelLib(name::String, filename::String, namespace::String="") :: B
     return false
 end
 
+struct BufferData
+    pointer::Ptr{UInt8}
+    size::UInt64
+end
+
+function _meta_get(model::ModelReference, idx::Vector{UInt32}, cb::Ptr{Cvoid}) :: Nothing
+    instance = _getmodelinstance(model)
+    indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
+    stat = ccall(_modellibs[instance.modulename].s_metaget, UInt, (Ptr{Cvoid}, BufferData, Ptr{Cvoid}), instance.obj, indices, cb)
+    if stat != 0
+        throw(ErrorException("Error occurred while calling metaget. $(stat)"))
+    end
+end
+function _meta_set(model::ModelReference, idx::Vector{UInt32}, data::Vector{UInt8}) :: Nothing
+    instance = _getmodelinstance(model)
+    indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
+    bufdata = BufferData(pointer(data), length(data))
+    stat = ccall(_modellibs[instance.modulename].s_metaset, UInt, (Ptr{Cvoid}, BufferData, BufferData), instance.obj, indices, bufdata)
+    if stat != 0
+        throw(ErrorException("Error occurred while calling metaset. $(stat)"))
+    end
+end
+
 """
     UnloadModelLib(name::String)
 Attempts to unload a shared model library by name.
@@ -269,23 +287,6 @@ function getscheduler()
     end
     msgptr = ccall(_sym.s_getmessage, Cstring, ())
     println(unsafe_string(msgptr))
-end
-
-"""
-    libraryinfo(library::String)
-Returns the metadata bundled along with a library.
-```jldoctest
-julia> load("testM")
-julia> libraryinfo("testM")
-Dict{String,Any} with 1 entry:
-  "rsis" => Dict{String, Any}("name"=>"sensor", "type"=> "rust")
-```
-"""
-function libraryinfo(library::String) :: Dict{String, Any}
-    if !(library in keys(_modellibs))
-        throw(ArgumentError("Module: $(library) is not loaded"))
-    end
-    return _modellibs[library].metadata
 end
 
 """
@@ -424,38 +425,5 @@ function simstatus() :: SchedulerState
     return SchedulerState(stat);
 end
 
-struct utf8_data
-    pointer::Ptr{UInt8}
-    size::UInt64
-end
-
-function get_utf8_string(obj::Ptr{Cvoid}, lang::String = "rust") :: String
-    data = utf8_data(Ptr{UInt8}(), 0);
-    if lang == "rust"
-        data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), obj)
-    elseif lang == "cpp"
-        data = ccall(_cpp_lib.s_get_str, utf8_data, (Ptr{Cvoid},), obj)
-    else
-        throw(ArgumentError("Unknown language. No action performed"))
-    end
-    return unsafe_string(data.pointer, data.size)
-end
-
-function set_utf8_string(obj::Ptr{Cvoid}, str::String, lang::String = "rust") :: Nothing
-    data = utf8_data(pointer(str), ncodeunits(str))
-    if lang == "rust"
-        stat = ccall(_sym.s_setutf8, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
-        if stat != 0
-            throw(ErrorException("Failed to set string value"))
-        end
-    elseif lang == "cpp"
-        stat = ccall(_cpp_lib.s_set_str, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
-        if stat != 0
-            throw(ErrorException("Failed to set string value, C++"))
-        end
-    else
-        throw(ArgumentError("Unknown language. No action performed"))
-    end
-end
 
 end

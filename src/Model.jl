@@ -15,6 +15,7 @@ export addlibpath, clearlibpaths
 export _parselocation
 
 using ..DataStructures
+using ..MsgPack
 using ..MScripting
 using ..MLibrary
 using ..MInterface
@@ -157,6 +158,16 @@ function structnames(library::String) :: Vector{String}
 end
 
 """
+    structnames(model::ModelReference)
+Returns a vector of all defined structs for the library that
+is associated with the instantiated model.
+"""
+function structnames(model::ModelReference) :: Vector{String}
+    obj = _getmodelinstance(model)
+    return structnames(obj.modulename)
+end
+
+"""
     structdefinition(library::String, name::String)
 Returns a vector of all defined fields for a struct defined by a library.
 ```jldoctest
@@ -174,6 +185,11 @@ function structdefinition(library::String, name::String) :: Vector{Tuple{String,
     else
         throw(ArgumentError("$(name) not defined!"))
     end
+end
+
+function structdefinition(model::ModelReference, name::String) :: Vector{Tuple{String, String, String, UInt}}
+    obj = _getmodelinstance(model)
+    return structdefinition(obj.modulename, name)
 end
 
 """
@@ -314,21 +330,13 @@ function unload(library::String) :: Nothing
 end
 
 """
-Helper function to grab port by name in string form
+Helper function to grab MessagePack index by name
 """
-function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cvoid}, Port}
+function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Vector{UInt32}, Port}
     data = _classdefinitions[model.modulename].structs
-    curstruct = _classdefinitions[model.modulename].last # assumes that overarching is the last defined
-    ptr = model.obj
+    curstruct = _classdefinitions[model.modulename].toplevel
 
-    libdata = libraryinfo(model.modulename)
-    if libdata["rsis"]["type"] == "rust"
-        # returned value is a Box<Box<dyn trait>>
-        # ASSUMPTION: the first regular pointer of the fat pointer is what we need
-        ptr = Ptr{Cvoid}(unsafe_load(Ptr{UInt64}(ptr)))
-    else
-        # c++, do nothing as pointer that we have is the actual pointer to the object
-    end
+    indices = Vector{UInt32}()
 
     downtree = split(fieldname, ".")
     for (i, token) in enumerate(downtree)
@@ -337,8 +345,8 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
         if !(token in keys(ref.fields))
             throw(ErrorException("$(token) is not a member of $(curstruct)"))
         end
-        port = ref.fields[token][1]
-        ptr += ref.fields[token][2]
+        port = ref.fields[token][2]
+        push!(indices, ref.fields[token][1])
         if lasttok
             if port.iscomposite
                 throw(ErrorException("$(token) is not a signal"))
@@ -347,7 +355,7 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
                 throw(ErrorException("Signal $(token) has type $(port.type) which is not supported"))
             end
             # return information to caller
-            return (ptr, port)
+            return (indices, port)
         elseif !port.iscomposite
             throw(ErrorException("$(token) is a signal but is accessed like a struct"))
         end
@@ -356,10 +364,17 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
     throw(ErrorException("Should not reach here. Something went terribly wrong"))
 end
 
+_messagepack_buffer = Vector{UInt8}()
+function _setup_buffer(size::UInt) :: Ptr{UInt8}
+    global _messagepack_buffer
+    _messagepack_buffer = zeros(UInt8, size)
+    pointer(_messagepack_buffer)
+end
+
 """
     getindex(model::ModelReference, fieldname::String)
-Attempts to get a signal and return a copy of the value. UNSAFE.
-NOTE: does not correct for row-major to column-major conversion.
+Attempts to get a signal and return a copy of the value.
+Internally relies on MessagePack API.
 ```jldoctest
 julia> get(cubesat, "data.mass")
 35.6
@@ -367,55 +382,42 @@ julia> get(cubesat, "data.mass")
 """
 function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     _model = _getmodelinstance(model)
-    (ptr, port) = _parselocation(_model, fieldname)
-    # ATTEMPT TO LOAD DATA HERE!!!!!
-
-    libdata = libraryinfo(_model.modulename)
-
+    (idx, port) = _parselocation(_model, fieldname)
     t = _gettype(port.type)
-    if length(port.dimension) == 0
-        if t == String
-            return get_utf8_string(ptr, libdata["rsis"]["type"])
-        else
-            return unsafe_load(Ptr{t}(ptr))
-        end
-    else
-        # return a deepcopy so that users can't alter the model
-        # TODO handle row-major to column-major conversion
-        return deepcopy(unsafe_wrap(Array, Ptr{t}(ptr), port.dimension))
-    end
+
+    # Call into the app API with the requested index and a memory setup callback
+    # The app will execute the callback to ensure that a buffer of the correct
+    # size exists in the Julia environent for the app to fill it with the
+    # packed MessagePack structure, and then copy it into the buffer
+    _meta_get(model, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
+    data = unpack(_messagepack_buffer)
 end
 
 """
     setindex!(model::ModelReference, value::Any, fieldname::String)
-Attempts to set a signal to value. UNSAFE. Requires value to match the
-port type.
-NOTE: does not correct for column-major to row-major conversion.
+Attempts to set a signal to value, performing type and size checks.
+Relies on internal MessagePack API.
 ```jldoctest
 julia> set!(cubesat, "inputs.voltage", 5.0)
 ```
 """
-function Base.:setindex!(model::ModelReference, value::T, fieldname::String) where{T}
+function Base.:setindex!(model::ModelReference, value::Any, fieldname::String)
     _model = _getmodelinstance(model)
-    (ptr, port) = _parselocation(_model, fieldname)
-    libdata = libraryinfo(_model.modulename)
-    if T != String && size(value) != port.dimension
-        throw(ArgumentError("Value size does not match port size: $(port.dimension)"))
-    end
+    (idx, port) = _parselocation(_model, fieldname)
     t = _gettype(port.type)
-    if t == String
-        set_utf8_string(ptr, value, libdata["rsis"]["type"])
-        return
-    end
-    if eltype(value) != t
-        throw(ArgumentError("Value type does not match port type: $(port.type)"))
-    end
-    if length(port.dimension) == 0
-        unsafe_store!(Ptr{t}(ptr), value)
+    if value isa String
+        if String != t
+            throw(ArgumentError("Value type $(t) does not match port type: $(port.type)"))
+        end
     else
-        arr = unsafe_wrap(Array, Ptr{t}(ptr), port.dimension)
-        unsafe_copyto!(arr, 1, value, 1, length(value))
+        if eltype(value) != t
+            throw(ArgumentError("Value type $(t) does not match port type: $(port.type)"))
+        end
+        if size(value) != port.dimension
+            throw(ArgumentError("Value size $(size(value)) does not match port size: $(port.dimension)"))
+        end
     end
+    _meta_set(model, idx, pack(value))
     return
 end
 

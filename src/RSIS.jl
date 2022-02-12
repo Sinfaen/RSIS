@@ -11,6 +11,7 @@ module RSIS
 using TOML
 using YAML
 using CSV
+using MsgPack
 
 using DataStructures
 using DataFrames
@@ -29,7 +30,7 @@ end
 
 include("RSIS_Lib.jl")
 using .MLibrary
-export getscheduler, libraryinfo
+export getscheduler
 export newmodel, getmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
 export simstatus, SchedulerState
