@@ -13,12 +13,13 @@ Julia is similar to Python, but with a heavy focus on scientific computation. Th
 
 ## Road Map
 This framework is experimental and in development. This road map will exist until the first release.
-- [x] Add C++ language support
 - [ ] Add full Fortran language support
 - [x] Add Model Interface Generation
-- [ ] Refactor port exposure
+- [x] Refactor port exposure
+- [ ] Add multidimensional port arrays
+- [ ] Add variable length one dimensional arrays
 - [ ] Allow Custom Components in Model Interface
-- [ ] Add Thread Generation
+- [x] Add Thread Generation
 - [x] Add Non Real-Time Scheduling
 - [x] Add multi threaded NRT Scheduling
 - [x] Add Model Connection
