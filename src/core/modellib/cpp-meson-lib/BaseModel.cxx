@@ -43,16 +43,12 @@ bool c_ffi_interface(BaseModel* obj, void* ptrs[7]) {
     return true;
 }
 
-UTF8Data get_utf8_string(void* ptr) {
-    UTF8Data data;
-    std::string* sobj = (std::string*) ptr;
-    data.ptr  = (void*) sobj->c_str();
-    data.size = sobj->size();
-    return data;
+uint32_t meta_get(void* ptr, BufferStruct id, SizeCallback cb) {
+    BaseModel* app = (BaseModel*) ptr;
+    return app->msg_get(id, cb);
 }
 
-uint32_t set_utf8_string(void* ptr, UTF8Data data) {
-    std::string* sobj = (std::string*) ptr;
-    *sobj = std::string((const char*) data.ptr, data.size);
-    return 0;
+uint32_t meta_set(void* ptr, BufferStruct id, BufferStruct data) {
+    BaseModel* app = (BaseModel*) ptr;
+    return app->msg_set(id, data);
 }
