@@ -49,8 +49,6 @@ mutable struct LibFuncs
     s_getmessage
     s_getstate
     s_getschedulername
-    s_getutf8
-    s_setutf8
     function LibFuncs(lib)
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
@@ -71,11 +69,13 @@ end
 mutable struct LangExtension
     s_lib
     s_ffi
-    s_get_str
-    s_set_str
+    s_metaget
+    s_metaset
     function LangExtension(lib)
         new(lib,
-            Libdl.dlsym(lib, :c_ffi_interface))
+            Libdl.dlsym(lib, :c_ffi_interface),
+            Libdl.dlsym(lib, :meta_get),
+            Libdl.dlsym(lib, :meta_set))
     end
 end
 _cpp_lib = nothing # C++ utility library pointer
@@ -86,13 +86,13 @@ mutable struct LibModel
     s_metaget
     s_metaset
     metadata::Dict{String,Any}
-    function LibModel(libfile::String)
+    function LibModel(libfile::String, meta::Dict{String, Any})
         lib = Libdl.dlopen(libfile)
         new(lib,
             Libdl.dlsym(lib, :create_model),
             Libdl.dlsym(lib, :meta_get),
             Libdl.dlsym(lib, :meta_set),
-            Dict{String,Any}())
+            meta)
     end
 end
 
@@ -101,6 +101,9 @@ mutable struct ModelInstance
     name::String
     tags::Vector{String}
     obj::Ptr{Cvoid}
+    # These last two are customized based on language
+    mget::Ptr{Cvoid}
+    mset::Ptr{Cvoid}
 end
 
 struct ModelReference
@@ -198,15 +201,15 @@ function UnloadLibrary()
 end
 
 """
-    LoadModelLib(name::String, filename::String, namespace::String="")
+    LoadModelLib(name::String, filename::String, meta::Dict{String, Any}, namespace::String="")
 Attempts to load a shared model library by filename, storing it with a name
 if it does so. Returns whether the library was loaded for the first time.
 The namespace of this library defaults to the global namespace.
 This function can throw.
 """
-function LoadModelLib(name::String, filename::String, namespace::String="") :: Bool
+function LoadModelLib(name::String, filename::String, meta::Dict{String, Any}, namespace::String="") :: Bool
     if !(name in keys(_modellibs))
-        _modellibs[name] = LibModel(filename)
+        _modellibs[name] = LibModel(filename, meta)
         if namespace in keys(_namespaces)
             push!(_namespaces[namespace], name)
         else
@@ -225,7 +228,7 @@ end
 function _meta_get(model::ModelReference, idx::Vector{UInt32}, cb::Ptr{Cvoid}) :: Nothing
     instance = _getmodelinstance(model)
     indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
-    stat = ccall(_modellibs[instance.modulename].s_metaget, UInt, (Ptr{Cvoid}, BufferData, Ptr{Cvoid}), instance.obj, indices, cb)
+    stat = ccall(instance.mget, UInt, (Ptr{Cvoid}, BufferData, Ptr{Cvoid}), instance.obj, indices, cb)
     if stat != 0
         throw(ErrorException("Error occurred while calling metaget. $(stat)"))
     end
@@ -234,7 +237,7 @@ function _meta_set(model::ModelReference, idx::Vector{UInt32}, data::Vector{UInt
     instance = _getmodelinstance(model)
     indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
     bufdata = BufferData(pointer(data), length(data))
-    stat = ccall(_modellibs[instance.modulename].s_metaset, UInt, (Ptr{Cvoid}, BufferData, BufferData), instance.obj, indices, bufdata)
+    stat = ccall(instance.mset, UInt, (Ptr{Cvoid}, BufferData, BufferData), instance.obj, indices, bufdata)
     if stat != 0
         throw(ErrorException("Error occurred while calling metaset. $(stat)"))
     end
@@ -306,15 +309,23 @@ function newmodel(library::String, newname::String; tags::Vector{String}=Vector{
     if newname in keys(_loaded_models)
         throw(ArgumentError("Model: $newname already exists."))
     end
+
+    lib = _modellibs[library]
     
     # call `create_model` function to get a pointer to the object
-    obj = ccall(_modellibs[library].s_createmodel, Ptr{Cvoid}, ())
+    obj = ccall(lib.s_createmodel, Ptr{Cvoid}, ())
     if obj == 0
         throw(ErrorException("Call to `create_model` return NULL"))
     end
 
     # store in a new model instance
-    _loaded_models[newname] = ModelInstance(library, newname, tags, obj)
+    if "rust" == lib.metadata["rsis"]["type"]
+        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, lib.s_metaget, lib.s_metaset)
+    elseif "cpp" == lib.metadata["rsis"]["type"]
+        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, _cpp_lib.s_metaget, _cpp_lib.s_metaset)
+    else
+        throw(ErrorException("Unknown language extension"))
+    end
 
     for tag in tags
         push!(_model_tags, tag)

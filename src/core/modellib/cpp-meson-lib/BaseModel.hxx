@@ -5,7 +5,7 @@
 #include <cstdint>
 
 struct BufferStruct {
-    void*    ptr;
+    uint8_t* ptr;
     uint64_t size;
 };
 

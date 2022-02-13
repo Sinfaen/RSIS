@@ -4,14 +4,11 @@
 #include <cstdint>
 #include <complex>
 #include <string>
-#include "BaseModel.hxx"
+#include <BaseModel.hxx>
 
 {{CLASS_DEFINES}}
 
-extern "C" {
-    void reflect(ReflectClass _class, ReflectMember _member);
-    void*       create_model();
-    const char* metadata();
-}
+uint32_t handle_msg_get(const {{NAME}}& interface, BufferStruct id, SizeCallback cb);
+uint32_t handle_msg_set({{NAME}}& interface, BufferStruct id, BufferStruct data);
 
 #endif // __{{HEADER_GUARD}}__

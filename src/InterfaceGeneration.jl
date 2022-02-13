@@ -15,6 +15,23 @@ using ..MProject
 export generateinterface
 
 # globals
+_nlohmann_type_check = Dict(
+    "Char"    => "is_string",
+    "String"  => "is_string",
+    "Int8"    => "is_number_integer",
+    "Int16"   => "is_number_integer",
+    "Int32"   => "is_number_integer",
+    "Int64"   => "is_number_integer",
+    "UInt8"   => "is_number_unsigned",
+    "UInt16"  => "is_number_unsigned",
+    "UInt32"  => "is_number_unsigned",
+    "UInt64"  => "is_number_unsigned",
+    "Bool"    => "is_boolean",
+    "Float32" => "is_number_float",
+    "Float64" => "is_number_float",
+    "Complex{Float32}" => "is_number_float",
+    "Complex{Float64}" => "is_number_float"
+)
 
 """
 Helper function for generateinterface
@@ -191,10 +208,9 @@ function generateinterface(interface::String; language::String = "")
         words["MODEL_FILE"]   = "$(data["model"]).hxx"
         hxx_text = ""
         cxx_text = ""
+        d_text = ""
+        s_text = ""
         for name in class_order
-            if name == data["model"]
-                continue
-            end
             fields = class_defs[name]
             htext = "class $(name) {\n" *
                     "public:\n" *
@@ -232,28 +248,47 @@ function generateinterface(interface::String; language::String = "")
             ctext = ctext * "{ }\n$name::~$name() { }\n"
             hxx_text = hxx_text * htext;
             cxx_text = cxx_text * ctext;
+
+            # generate meta access code
+            metadata[name] = Dict{String, Any}()
+            stxt = "bytes s_$(name)(const $(name)& obj, std::vector<uint32_t>::iterator& it, std::vector<uint32_t>::iterator& end, bool& error) {\n    if (it == end) { error = true; return bytes(); }\n    switch (*it++) {\n"
+            dtxt = "bool d_$(name)($(name)& obj, std::vector<uint32_t>::iterator& it, bytes& data, std::vector<uint32_t>::iterator& end) {\n    if (it == end) { return false; }\n    switch (*it++) {\n"
+            for (ii, (n, f)) in enumerate(fields)
+                stxt = stxt * "        case $(ii - 1): "
+                dtxt = dtxt * "        case $(ii - 1): "
+                if f.iscomposite
+                    # serialization
+                    stxt = stxt * "{ return s_$(f.type)(obj.$(n), it, end, error); }\n"
+                    # deserialization
+                    dtxt = dtxt * "{ return d_$(f.type)(obj.$(n), it, data, end); }\n"
+                    metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
+                else
+                    # serialization
+                    stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
+                    # deserialization
+                    dtxt = dtxt * "{ json j = json::from_msgpack(data);\n"
+                    if length(f.dimension) == 0
+                        dtxt = dtxt * "            if (!j.is_primitive() || !j.$(_nlohmann_type_check[f.type])()) { return false; }\n" 
+                        dtxt = dtxt * "            obj.$(n) = j.get<$(convert_julia_type(f.type, _language))>(); return true;\n        }\n"
+                    else # static 1D arrays only for now
+                        dtxt = dtxt * "            if (!j.is_array() || j.size() != $(f.dimension[1])) { return false; }\n"
+                        dtxt = dtxt * "            for (int i = 0; i < $(f.dimension[1]); ++i) {\n"
+                        dtxt = dtxt * "                if (!j[i].$(_nlohmann_type_check[f.type])()) { return false; }\n"
+                        dtxt = dtxt * "                obj.$(n)[i] = j[i].get<$(convert_julia_type(f.type, _language))>(); return true;\n            }\n        }\n"
+                    end
+                    metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
+                end
+            end
+            stxt = stxt * "        default:\n            error = true; return bytes();\n"
+            stxt = stxt * "    }\n}\n"
+            dtxt = dtxt * "        default: return false;\n    }\n}\n"
+            s_text = s_text * stxt;
+            d_text = d_text * dtxt;
         end
         words["CLASS_DEFINES"]     = hxx_text
         words["CLASS_DEFINITIONS"] = cxx_text
-
-        # Add reflection generation
-        rtext = ""
-        for name in class_order
-            fields = class_defs[name]
-            rtext = rtext * "void Reflect_$(name)(ReflectClass _class, ReflectMember _member) {\n"
-            rtext = rtext * "_class(\"$(name)\");\n"
-            txt = ""
-            for (fieldname, f) in fields
-                if length(f.dimension) == 0
-                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)), \"$(f.units)\");\n"
-                else
-                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\", _offsetof(&$(name)::$(fieldname)), \"$(f.units)\");\n"
-                end
-            end
-            rtext = rtext * txt * "}\n\n"
-        end
-        words["REFLECT_DEFINITIONS"] = rtext
-        words["REFLECT_CALLS"] = join(["Reflect_$(name)(_class, _member);" for name in class_order], "\n")
+        words["SERIALIZATION"] = s_text
+        words["DESERIALIZATION"] = d_text
     else
         rs_text = ""
         cs_text = ""
@@ -325,10 +360,6 @@ function generateinterface(interface::String; language::String = "")
                 dtxt = dtxt * "    }\n}\n"
             end
             d_text = d_text * dtxt;
-        end
-        # generate other values
-        for name in class_order
-            #
         end
         words["STRUCT_DEFINITIONS"] = rs_text
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text

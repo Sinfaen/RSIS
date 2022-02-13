@@ -295,7 +295,7 @@ function load(library::String; namespace::String="", specify::String="") :: Noth
                     # TODO add check on reported rsis version
                     file = data["binary"]["file"]
                     # load library
-                    if !LoadModelLib(library, joinpath(path, file), namespace)
+                    if !LoadModelLib(library, joinpath(path, file), data, namespace)
                         @info "Model library already loaded."
                     else
                         GetClassData(library, namespace, data)
