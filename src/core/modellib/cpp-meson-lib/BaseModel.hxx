@@ -2,7 +2,14 @@
 #ifndef __BASE_MODEL_HXX__
 #define __BASE_MODEL_HXX__
 
-#include <cstddef>
+#include <cstdint>
+
+struct BufferStruct {
+    uint8_t* ptr;
+    uint64_t size;
+};
+
+typedef uint8_t* (*SizeCallback)(uint64_t);
 
 /**
  * Abstract base class for all C++ models that can be scheduled
@@ -16,26 +23,17 @@ public:
     virtual bool step()   = 0;
     virtual bool pause()  = 0;
     virtual bool stop()   = 0;
+
+    virtual uint32_t msg_get(BufferStruct id, SizeCallback cb) = 0;
+    virtual uint32_t msg_set(BufferStruct id, BufferStruct data) = 0;
 };
 
 void DeleteModel(BaseModel* obj);
 
-typedef void (*ReflectClass)(const char*);
-typedef void (*ReflectMember)(const char*, const char*, const char*, unsigned int, const char*);
-
-template<typename T, typename U> size_t _offsetof(U T::*member) {
-    return (char*)&((T*)nullptr->*member) - (char*)nullptr;
-}
-
-struct UTF8Data {
-    void*    ptr;
-    uint64_t size;
-};
-
 extern "C" {
-    bool     c_ffi_interface(BaseModel* obj, void* ptrs[7]);
-    UTF8Data get_utf8_string(void* ptr);
-    uint32_t set_utf8_string(void* ptr, UTF8Data data);
+    bool c_ffi_interface(BaseModel* obj, void* ptrs[7]);
+    uint32_t meta_get(void* ptr, BufferStruct id, SizeCallback cb);
+    uint32_t meta_set(void* ptr, BufferStruct id, BufferStruct data);
 }
 
 #endif

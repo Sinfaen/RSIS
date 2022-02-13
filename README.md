@@ -10,23 +10,29 @@ The RSIS Framework is used to build Real-Time simulations.
 - Ubuntu (WSL2)
 - Windows
 
-## Dependencies
+## Required Dependencies
 - Julia
     - DataStructures
     - DataFrames
     - Unitful
     - YAML
+    - CSV
+    - MsgPack
 - Rust
+    - rmp-serde
+    - rmpv
     - num-complex
 
 ### Optional Dependencies
-C++ Projects
-- Meson (>= 0.61.1)
-Fortran Projects
-- fpm (Fortran Package Manager)
+| Function | Dependency |
+| -------- | ---------- |
+| C++ Development | Meson (>= 0.61.1) |
+| C++ Models | nlohmann-json (>= 3.10.5) |
+| Fortran Development | Fortran Package Manager (fpm) TODO UPDATE |
+| GUI | Stipple, Genie (TODO) |
 
 ## Core Library Build Steps
 ```bash
 $ cd utilities
-$ julia -L build.jl -e "build()"
+$ julia -L build.jl -e "build(release=true, clean=true)"
 ```

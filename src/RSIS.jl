@@ -11,6 +11,7 @@ module RSIS
 using TOML
 using YAML
 using CSV
+using MsgPack
 
 using DataStructures
 using DataFrames
@@ -23,13 +24,13 @@ using Logging
 module MVersion
 export versioninfo
 function versioninfo()
-    return "0.2.1" # what is a better option?
+    return "0.2.2" # what is a better option?
 end
 end
 
 include("RSIS_Lib.jl")
 using .MLibrary
-export getscheduler, libraryinfo
+export getscheduler
 export newmodel, getmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
 export simstatus, SchedulerState
@@ -54,7 +55,7 @@ export addlibpath, clearlibpaths
 
 include("Project.jl") # pulls in MLogging, MScripting, MModel
 using .MProject
-export newproject, loadproject, projectinfo, build!, clean!
+export newproject, loadproject, projectinfo, projectlibname, build!, clean!
 export getprojectdirectory, getprojectbuilddirectory
 
 include("InterfaceGeneration.jl")

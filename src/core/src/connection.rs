@@ -10,6 +10,8 @@
 // and create these as efficiently as possible
 
 use modellib::BaseModel;
+use modellib::BufferStruct;
+use modellib::SizeCallback;
 use modellib::Framework;
 use std::ptr;
 
@@ -37,6 +39,12 @@ impl BaseModel for Connection {
     }
     fn stop(&mut self) -> bool {
         true
+    }
+    fn msg_get(&self, _id : BufferStruct, _cb : SizeCallback) -> u32 {
+        1
+    }
+    fn msg_set(&mut self, _id : BufferStruct, _data : BufferStruct) -> u32 {
+        1
     }
 }
 

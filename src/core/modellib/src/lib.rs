@@ -2,12 +2,21 @@
 mod framework;
 
 extern crate libc;
-use libc::c_char;
 use libc::c_void;
 
 pub use framework::Framework;
 pub use framework::ChannelRx;
 pub use framework::ChannelTx;
+
+#[repr(C, align(8))]
+pub struct BufferStruct {
+    pub ptr : *const u8,
+    pub size : usize,
+}
+
+pub type BoolCallback = unsafe extern "C" fn(obj : *mut c_void) -> bool;
+pub type VoidCallback = unsafe extern "C" fn(obj : *mut c_void);
+pub type SizeCallback = unsafe extern "C" fn(size : usize) -> *mut u8;
 
 pub trait BaseModel {
     fn config(&mut self) -> bool;
@@ -15,10 +24,11 @@ pub trait BaseModel {
     fn step(&mut self) -> bool;
     fn pause(&mut self) -> bool;
     fn stop(&mut self) -> bool;
+
+    fn msg_get(&self, id : BufferStruct, cb : SizeCallback) -> u32;
+    fn msg_set(&mut self, id : BufferStruct, data : BufferStruct) -> u32;
 }
 
-pub type BoolCallback = unsafe extern "C" fn(obj : *mut c_void) -> bool;
-pub type VoidCallback = unsafe extern "C" fn(obj : *mut c_void);
 
 /// Used for wrapping models that come from other language, like C++ and Fortran
 pub struct BaseModelExternal {
@@ -47,6 +57,12 @@ impl BaseModel for BaseModelExternal {
     fn stop(&mut self) -> bool {
         unsafe { (self.stop_fn)(self.obj) }
     }
+    fn msg_get(&self, _id : BufferStruct, _cb : SizeCallback) -> u32 {
+        1
+    }
+    fn msg_set(&mut self, _id : BufferStruct, _data : BufferStruct) -> u32 {
+        1
+    }
 }
 
 impl Drop for BaseModelExternal {
@@ -57,5 +73,18 @@ impl Drop for BaseModelExternal {
 
 unsafe impl Send for BaseModelExternal {}
 
-pub type ReflectClass  = extern fn(*const c_char);
-pub type ReflectMember = extern fn(*const c_char, *const c_char, *const c_char, usize, *const c_char);
+#[no_mangle]
+pub extern "C" fn meta_get(ptr : *mut c_void, id : BufferStruct, cb : SizeCallback) -> u32 {
+    let app : Box<Box<dyn BaseModel + Send>> = unsafe { Box::from_raw(ptr as *mut Box<dyn BaseModel + Send>) };
+    let stat = (*app).msg_get(id, cb);
+    Box::into_raw(app); // release ownership of the box
+    stat
+}
+
+#[no_mangle]
+pub extern "C" fn meta_set(ptr : *mut c_void, id : BufferStruct, data : BufferStruct) -> u32 {
+    let mut app : Box<Box<dyn BaseModel + Send>> = unsafe { Box::from_raw(ptr as *mut Box<dyn BaseModel + Send>) };
+    let stat = (*app).msg_set(id, data);
+    Box::into_raw(app); // release ownership of the box
+    stat
+}

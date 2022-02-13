@@ -15,6 +15,7 @@ export addlibpath, clearlibpaths
 export _parselocation
 
 using ..DataStructures
+using ..MsgPack
 using ..MScripting
 using ..MLibrary
 using ..MInterface
@@ -72,18 +73,17 @@ function Base.sizeof(port::Port)
 end
 
 mutable struct ClassData
-    fields::OrderedDict{String, Tuple{Port, UInt}}
+    fields::Dict{String, Tuple{UInt, Port}}
 end
-ClassData() = ClassData(OrderedDict{String, Tuple{Port, UInt}}())
+ClassData() = ClassData(Dict{String, Tuple{UInt, Port}}())
 
 mutable struct LibraryData
-    structs::OrderedDict{String, ClassData}
-    last::String # last is not defined for structs, so use this keepsake
+    structs::Dict{String, ClassData}
+    toplevel::String
 end
-LibraryData() = LibraryData(OrderedDict{String, ClassData}(), "")
+LibraryData() = LibraryData(Dict{String, ClassData}(), "")
 
 _classdefinitions = Dict{String, LibraryData}()
-_cur_class = "" # current class being defined
 
 # Connection struct + globals
 struct Location
@@ -101,58 +101,41 @@ function _ensureconnection(model::ModelReference)
     end
 end
 
-
-function _CreateClass(name::Ptr{UInt8}) :: Nothing
-    cl = unsafe_string(name)
-    _data = _classdefinitions[_cur_class]
-    if cl in keys(_data.structs)
-        @warn "Class: $(cl) redefined."
+function _recurse_data_tree(classdef::LibraryData, data::Dict{String, Any}, dname::String) :: Nothing
+    if dname in keys(classdef.structs)
+        return
     end
-    _data.structs[cl] = ClassData()
-    _data.last = cl # workaround
-    return
-end
-
-function _CreateMember(cl::Ptr{UInt8}, memb::Ptr{UInt8}, def::Ptr{UInt8}, offset::UInt, units::Ptr{UInt8}) :: Nothing
-    classname = unsafe_string(cl)
-    member    = unsafe_string(memb)
-    definition = unsafe_string(def)
-    unitstr    = unsafe_string(units)
-    _data = _classdefinitions[_cur_class]
-    if !(classname in keys(_data.structs))
-        @warn "Class: $(classname) for member: $(member) does not exist. Creating default."
-        _data.structs[classname] = ClassData()
-    end
-    # parse definition passed as a string
-    if occursin("[", definition) # array detection
-        tt = split(definition[2:end-1], ";")
-        dims = []
-        for token in split(tt[2], ",")
-            val = tryparse(Int, token)
-            if isnothing(val)
-                @error "Unable to parse: $(token) as a dimension"
-                val = -1
-            end
-            push!(dims, val)
+    dat = ClassData()
+    for (name, tags) in data[dname]
+        if !("id" in keys(tags))
+            @error "Corrupt metadata"
+            continue
         end
-        _data.structs[classname].fields[member] = (Port(String(tt[1]), Tuple(dims), unitstr, !_istypesupported(String(tt[1]))), offset)
-    else
-        _data.structs[classname].fields[member] = (Port(definition, (), unitstr, !_istypesupported(definition)), offset)
+        if "class" in keys(tags)
+            _recurse_data_tree(classdef, data, tags["class"]) # go down subtree
+            dat.fields[name] = (UInt(tags["id"]), Port(tags["class"], (), "", !_istypesupported(tags["class"])))
+        elseif "type" in keys(tags)
+            if !("unit" in keys(tags) && "dims" in keys(tags))
+                @error "Corrupt field metadata"
+                continue
+            end
+            dat.fields[name] = (UInt(tags["id"]), Port(tags["type"], Tuple(tags["dims"]), tags["unit"], !_istypesupported(tags["type"])))
+        else
+            @error "Invalid metadata detected"
+        end
     end
+    classdef.structs[dname] = dat
     return
 end
 
-function GetClassData(name::String, namespace::String = "") :: Nothing
+function GetClassData(name::String, namespace::String, data::Dict{String, Any}) :: Nothing
     if name in keys(_classdefinitions)
-        throw(ErrorException("Library $(name) already loaded."))
+        @error "Library $(name) already loaded. Metadata overwrite/corruption may occur"
     end
-    global _cur_class
-    _cur_class = name
-    _classdefinitions[_cur_class] = LibraryData()
-    GetModelData(name, namespace,
-        @cfunction(_CreateClass, Cvoid, (Ptr{UInt8},)),
-        @cfunction(_CreateMember, Cvoid, (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt, Ptr{UInt8})))
-    _cur_class = ""
+    ldata = LibraryData()
+    _recurse_data_tree(ldata, data, data["rsis"]["name"])
+    ldata.toplevel = data["rsis"]["name"]
+    _classdefinitions[name] = ldata
     return
 end
 
@@ -175,6 +158,16 @@ function structnames(library::String) :: Vector{String}
 end
 
 """
+    structnames(model::ModelReference)
+Returns a vector of all defined structs for the library that
+is associated with the instantiated model.
+"""
+function structnames(model::ModelReference) :: Vector{String}
+    obj = _getmodelinstance(model)
+    return structnames(obj.modulename)
+end
+
+"""
     structdefinition(library::String, name::String)
 Returns a vector of all defined fields for a struct defined by a library.
 ```jldoctest
@@ -186,10 +179,17 @@ julia> structdefinition("cubesat", "cubesat_params")
 function structdefinition(library::String, name::String) :: Vector{Tuple{String, String, String, UInt}}
     data = _classdefinitions[library]
     if name in keys(data.structs)
-        return [(_name, field[1].type, field[1].units, field[2]) for (_name, field) in data.structs[name].fields]
+        terms = [(_name, field[2].type, field[2].units, field[1]) for (_name, field) in data.structs[name].fields]
+        sort!(terms, by=x->x[4])
+        return terms
     else
         throw(ArgumentError("$(name) not defined!"))
     end
+end
+
+function structdefinition(model::ModelReference, name::String) :: Vector{Tuple{String, String, String, UInt}}
+    obj = _getmodelinstance(model)
+    return structdefinition(obj.modulename, name)
 end
 
 """
@@ -278,13 +278,14 @@ via the `specify` argument. The default option is the first model found on
 the path.
 ```jldoctest
 julia> load("mymodel")
+[ Info: Loaded mymodel
 julia> load("anothermodel"; namespace="TEST")
+[ Info: Loaded anothermodel => [TEST]
 julia> load("coreapp"; specify="release")
 ```
 """
 function load(library::String; namespace::String="", specify::String="") :: Nothing
-    # Find library in search path, then pass absolute filepath
-    # to core functionality
+    # Find library in search path, then pass absolute filepath to core functionality
     for (name, type, path) in listavailable()
         if name == library
             # load tag file to get file name
@@ -292,14 +293,14 @@ function load(library::String; namespace::String="", specify::String="") :: Noth
                 open(joinpath(path, "rsis_$(name).app.$(type).toml"), "r") do io
                     data = TOML.parse(io);
                     # TODO add check on reported rsis version
-                    file = data["rsisapp"]["file"]
+                    file = data["binary"]["file"]
                     # load library
-                    if !LoadModelLib(library, joinpath(path, file), namespace)
-                        @info "Model library alread loaded."
+                    if !LoadModelLib(library, joinpath(path, file), data, namespace)
+                        @info "Model library already loaded."
                     else
-                        @info "Loaded $(file): $(type)"
+                        GetClassData(library, namespace, data)
+                        @info "Loaded $(file): $(type)$(if isempty(namespace) "" else " => [$(namespace)]" end)"
                     end
-                    GetClassData(library, namespace);
                 end
                 return
             end
@@ -315,12 +316,13 @@ Unload a shared library containing a model implementation
 julia> load("mymodel")
 julia> unload("mymodel")
 julia> unload("mymodel")
-Model library not previously loaded.
+┌ Warning: Model library not previously loaded
+└ @ RSIS.MModel ~/rsis/src/Model.jl:324
 ```
 """
 function unload(library::String) :: Nothing
     if !UnloadModelLib(library)
-        @warn "Model library not previously loaded."
+        @warn "Model library not previously loaded"
     end
     # unload class definitions as well
     delete!(_classdefinitions, library)
@@ -328,21 +330,13 @@ function unload(library::String) :: Nothing
 end
 
 """
-Helper function to grab port by name in string form
+Helper function to grab MessagePack index by name
 """
-function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cvoid}, Port}
+function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Vector{UInt32}, Port}
     data = _classdefinitions[model.modulename].structs
-    curstruct = _classdefinitions[model.modulename].last # assumes that overarching is the last defined
-    ptr = model.obj
+    curstruct = _classdefinitions[model.modulename].toplevel
 
-    libdata = libraryinfo(model.modulename)
-    if libdata["rsis"]["type"] == "rust"
-        # returned value is a Box<Box<dyn trait>>
-        # ASSUMPTION: the first regular pointer of the fat pointer is what we need
-        ptr = Ptr{Cvoid}(unsafe_load(Ptr{UInt64}(ptr)))
-    else
-        # c++, do nothing as pointer that we have is the actual pointer to the object
-    end
+    indices = Vector{UInt32}()
 
     downtree = split(fieldname, ".")
     for (i, token) in enumerate(downtree)
@@ -351,8 +345,8 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
         if !(token in keys(ref.fields))
             throw(ErrorException("$(token) is not a member of $(curstruct)"))
         end
-        port = ref.fields[token][1]
-        ptr += ref.fields[token][2]
+        port = ref.fields[token][2]
+        push!(indices, ref.fields[token][1])
         if lasttok
             if port.iscomposite
                 throw(ErrorException("$(token) is not a signal"))
@@ -361,7 +355,7 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
                 throw(ErrorException("Signal $(token) has type $(port.type) which is not supported"))
             end
             # return information to caller
-            return (ptr, port)
+            return (indices, port)
         elseif !port.iscomposite
             throw(ErrorException("$(token) is a signal but is accessed like a struct"))
         end
@@ -370,10 +364,17 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Ptr{Cv
     throw(ErrorException("Should not reach here. Something went terribly wrong"))
 end
 
+_messagepack_buffer = Vector{UInt8}()
+function _setup_buffer(size::UInt) :: Ptr{UInt8}
+    global _messagepack_buffer
+    _messagepack_buffer = zeros(UInt8, size)
+    pointer(_messagepack_buffer)
+end
+
 """
     getindex(model::ModelReference, fieldname::String)
-Attempts to get a signal and return a copy of the value. UNSAFE.
-NOTE: does not correct for row-major to column-major conversion.
+Attempts to get a signal and return a copy of the value.
+Internally relies on MessagePack API.
 ```jldoctest
 julia> get(cubesat, "data.mass")
 35.6
@@ -381,55 +382,42 @@ julia> get(cubesat, "data.mass")
 """
 function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     _model = _getmodelinstance(model)
-    (ptr, port) = _parselocation(_model, fieldname)
-    # ATTEMPT TO LOAD DATA HERE!!!!!
-
-    libdata = libraryinfo(_model.modulename)
-
+    (idx, port) = _parselocation(_model, fieldname)
     t = _gettype(port.type)
-    if length(port.dimension) == 0
-        if t == String
-            return get_utf8_string(ptr, libdata["rsis"]["type"])
-        else
-            return unsafe_load(Ptr{t}(ptr))
-        end
-    else
-        # return a deepcopy so that users can't alter the model
-        # TODO handle row-major to column-major conversion
-        return deepcopy(unsafe_wrap(Array, Ptr{t}(ptr), port.dimension))
-    end
+
+    # Call into the app API with the requested index and a memory setup callback
+    # The app will execute the callback to ensure that a buffer of the correct
+    # size exists in the Julia environent for the app to fill it with the
+    # packed MessagePack structure, and then copy it into the buffer
+    _meta_get(model, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
+    data = unpack(_messagepack_buffer)
 end
 
 """
     setindex!(model::ModelReference, value::Any, fieldname::String)
-Attempts to set a signal to value. UNSAFE. Requires value to match the
-port type.
-NOTE: does not correct for column-major to row-major conversion.
+Attempts to set a signal to value, performing type and size checks.
+Relies on internal MessagePack API.
 ```jldoctest
 julia> set!(cubesat, "inputs.voltage", 5.0)
 ```
 """
-function Base.:setindex!(model::ModelReference, value::T, fieldname::String) where{T}
+function Base.:setindex!(model::ModelReference, value::Any, fieldname::String)
     _model = _getmodelinstance(model)
-    (ptr, port) = _parselocation(_model, fieldname)
-    libdata = libraryinfo(_model.modulename)
-    if T != String && size(value) != port.dimension
-        throw(ArgumentError("Value size does not match port size: $(port.dimension)"))
-    end
+    (idx, port) = _parselocation(_model, fieldname)
     t = _gettype(port.type)
-    if t == String
-        set_utf8_string(ptr, value, libdata["rsis"]["type"])
-        return
-    end
-    if eltype(value) != t
-        throw(ArgumentError("Value type does not match port type: $(port.type)"))
-    end
-    if length(port.dimension) == 0
-        unsafe_store!(Ptr{t}(ptr), value)
+    if value isa String
+        if String != t
+            throw(ArgumentError("Value type $(t) does not match port type: $(port.type)"))
+        end
     else
-        arr = unsafe_wrap(Array, Ptr{t}(ptr), port.dimension)
-        unsafe_copyto!(arr, 1, value, 1, length(value))
+        if eltype(value) != t
+            throw(ArgumentError("Value type $(t) does not match port type: $(port.type)"))
+        end
+        if size(value) != port.dimension
+            throw(ArgumentError("Value size $(size(value)) does not match port size: $(port.dimension)"))
+        end
     end
+    _meta_set(model, idx, pack(value))
     return
 end
 

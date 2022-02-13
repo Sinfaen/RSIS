@@ -1,12 +1,13 @@
 #ifndef __HEIGHT_SENSOR_HXX_
 #define __HEIGHT_SENSOR_HXX_
 
+#include <BaseModel.hxx>
 #include "height_sensor_interface.hxx"
 
-class height_sensor : public BaseModel {
+class height_sensor_model : public BaseModel {
 public:
-    height_sensor();
-    virtual ~height_sensor();
+    height_sensor_model();
+    virtual ~height_sensor_model();
 
     bool config();
     bool init();
@@ -14,10 +15,15 @@ public:
     bool pause();
     bool stop();
 
-    height_sensor_in inputs; //  
-    height_sensor_out outputs; //  
-    height_sensor_data data; //  
-    height_sensor_params params; //  
+    uint32_t msg_get(BufferStruct id, SizeCallback cb);
+    uint32_t msg_set(BufferStruct id, BufferStruct data);
+
+    height_sensor intf;
 };
+
+
+extern "C" {
+    BaseModel* create_model();
+}
 
 #endif

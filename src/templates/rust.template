@@ -2,31 +2,47 @@
 
 extern crate modellib;
 extern crate libc;
+extern crate rmp_serde;
+extern crate rmpv;
 
-use libc::c_void;
-use libc::c_char;
-use std::ffi::CString;
-
-use modellib::BaseModel;
-use modellib::ReflectClass;
-use modellib::ReflectMember;
+use modellib::BufferStruct;
+use modellib::SizeCallback;
+use std::slice::Iter;
 
 {{STRUCT_DEFINITIONS}}
 
 {{CONSTRUCTOR_DEFINITIONS}}
 
-{{REFLECT_DEFINITIONS}}
+{{SERIALIZATION}}
 
-#[no_mangle]
-pub extern "C" fn create_model() -> *mut c_void {
-    let obj: Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(crate::{{STRUCT_NAME}}::new()));
-    Box::into_raw(obj) as *mut Box<dyn BaseModel + Send> as *mut c_void
+{{DESERIALIZATION}}
+
+pub fn handle_msg_get(interface : &{{NAME}}, id : BufferStruct, cb : SizeCallback) -> u32 {
+    let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
+    match s_height_sensor(&interface, indices.iter()) {
+        Ok(packed) => {
+            let ptr = unsafe { (cb)(packed.len()) };
+            let slice = unsafe { std::slice::from_raw_parts_mut(ptr, packed.len()) };
+            // copy data
+            slice.clone_from_slice(packed.as_slice());
+        },
+        _ => {
+            return 1;
+        }
+    }
+    return 0;
 }
 
-pub static METADATA : &str = "\
-{{METADATA_TOML}}\0";
-
-#[no_mangle]
-pub extern "C" fn metadata() -> *const c_char {
-    METADATA.as_ptr() as *const c_char
+pub fn handle_msg_set(interface : &mut {{NAME}}, id : BufferStruct, data : BufferStruct) -> u32 {
+    let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
+    let slice = unsafe { std::slice::from_raw_parts(data.ptr, data.size) };
+    match d_height_sensor(interface, indices.iter(), slice) {
+        Some(_) => {
+            println!("Something went wrong!");
+            return 1;
+        },
+        None => {
+            return 0; // success!
+        }
+    }
 }

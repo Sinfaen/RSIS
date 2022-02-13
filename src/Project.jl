@@ -1,7 +1,7 @@
 
 module MProject
 
-export loadproject, newproject, projectinfo, projecttype
+export loadproject, newproject, projectinfo, projecttype, projectlibname
 export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
@@ -171,11 +171,26 @@ function newproject(name::String; language::String = "rust") :: Nothing
     _newproj(_loaded_project.type)
 end
 
+"""
+    projectinfo()
+Returns a brief description of the loaded project.
+```jldoctest
+julia> projectinfo()
+"rust Project loaded at: /home/abc1234/myproject"
+```
+"""
 function projectinfo() :: String
     if !isprojectloaded()
         return "No project is loaded"
     end
     return "$(_loaded_project.type) Project loaded at: $(_loaded_project.directory)"
+end
+
+function projectlibname() :: String
+    if !isprojectloaded()
+        throw(ErrorException("No project loaded"))
+    end
+    return _loaded_project.name
 end
 
 function projecttype() :: ProjectType
@@ -191,11 +206,11 @@ metadata
 """
 function _generate_tagfile(proj::ProjectInfo, target::BuildTarget) :: Nothing
     data = Dict(
-        "rsisapp" => Dict(
+        "binary" => Dict(
             "file"  => _libraryprefix() * proj.name * _libraryextension(),
             "target" => "$(target)"
         ),
-        "rsis" => Dict(
+        "rsis-package" => Dict(
             "version" => versioninfo()
         )
     );
@@ -209,6 +224,14 @@ function _generate_tagfile(proj::ProjectInfo, target::BuildTarget) :: Nothing
     end
     open(joinpath(proj.directory, folder, filename), "w") do io
         TOML.print(io, data);
+        # grab meta file and append it
+        metafile = search("$(proj.name).meta")
+        if length(metafile) == 0
+            @warn "Unable to locate meta file"
+        else
+            addtext = read(metafile[1], String)
+            write(io, addtext)
+        end
     end
     return;
 end

@@ -6,11 +6,9 @@ export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
 export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
-export GetModelData, _getmodelinstance
+export _getmodelinstance, _meta_get, _meta_set
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
-export get_utf8_string, set_utf8_string
-export libraryinfo
 
 using Libdl
 using TOML
@@ -51,8 +49,6 @@ mutable struct LibFuncs
     s_getmessage
     s_getstate
     s_getschedulername
-    s_getutf8
-    s_setutf8
     function LibFuncs(lib)
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
@@ -66,22 +62,20 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :end_scheduler),
             Libdl.dlsym(lib, :get_message),
             Libdl.dlsym(lib, :get_scheduler_state),
-            Libdl.dlsym(lib, :get_scheduler_name),
-            Libdl.dlsym(lib, :get_utf8_string),
-            Libdl.dlsym(lib, :set_utf8_string))
+            Libdl.dlsym(lib, :get_scheduler_name))
     end
 end
 
 mutable struct LangExtension
     s_lib
     s_ffi
-    s_get_str
-    s_set_str
+    s_metaget
+    s_metaset
     function LangExtension(lib)
         new(lib,
             Libdl.dlsym(lib, :c_ffi_interface),
-            Libdl.dlsym(lib, :get_utf8_string),
-            Libdl.dlsym(lib, :set_utf8_string))
+            Libdl.dlsym(lib, :meta_get),
+            Libdl.dlsym(lib, :meta_set))
     end
 end
 _cpp_lib = nothing # C++ utility library pointer
@@ -89,15 +83,16 @@ _cpp_lib = nothing # C++ utility library pointer
 mutable struct LibModel
     s_lib
     s_createmodel
-    s_reflect
-    s_metadata
+    s_metaget
+    s_metaset
     metadata::Dict{String,Any}
-    function LibModel(libfile::String)
+    function LibModel(libfile::String, meta::Dict{String, Any})
         lib = Libdl.dlopen(libfile)
         new(lib,
             Libdl.dlsym(lib, :create_model),
-            Libdl.dlsym(lib, :reflect),
-            Libdl.dlsym(lib, :metadata))
+            Libdl.dlsym(lib, :meta_get),
+            Libdl.dlsym(lib, :meta_set),
+            meta)
     end
 end
 
@@ -106,6 +101,9 @@ mutable struct ModelInstance
     name::String
     tags::Vector{String}
     obj::Ptr{Cvoid}
+    # These last two are customized based on language
+    mget::Ptr{Cvoid}
+    mset::Ptr{Cvoid}
 end
 
 struct ModelReference
@@ -158,22 +156,6 @@ function _libraryextension() :: String
     end
 end
 
-function _loadlibmetadata(modellib::LibModel) :: Nothing
-    strdata = ccall(modellib.s_metadata, Ptr{UInt8}, ())
-    if strdata == 0
-        println("Warning: Library does not have metadata. Null pointer returned")
-        return
-    end
-    text = unsafe_string(strdata)
-    data = TOML.tryparse(text)
-    if isa(data, TOML.ParserError)
-        error("Metadata parse failure: $(data)")
-    else
-        modellib.metadata = data
-    end
-    return
-end
-
 """
     LoadLibrary()
 Load the RSIS shared library
@@ -219,24 +201,46 @@ function UnloadLibrary()
 end
 
 """
-    LoadModelLib(name::String, filename::String, namespace::String="")
+    LoadModelLib(name::String, filename::String, meta::Dict{String, Any}, namespace::String="")
 Attempts to load a shared model library by filename, storing it with a name
 if it does so. Returns whether the library was loaded for the first time.
 The namespace of this library defaults to the global namespace.
 This function can throw.
 """
-function LoadModelLib(name::String, filename::String, namespace::String="") :: Bool
+function LoadModelLib(name::String, filename::String, meta::Dict{String, Any}, namespace::String="") :: Bool
     if !(name in keys(_modellibs))
-        _modellibs[name] = LibModel(filename)
+        _modellibs[name] = LibModel(filename, meta)
         if namespace in keys(_namespaces)
             push!(_namespaces[namespace], name)
         else
             _namespaces[namespace] = [name]
         end
-        _loadlibmetadata(_modellibs[name])
         return true
     end
     return false
+end
+
+struct BufferData
+    pointer::Ptr{UInt8}
+    size::UInt64
+end
+
+function _meta_get(model::ModelReference, idx::Vector{UInt32}, cb::Ptr{Cvoid}) :: Nothing
+    instance = _getmodelinstance(model)
+    indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
+    stat = ccall(instance.mget, UInt, (Ptr{Cvoid}, BufferData, Ptr{Cvoid}), instance.obj, indices, cb)
+    if stat != 0
+        throw(ErrorException("Error occurred while calling metaget. $(stat)"))
+    end
+end
+function _meta_set(model::ModelReference, idx::Vector{UInt32}, data::Vector{UInt8}) :: Nothing
+    instance = _getmodelinstance(model)
+    indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
+    bufdata = BufferData(pointer(data), length(data))
+    stat = ccall(instance.mset, UInt, (Ptr{Cvoid}, BufferData, BufferData), instance.obj, indices, bufdata)
+    if stat != 0
+        throw(ErrorException("Error occurred while calling metaset. $(stat)"))
+    end
 end
 
 """
@@ -260,19 +264,6 @@ function UnloadModelLib(name::String) :: Bool
         return true
     end
     return false
-end
-
-"""
-    GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid})
-Call into model library to access metadata. Pass in provided callback functions
-for registration of model data.
-"""
-function GetModelData(name::String, namespace::String, classfunc::Ptr{Cvoid}, membfunc::Ptr{Cvoid}) :: Nothing
-    if name in keys(_modellibs)
-        ccall(_modellibs[name].s_reflect, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}), classfunc, membfunc);
-    else
-        throw(ErrorException("No model loaded with name: $(name)"))
-    end
 end
 
 function InitLibrary(symbols::LibFuncs)
@@ -302,23 +293,6 @@ function getscheduler()
 end
 
 """
-    libraryinfo(library::String)
-Returns the metadata bundled along with a library.
-```jldoctest
-julia> load("testM")
-julia> libraryinfo("testM")
-Dict{String,Any} with 1 entry:
-  "rsis" => Dict{String, Any}("name"=>"sensor", "type"=> "rust")
-```
-"""
-function libraryinfo(library::String) :: Dict{String, Any}
-    if !(library in keys(_modellibs))
-        throw(ArgumentError("Module: $(library) is not loaded"))
-    end
-    return _modellibs[library].metadata
-end
-
-"""
     newmodel(library::String, newname::String; tags::Vector{String}
 Create a new model. A unique name must be given for the model. An optional list
 of tags can be given, allowing the user to search loaded models by tag.
@@ -335,15 +309,23 @@ function newmodel(library::String, newname::String; tags::Vector{String}=Vector{
     if newname in keys(_loaded_models)
         throw(ArgumentError("Model: $newname already exists."))
     end
+
+    lib = _modellibs[library]
     
     # call `create_model` function to get a pointer to the object
-    obj = ccall(_modellibs[library].s_createmodel, Ptr{Cvoid}, ())
+    obj = ccall(lib.s_createmodel, Ptr{Cvoid}, ())
     if obj == 0
         throw(ErrorException("Call to `create_model` return NULL"))
     end
 
     # store in a new model instance
-    _loaded_models[newname] = ModelInstance(library, newname, tags, obj)
+    if "rust" == lib.metadata["rsis"]["type"]
+        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, lib.s_metaget, lib.s_metaset)
+    elseif "cpp" == lib.metadata["rsis"]["type"]
+        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, _cpp_lib.s_metaget, _cpp_lib.s_metaset)
+    else
+        throw(ErrorException("Unknown language extension"))
+    end
 
     for tag in tags
         push!(_model_tags, tag)
@@ -454,38 +436,5 @@ function simstatus() :: SchedulerState
     return SchedulerState(stat);
 end
 
-struct utf8_data
-    pointer::Ptr{UInt8}
-    size::UInt64
-end
-
-function get_utf8_string(obj::Ptr{Cvoid}, lang::String = "rust") :: String
-    data = utf8_data(Ptr{UInt8}(), 0);
-    if lang == "rust"
-        data = ccall(_sym.s_getutf8, utf8_data, (Ptr{Cvoid},), obj)
-    elseif lang == "cpp"
-        data = ccall(_cpp_lib.s_get_str, utf8_data, (Ptr{Cvoid},), obj)
-    else
-        throw(ArgumentError("Unknown language. No action performed"))
-    end
-    return unsafe_string(data.pointer, data.size)
-end
-
-function set_utf8_string(obj::Ptr{Cvoid}, str::String, lang::String = "rust") :: Nothing
-    data = utf8_data(pointer(str), ncodeunits(str))
-    if lang == "rust"
-        stat = ccall(_sym.s_setutf8, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
-        if stat != 0
-            throw(ErrorException("Failed to set string value"))
-        end
-    elseif lang == "cpp"
-        stat = ccall(_cpp_lib.s_set_str, UInt32, (Ptr{Cvoid}, utf8_data), obj, data)
-        if stat != 0
-            throw(ErrorException("Failed to set string value, C++"))
-        end
-    else
-        throw(ArgumentError("Unknown language. No action performed"))
-    end
-end
 
 end

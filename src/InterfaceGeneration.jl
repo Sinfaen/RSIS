@@ -5,6 +5,7 @@ module MInterfaceGeneration
 using ..DataStructures
 using ..Unitful
 using ..YAML
+using ..TOML
 using ..MDefines
 using ..MScripting
 using ..MInterface
@@ -14,6 +15,23 @@ using ..MProject
 export generateinterface
 
 # globals
+_nlohmann_type_check = Dict(
+    "Char"    => "is_string",
+    "String"  => "is_string",
+    "Int8"    => "is_number_integer",
+    "Int16"   => "is_number_integer",
+    "Int32"   => "is_number_integer",
+    "Int64"   => "is_number_integer",
+    "UInt8"   => "is_number_unsigned",
+    "UInt16"  => "is_number_unsigned",
+    "UInt32"  => "is_number_unsigned",
+    "UInt64"  => "is_number_unsigned",
+    "Bool"    => "is_boolean",
+    "Float32" => "is_number_float",
+    "Float64" => "is_number_float",
+    "Complex{Float32}" => "is_number_float",
+    "Complex{Float64}" => "is_number_float"
+)
 
 """
 Helper function for generateinterface
@@ -180,6 +198,9 @@ function generateinterface(interface::String; language::String = "")
     base_dir   = dirname(path_interface[1])
     model_name = splitext(interface)[1]
 
+    metadata = Dict{String, Any}()
+    metadata["rsis"] = Dict("name" => data["model"], "type" => language)
+
     # create text
     if language == "cpp"
         words["HEADER_GUARD"] = uppercase(model_name)
@@ -187,10 +208,9 @@ function generateinterface(interface::String; language::String = "")
         words["MODEL_FILE"]   = "$(data["model"]).hxx"
         hxx_text = ""
         cxx_text = ""
+        d_text = ""
+        s_text = ""
         for name in class_order
-            if name == data["model"]
-                continue
-            end
             fields = class_defs[name]
             htext = "class $(name) {\n" *
                     "public:\n" *
@@ -228,43 +248,54 @@ function generateinterface(interface::String; language::String = "")
             ctext = ctext * "{ }\n$name::~$name() { }\n"
             hxx_text = hxx_text * htext;
             cxx_text = cxx_text * ctext;
+
+            # generate meta access code
+            metadata[name] = Dict{String, Any}()
+            stxt = "bytes s_$(name)(const $(name)& obj, std::vector<uint32_t>::iterator& it, std::vector<uint32_t>::iterator& end, bool& error) {\n    if (it == end) { error = true; return bytes(); }\n    switch (*it++) {\n"
+            dtxt = "bool d_$(name)($(name)& obj, std::vector<uint32_t>::iterator& it, bytes& data, std::vector<uint32_t>::iterator& end) {\n    if (it == end) { return false; }\n    switch (*it++) {\n"
+            for (ii, (n, f)) in enumerate(fields)
+                stxt = stxt * "        case $(ii - 1): "
+                dtxt = dtxt * "        case $(ii - 1): "
+                if f.iscomposite
+                    # serialization
+                    stxt = stxt * "{ return s_$(f.type)(obj.$(n), it, end, error); }\n"
+                    # deserialization
+                    dtxt = dtxt * "{ return d_$(f.type)(obj.$(n), it, data, end); }\n"
+                    metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
+                else
+                    # serialization
+                    stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
+                    # deserialization
+                    dtxt = dtxt * "{ json j = json::from_msgpack(data);\n"
+                    if length(f.dimension) == 0
+                        dtxt = dtxt * "            if (!j.is_primitive() || !j.$(_nlohmann_type_check[f.type])()) { return false; }\n" 
+                        dtxt = dtxt * "            obj.$(n) = j.get<$(convert_julia_type(f.type, _language))>(); return true;\n        }\n"
+                    else # static 1D arrays only for now
+                        dtxt = dtxt * "            if (!j.is_array() || j.size() != $(f.dimension[1])) { return false; }\n"
+                        dtxt = dtxt * "            for (int i = 0; i < $(f.dimension[1]); ++i) {\n"
+                        dtxt = dtxt * "                if (!j[i].$(_nlohmann_type_check[f.type])()) { return false; }\n"
+                        dtxt = dtxt * "                obj.$(n)[i] = j[i].get<$(convert_julia_type(f.type, _language))>(); return true;\n            }\n        }\n"
+                    end
+                    metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
+                end
+            end
+            stxt = stxt * "        default:\n            error = true; return bytes();\n"
+            stxt = stxt * "    }\n}\n"
+            dtxt = dtxt * "        default: return false;\n    }\n}\n"
+            s_text = s_text * stxt;
+            d_text = d_text * dtxt;
         end
         words["CLASS_DEFINES"]     = hxx_text
         words["CLASS_DEFINITIONS"] = cxx_text
-
-        # Add reflection generation
-        rtext = ""
-        for name in class_order
-            fields = class_defs[name]
-            rtext = rtext * "void Reflect_$(name)(ReflectClass _class, ReflectMember _member) {\n"
-            rtext = rtext * "_class(\"$(name)\");\n"
-            txt = ""
-            for (fieldname, f) in fields
-                if length(f.dimension) == 0
-                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"$(f.type)\", _offsetof(&$(name)::$(fieldname)), \"$(f.units)\");\n"
-                else
-                    txt = txt * "_member(\"$(name)\", \"$(fieldname)\", \"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\", _offsetof(&$(name)::$(fieldname)), \"$(f.units)\");\n"
-                end
-            end
-            rtext = rtext * txt * "}\n\n"
-        end
-        words["REFLECT_DEFINITIONS"] = rtext
-
-        words["REFLECT_CALLS"] = join(["Reflect_$(name)(_class, _member);" for name in class_order], "\n")
-        words["METADATA_TOML"] = """
-        [rsis]
-        name = "$(data["model"])"
-        type = "$(language)" """
+        words["SERIALIZATION"] = s_text
+        words["DESERIALIZATION"] = d_text
     else
         rs_text = ""
         cs_text = ""
-        reflect = ""
-        ref_all = "#[no_mangle]\npub extern \"C\" fn reflect(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n"
+        d_text = ""
+        s_text = ""
         # generate constructors & structs
         for name in class_order
-            if name == data["model"]
-                continue
-            end
             fields = class_defs[name]
             txt = "#[repr(C)]\npub struct $(name) {\n"
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
@@ -292,45 +323,53 @@ function generateinterface(interface::String; language::String = "")
             rs_text = rs_text * txt
             cs  = cs  * "        }\n    }\n}\n"
             cs_text = cs_text * cs
-        end
-        # generate other values
-        for name in class_order
-            if name == data["model"]
-                prepend = "crate::"
-            else
-                prepend = ""
-            end
-            fields = class_defs[name]
-            ref = "pub fn reflect_$(name)(_cb1 : ReflectClass, _cb2 : ReflectMember) {\n" *
-                  "    let cl = CString::new(\"$(name)\").unwrap();\n" *
-                  "    _cb1(cl.as_ptr());\n"
-            ref_all = ref_all * "    reflect_$(name)(_cb1, _cb2);\n"
-            for (n,f) in fields
-                if length(f.dimension) == 0
-                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                                "    let d_$(n) = CString::new(\"$(f.type)\").unwrap();\n" *
-                                "    let u_$(n) = CString::new(\"$(f.units)\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)), u_$(n).as_ptr());\n"
+
+            # generate meta access code
+            metadata[name] = Dict{String, Any}()
+            stxt = "pub fn s_$(name)(obj : &$(name), mut ii : Iter<'_, u32>) -> Result<Vec<u8>, rmp_serde::encode::Error> {\n    match ii.next() {\n"
+            dtxt = "pub fn d_$(name)(obj : &mut $(name), mut ii : Iter<'_, u32>, data : &[u8]) -> Option<rmp_serde::decode::Error> {\n    match ii.next() {\n"
+            d_any_non_composite = false
+            for (ii, (n, f)) in enumerate(fields)
+                stxt = stxt * "        Some($(ii - 1)) => return "
+                dtxt = dtxt * "        Some($(ii - 1)) => "
+                if f.iscomposite
+                    # serialization
+                    stxt = stxt * "s_$(f.type)(&obj.$(n), ii),\n"
+                    # deserialization
+                    dtxt = dtxt * "return d_$(f.type)(&mut obj.$(n), ii, data),\n"
+                    metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
-                    ref = ref * "    let f_$(n) = CString::new(\"$(n)\").unwrap();\n" *
-                                "    let d_$(n) = CString::new(\"[$(f.type); $(join(["$(d)" for d in f.dimension], ","))]\").unwrap();\n" *
-                                "    let u_$(n) = CString::new(\"$(f.units)\").unwrap();\n" *
-                                "    _cb2(cl.as_ptr(), f_$(n).as_ptr(), d_$(n).as_ptr(), offset_of!($(prepend)$(name), $(n)), u_$(n).as_ptr());\n"
+                    # serialization
+                    stxt = stxt * "rmp_serde::to_vec(&obj.$(n)),\n"
+                    # deserialization
+                    dtxt = dtxt * "{\n            match rmp_serde::decode::from_read(data) {\n" 
+                    dtxt = dtxt * "                Ok(val) => obj.$(n) = val,\n"
+                    dtxt = dtxt * "                Err(e) => return Some(e),\n            }\n        },\n"
+                    d_any_non_composite = true
+                    metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
                 end
             end
-            ref = ref * "}\n"
-            reflect = reflect * ref
+            stxt = stxt * "        _ => return Err(rmp_serde::encode::Error::Syntax(\"Invalid index\".to_string())),\n"
+            stxt = stxt * "    }\n}\n"
+            s_text = s_text * stxt;
+
+            dtxt = dtxt * "        _ => return Some(rmp_serde::decode::Error::Syntax(\"Invalid index\".to_string())),\n"
+            if d_any_non_composite
+                dtxt = dtxt * "    }\n    None\n}\n"
+            else
+                dtxt = dtxt * "    }\n}\n"
+            end
+            d_text = d_text * dtxt;
         end
-        ref_all = ref_all * "}\n"
         words["STRUCT_DEFINITIONS"] = rs_text
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
-        words["REFLECT_DEFINITIONS"] = reflect * ref_all
-        words["METADATA_TOML"] = """
-        [rsis]
-        name = \\"$(data["model"])\\"
-        type = \\"$(language)\\" """
+        words["SERIALIZATION"] = s_text
+        words["DESERIALIZATION"] = d_text
     end
-    words["STRUCT_NAME"] = last(class_order)
+    words["NAME"] = data["model"]
+    open(joinpath([base_dir, "$(projectlibname()).meta"]), "w") do io
+        TOML.print(io, metadata)
+    end
 
     pushtexttofile(base_dir, model_name, words, templates)
 
