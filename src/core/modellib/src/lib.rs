@@ -27,6 +27,7 @@ pub trait BaseModel {
 
     fn msg_get(&self, id : BufferStruct, cb : SizeCallback) -> u32;
     fn msg_set(&mut self, id : BufferStruct, data : BufferStruct) -> u32;
+    fn get_ptr(&self, id : BufferStruct) -> *const u8;
 }
 
 
@@ -63,6 +64,9 @@ impl BaseModel for BaseModelExternal {
     fn msg_set(&mut self, _id : BufferStruct, _data : BufferStruct) -> u32 {
         1
     }
+    fn get_ptr(&self, _id : BufferStruct) -> *const u8 {
+        0 as *const u8
+    }
 }
 
 impl Drop for BaseModelExternal {
@@ -87,4 +91,11 @@ pub extern "C" fn meta_set(ptr : *mut c_void, id : BufferStruct, data : BufferSt
     let stat = (*app).msg_set(id, data);
     Box::into_raw(app); // release ownership of the box
     stat
+}
+#[no_mangle]
+pub extern "C" fn get_ptr(ptr : *mut c_void, id : BufferStruct) -> *const u8 {
+    let app : Box<Box<dyn BaseModel + Send>> = unsafe { Box::from_raw(ptr as *mut Box<dyn BaseModel + Send>) };
+    let p = (*app).get_ptr(id);
+    Box::into_raw(app); // release ownership of the box
+    p
 }

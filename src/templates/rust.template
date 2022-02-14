@@ -14,12 +14,12 @@ use std::slice::Iter;
 {{CONSTRUCTOR_DEFINITIONS}}
 
 {{SERIALIZATION}}
-
 {{DESERIALIZATION}}
+{{POINTER}}
 
 pub fn handle_msg_get(interface : &{{NAME}}, id : BufferStruct, cb : SizeCallback) -> u32 {
     let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
-    match s_height_sensor(&interface, indices.iter()) {
+    match s_{{NAME}}(&interface, indices.iter()) {
         Ok(packed) => {
             let ptr = unsafe { (cb)(packed.len()) };
             let slice = unsafe { std::slice::from_raw_parts_mut(ptr, packed.len()) };
@@ -36,7 +36,7 @@ pub fn handle_msg_get(interface : &{{NAME}}, id : BufferStruct, cb : SizeCallbac
 pub fn handle_msg_set(interface : &mut {{NAME}}, id : BufferStruct, data : BufferStruct) -> u32 {
     let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
     let slice = unsafe { std::slice::from_raw_parts(data.ptr, data.size) };
-    match d_height_sensor(interface, indices.iter(), slice) {
+    match d_{{NAME}}(interface, indices.iter(), slice) {
         Some(_) => {
             println!("Something went wrong!");
             return 1;
@@ -44,5 +44,15 @@ pub fn handle_msg_set(interface : &mut {{NAME}}, id : BufferStruct, data : Buffe
         None => {
             return 0; // success!
         }
+    }
+}
+
+pub fn get_pointer(interface : &{{NAME}}, id : BufferStruct) -> *const u8 {
+    let indices = unsafe { std::slice::from_raw_parts(id.ptr as *const u32, id.size) };
+    match p_{{NAME}}(interface, indices.iter()) {
+        Some(val) => {
+            return val;
+        },
+        None => return 0 as *const u8,
     }
 }

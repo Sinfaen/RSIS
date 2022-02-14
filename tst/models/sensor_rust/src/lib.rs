@@ -70,6 +70,9 @@ impl BaseModel for height_sensor_model {
     fn msg_set(&mut self, id : BufferStruct, data : BufferStruct) -> u32 {
         handle_msg_set(&mut self.intf, id, data)
     }
+    fn get_ptr(&self, id : BufferStruct) -> *const u8 {
+        get_pointer(&self.intf, id)
+    }
 }
 
 #[no_mangle]

@@ -61,7 +61,7 @@ function pushtexttofile(directory::String, model::String, words::Dict{String,Str
         close(temp)
         close(f_file)
 
-        println("Generated: $path")
+        @info "Generated $path"
     end
 end
 
@@ -147,15 +147,15 @@ and Fortran model interfaces can be generated. The generated files
 are put in the same location as the interface file.
 ```jldoctest
 julia> generateinterface("mymodel.yml") # interface = "cpp"
-Generated: mymodel_interface.hxx
-Generated: mymodel_interface.cxx
-Generation complete
+[Info: Generated mymodel_interface.hxx
+[Info: Generated mymodel_interface.cxx
+[Info: Generation complete
 julia> generateinterface("mymodel.yml"; interface = "rust")
-Generated: mymodel_interface.rs
-Generation complete
+[Info: Generated mymodel_interface.rs
+[Info: Generation complete
 julia> generateinterface("mymodel.yml"; interface = "fortran")
-Generated: mymodel_interface.f90
-Generation complete
+[Info: Generated mymodel_interface.f90
+[Info: Generation complete
 ```
 """
 function generateinterface(interface::String; language::String = "")
@@ -210,6 +210,7 @@ function generateinterface(interface::String; language::String = "")
         cxx_text = ""
         d_text = ""
         s_text = ""
+        p_text = ""
         for name in class_order
             fields = class_defs[name]
             htext = "class $(name) {\n" *
@@ -253,14 +254,18 @@ function generateinterface(interface::String; language::String = "")
             metadata[name] = Dict{String, Any}()
             stxt = "bytes s_$(name)(const $(name)& obj, std::vector<uint32_t>::iterator& it, std::vector<uint32_t>::iterator& end, bool& error) {\n    if (it == end) { error = true; return bytes(); }\n    switch (*it++) {\n"
             dtxt = "bool d_$(name)($(name)& obj, std::vector<uint32_t>::iterator& it, bytes& data, std::vector<uint32_t>::iterator& end) {\n    if (it == end) { return false; }\n    switch (*it++) {\n"
+            ptxt = "std::optional<uint8_t*> p_$(name)(const $(name)& obj, std::vector<uint32_t>::iterator& it, std::vector<uint32_t>::iterator& end) {\n    if (it == end) { return {}; }\n    switch (*it++) {\n"
             for (ii, (n, f)) in enumerate(fields)
                 stxt = stxt * "        case $(ii - 1): "
                 dtxt = dtxt * "        case $(ii - 1): "
+                ptxt = ptxt * "        case $(ii - 1): "
                 if f.iscomposite
                     # serialization
                     stxt = stxt * "{ return s_$(f.type)(obj.$(n), it, end, error); }\n"
                     # deserialization
                     dtxt = dtxt * "{ return d_$(f.type)(obj.$(n), it, data, end); }\n"
+                    # pointer
+                    ptxt = ptxt * "{ return p_$(f.type)(obj.$(n), it, end); }\n"
                     metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
                     # serialization
@@ -276,30 +281,35 @@ function generateinterface(interface::String; language::String = "")
                         dtxt = dtxt * "                if (!j[i].$(_nlohmann_type_check[f.type])()) { return false; }\n"
                         dtxt = dtxt * "                obj.$(n)[i] = j[i].get<$(convert_julia_type(f.type, _language))>(); return true;\n            }\n        }\n"
                     end
+                    # pointer
+                    ptxt = ptxt * "{ return (uint8_t*) &obj.$(n); }\n"
                     metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
                 end
             end
             stxt = stxt * "        default:\n            error = true; return bytes();\n"
             stxt = stxt * "    }\n}\n"
             dtxt = dtxt * "        default: return false;\n    }\n}\n"
+            ptxt = ptxt * "        default: return {};\n    }\n}\n"
             s_text = s_text * stxt;
             d_text = d_text * dtxt;
+            p_text = p_text * ptxt;
         end
         words["CLASS_DEFINES"]     = hxx_text
         words["CLASS_DEFINITIONS"] = cxx_text
         words["SERIALIZATION"] = s_text
         words["DESERIALIZATION"] = d_text
+        words["POINTER"] = p_text
     else
         rs_text = ""
         cs_text = ""
         d_text = ""
         s_text = ""
+        p_text = ""
         # generate constructors & structs
         for name in class_order
             fields = class_defs[name]
             txt = "#[repr(C)]\npub struct $(name) {\n"
-            cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n" *
-                  "        $(name) {\n"
+            cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n        $(name) {\n"
             for (n,f) in fields
                 if length(f.dimension) == 0
                     txt = txt * "    pub $n : $(convert_julia_type(f.type, _language)),\n"
@@ -328,15 +338,19 @@ function generateinterface(interface::String; language::String = "")
             metadata[name] = Dict{String, Any}()
             stxt = "pub fn s_$(name)(obj : &$(name), mut ii : Iter<'_, u32>) -> Result<Vec<u8>, rmp_serde::encode::Error> {\n    match ii.next() {\n"
             dtxt = "pub fn d_$(name)(obj : &mut $(name), mut ii : Iter<'_, u32>, data : &[u8]) -> Option<rmp_serde::decode::Error> {\n    match ii.next() {\n"
+            ptxt = "pub fn p_$(name)(obj : &$(name), mut ii : Iter<'_, u32>) -> Option<*const u8> {\n    match ii.next() {\n"
             d_any_non_composite = false
             for (ii, (n, f)) in enumerate(fields)
                 stxt = stxt * "        Some($(ii - 1)) => return "
                 dtxt = dtxt * "        Some($(ii - 1)) => "
+                ptxt = ptxt * "        Some($(ii - 1)) => return "
                 if f.iscomposite
                     # serialization
                     stxt = stxt * "s_$(f.type)(&obj.$(n), ii),\n"
                     # deserialization
                     dtxt = dtxt * "return d_$(f.type)(&mut obj.$(n), ii, data),\n"
+                    # pointer
+                    ptxt = ptxt * "p_$(f.type)(&obj.$(n), ii),\n"
                     metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
                     # serialization
@@ -346,11 +360,12 @@ function generateinterface(interface::String; language::String = "")
                     dtxt = dtxt * "                Ok(val) => obj.$(n) = val,\n"
                     dtxt = dtxt * "                Err(e) => return Some(e),\n            }\n        },\n"
                     d_any_non_composite = true
+                    # pointer
+                    ptxt = ptxt * "Some(std::ptr::addr_of!(obj.$(n)) as *const u8),\n"
                     metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
                 end
             end
-            stxt = stxt * "        _ => return Err(rmp_serde::encode::Error::Syntax(\"Invalid index\".to_string())),\n"
-            stxt = stxt * "    }\n}\n"
+            stxt = stxt * "        _ => return Err(rmp_serde::encode::Error::Syntax(\"Invalid index\".to_string())),\n    }\n}\n"
             s_text = s_text * stxt;
 
             dtxt = dtxt * "        _ => return Some(rmp_serde::decode::Error::Syntax(\"Invalid index\".to_string())),\n"
@@ -360,11 +375,15 @@ function generateinterface(interface::String; language::String = "")
                 dtxt = dtxt * "    }\n}\n"
             end
             d_text = d_text * dtxt;
+
+            ptxt = ptxt * "        _ => return None,\n    }\n}\n"
+            p_text = p_text * ptxt;
         end
         words["STRUCT_DEFINITIONS"] = rs_text
         words["CONSTRUCTOR_DEFINITIONS"] = cs_text
         words["SERIALIZATION"] = s_text
         words["DESERIALIZATION"] = d_text
+        words["POINTER"] = p_text
     end
     words["NAME"] = data["model"]
     open(joinpath([base_dir, "$(projectlibname()).meta"]), "w") do io
@@ -373,7 +392,7 @@ function generateinterface(interface::String; language::String = "")
 
     pushtexttofile(base_dir, model_name, words, templates)
 
-    println("Generation complete")
+    @info "Generation complete"
     return
 end
 

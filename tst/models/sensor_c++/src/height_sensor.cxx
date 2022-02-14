@@ -32,6 +32,9 @@ uint32_t height_sensor_model::msg_get(BufferStruct id, SizeCallback cb) {
 uint32_t height_sensor_model::msg_set(BufferStruct id, BufferStruct data) {
     return handle_msg_set(intf, id, data);
 }
+uint8_t* height_sensor_model::get_ptr(BufferStruct id) {
+    return get_pointer(intf, id);
+}
 
 BaseModel* create_model() {
     return new height_sensor_model();

@@ -3,6 +3,7 @@
 #include "{{MODEL_FILE}}"
 #include <nlohmann/json.hpp>
 #include <cstring>
+#include <optional>
 
 using nlohmann::json;
 typedef std::vector<uint8_t> bytes;
@@ -10,6 +11,7 @@ typedef std::vector<uint8_t> bytes;
 {{CLASS_DEFINITIONS}}
 {{SERIALIZATION}}
 {{DESERIALIZATION}}
+{{POINTER}}
 
 uint32_t handle_msg_get(const {{NAME}}& interface, BufferStruct id, SizeCallback cb) {
     bool error = false;
@@ -26,7 +28,7 @@ uint32_t handle_msg_get(const {{NAME}}& interface, BufferStruct id, SizeCallback
     return 0;
 }
 
-uint32_t handle_msg_set({{NAME}}& interface, BufferStruct id, BufferStruct data){
+uint32_t handle_msg_set({{NAME}}& interface, BufferStruct id, BufferStruct data) {
     std::vector<uint32_t> indices = std::vector<uint32_t>((uint32_t*)id.ptr, (uint32_t*)id.ptr + id.size);
     bytes buf = bytes(data.ptr, data.ptr + data.size); // not sure how not to copy here
     std::vector<uint32_t>::iterator begin = indices.begin();
@@ -35,4 +37,16 @@ uint32_t handle_msg_set({{NAME}}& interface, BufferStruct id, BufferStruct data)
         return 0;
     }
     return 1;
+}
+
+uint8_t* get_pointer({{NAME}}& interface, BufferStruct id) {
+    std::vector<uint32_t> indices = std::vector<uint32_t>((uint32_t*)id.ptr, (uint32_t*)id.ptr + id.size);
+    std::vector<uint32_t>::iterator begin = indices.begin();
+    std::vector<uint32_t>::iterator end   = indices.end();
+    auto opt = p_{{NAME}}(interface, begin, end);
+    if (opt.has_value()) {
+        return opt.value();
+    } else {
+        return nullptr;
+    }
 }
