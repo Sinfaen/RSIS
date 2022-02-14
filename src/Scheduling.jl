@@ -130,11 +130,18 @@ function initsim(;blocking::Bool = false) :: Nothing
             cncts = listconnections(model.ref)
             model_in = _getmodelinstance(model.ref)
             for (out, in) in cncts
-                (ptr_in, port_in)   = _parselocation(model_in, in.port)
+                (idx_in, port_in)   = _parselocation(model_in, in.port)
                 model_out = _getmodelinstance(out.model)
-                (ptr_out, port_out) = _parselocation(model_out, out.port)
+                (idx_out, port_out) = _parselocation(model_out, out.port)
+                # get pointers from API
+                dst = _get_ptr(model_in, idx_in)
+                src = _get_ptr(model_out, idx_out)
+                if src == 0 || dst == 0
+                    @error "Null pointers detected. Connection skipped"
+                    continue
+                end
                 # port sizes should be checked by now
-                createconnection(ptr_out, ptr_in, UInt64(sizeof(port_out)), i - 1, Int64(thread.frequency / model.frequency), model.offset)
+                createconnection(src, dst, UInt64(sizeof(port_out)), i - 1, Int64(thread.frequency / model.frequency), model.offset)
             end
             # Convert 1 based indexing to 0 based indexing for the thread id
             schedulemodel(model.ref, i - 1, Int64(thread.frequency / model.frequency), model.offset)

@@ -110,7 +110,7 @@ pub extern "C" fn add_model_by_callbacks(thread: i64,
 }
 
 #[no_mangle]
-pub extern "C" fn add_connection(src: *mut c_void, dst: *mut c_void, size: usize, thread: i64, divisor: i64, offset: i64) -> u32 {
+pub extern "C" fn add_connection(src: *mut u8, dst: *mut u8, size: usize, thread: i64, divisor: i64, offset: i64) -> u32 {
     if src.is_null() || dst.is_null() || size == 0 {
         return RSISStat::BADARG as u32;
     }

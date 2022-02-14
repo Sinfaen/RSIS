@@ -6,7 +6,7 @@ export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
 export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
-export _getmodelinstance, _meta_get, _meta_set
+export _getmodelinstance, _meta_get, _meta_set, _get_ptr
 export ModelInstance, ModelReference
 export simstatus, SchedulerState
 
@@ -71,11 +71,13 @@ mutable struct LangExtension
     s_ffi
     s_metaget
     s_metaset
+    s_getptr
     function LangExtension(lib)
         new(lib,
             Libdl.dlsym(lib, :c_ffi_interface),
             Libdl.dlsym(lib, :meta_get),
-            Libdl.dlsym(lib, :meta_set))
+            Libdl.dlsym(lib, :meta_set),
+            Libdl.dlsym(lib, :get_ptr))
     end
 end
 _cpp_lib = nothing # C++ utility library pointer
@@ -85,6 +87,7 @@ mutable struct LibModel
     s_createmodel
     s_metaget
     s_metaset
+    s_getptr
     metadata::Dict{String,Any}
     function LibModel(libfile::String, meta::Dict{String, Any})
         lib = Libdl.dlopen(libfile)
@@ -92,6 +95,7 @@ mutable struct LibModel
             Libdl.dlsym(lib, :create_model),
             Libdl.dlsym(lib, :meta_get),
             Libdl.dlsym(lib, :meta_set),
+            Libdl.dlsym(lib, :get_ptr),
             meta)
     end
 end
@@ -104,6 +108,7 @@ mutable struct ModelInstance
     # These last two are customized based on language
     mget::Ptr{Cvoid}
     mset::Ptr{Cvoid}
+    gptr::Ptr{Cvoid}
 end
 
 struct ModelReference
@@ -242,6 +247,10 @@ function _meta_set(model::ModelReference, idx::Vector{UInt32}, data::Vector{UInt
         throw(ErrorException("Error occurred while calling metaset. $(stat)"))
     end
 end
+function _get_ptr(instance::ModelInstance, idx::Vector{UInt32}) :: Ptr{UInt8}
+    indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
+    ccall(instance.gptr, Ptr{UInt8}, (Ptr{Cvoid}, BufferData), instance.obj, indices)
+end
 
 """
     UnloadModelLib(name::String)
@@ -320,9 +329,9 @@ function newmodel(library::String, newname::String; tags::Vector{String}=Vector{
 
     # store in a new model instance
     if "rust" == lib.metadata["rsis"]["type"]
-        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, lib.s_metaget, lib.s_metaset)
+        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, lib.s_metaget, lib.s_metaset, lib.s_getptr)
     elseif "cpp" == lib.metadata["rsis"]["type"]
-        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, _cpp_lib.s_metaget, _cpp_lib.s_metaset)
+        _loaded_models[newname] = ModelInstance(library, newname, tags, obj, _cpp_lib.s_metaget, _cpp_lib.s_metaset, _cpp_lib.s_getptr)
     else
         throw(ErrorException("Unknown language extension"))
     end
@@ -402,8 +411,8 @@ function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, off
     return
 end
 
-function createconnection(src::Ptr{Cvoid}, dst::Ptr{Cvoid}, size::UInt64, thread::Int64, divisor::Int64, offset::Int64) :: Nothing
-    stat = ccall(_sym.s_addconnection, UInt32, (Ptr{Cvoid}, Ptr{Cvoid}, UInt64, Int64, Int64, Int64), src, dst, size, thread, divisor, offset)
+function createconnection(src::Ptr{UInt8}, dst::Ptr{UInt8}, size::UInt64, thread::Int64, divisor::Int64, offset::Int64) :: Nothing
+    stat = ccall(_sym.s_addconnection, UInt32, (Ptr{UInt8}, Ptr{UInt8}, UInt64, Int64, Int64, Int64), src, dst, size, thread, divisor, offset)
     if stat != 0
         throw(ErrorException("Call to `add_connection` failed with error $(stat)"))
     end
