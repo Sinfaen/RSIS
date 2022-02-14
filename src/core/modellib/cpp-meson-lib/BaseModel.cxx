@@ -52,3 +52,8 @@ uint32_t meta_set(void* ptr, BufferStruct id, BufferStruct data) {
     BaseModel* app = (BaseModel*) ptr;
     return app->msg_set(id, data);
 }
+
+uint8_t* get_ptr(void* ptr, BufferStruct id) {
+    BaseModel* app = (BaseModel*) ptr;
+    return app->get_ptr(id);
+}

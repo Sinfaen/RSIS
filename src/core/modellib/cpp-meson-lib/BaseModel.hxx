@@ -26,6 +26,7 @@ public:
 
     virtual uint32_t msg_get(BufferStruct id, SizeCallback cb) = 0;
     virtual uint32_t msg_set(BufferStruct id, BufferStruct data) = 0;
+    virtual uint8_t* get_ptr(BufferStruct id) = 0;
 };
 
 void DeleteModel(BaseModel* obj);
@@ -34,6 +35,7 @@ extern "C" {
     bool c_ffi_interface(BaseModel* obj, void* ptrs[7]);
     uint32_t meta_get(void* ptr, BufferStruct id, SizeCallback cb);
     uint32_t meta_set(void* ptr, BufferStruct id, BufferStruct data);
+    uint8_t* get_ptr(void* ptr, BufferStruct id);
 }
 
 #endif

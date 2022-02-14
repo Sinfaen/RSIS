@@ -17,6 +17,7 @@ public:
 
     uint32_t msg_get(BufferStruct id, SizeCallback cb);
     uint32_t msg_set(BufferStruct id, BufferStruct data);
+    uint8_t* get_ptr(BufferStruct id);
 
     height_sensor intf;
 };

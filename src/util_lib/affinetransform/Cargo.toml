@@ -7,7 +7,8 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2.0"
-memoffset = "0.5.4"
+rmp-serde = "1.0.0"
+rmpv = "1.0.0"
 
 [dependencies.modellib]
 path = "../../core/modellib"

@@ -10,5 +10,6 @@
 
 uint32_t handle_msg_get(const {{NAME}}& interface, BufferStruct id, SizeCallback cb);
 uint32_t handle_msg_set({{NAME}}& interface, BufferStruct id, BufferStruct data);
+uint8_t* get_pointer({{NAME}}& interface, BufferStruct id);
 
 #endif // __{{HEADER_GUARD}}__

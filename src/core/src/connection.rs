@@ -46,6 +46,9 @@ impl BaseModel for Connection {
     fn msg_set(&mut self, _id : BufferStruct, _data : BufferStruct) -> u32 {
         1
     }
+    fn get_ptr(&self, _id : BufferStruct) -> *const u8 {
+        0 as *const u8
+    }
 }
 
 unsafe impl Send for Connection {}
