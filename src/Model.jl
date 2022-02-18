@@ -53,8 +53,12 @@ struct Port
                     if !(eltype(default) <: _type)
                         throw(ArgumentError("Default value: $(default) is type $(eltype(default)), not $(type)"))
                     end
-                    if size(default) != dimension
-                        throw(ArgumentError("Size of default value: $(value) does not match dimension $(dimension)"))
+                    if (-1,) == dimension
+                        if length(size(default)) != 1
+                            throw(ArgumentError("Size of default value: $(default) does not fit into a one-dimensional vector"))
+                        end
+                    elseif size(default) != dimension
+                        throw(ArgumentError("Size of default value: $(default) does not match dimension $(dimension)"))
                     end
                 end
             end
@@ -413,7 +417,11 @@ function Base.:setindex!(model::ModelReference, value::Any, fieldname::String)
         if eltype(value) != t
             throw(ArgumentError("Value type $(t) does not match port type: $(port.type)"))
         end
-        if size(value) != port.dimension
+        if (-1,) == port.dimension
+            if length(size(value)) != 1
+                throw(ArgumentError("Value size $(size(value)) is not a 1d vector"))
+            end
+        elseif size(value) != port.dimension
             throw(ArgumentError("Value size $(size(value)) does not match port size: $(port.dimension)"))
         end
     end

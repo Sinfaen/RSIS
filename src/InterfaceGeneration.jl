@@ -223,9 +223,16 @@ function generateinterface(interface::String; language::String = "")
             end
             first = true;
             for (n,f) in fields
-                htext = htext * "    $(convert_julia_type(f.type, _language)) $n"
-                if length(f.dimension) != 0
-                    htext = htext * "[$(join(f.dimension, "]["))]"
+                if (-1,) == f.dimension
+                    if f.iscomposite
+                        throw(ErrorException("Vector cannot contain structs for now"))
+                    end
+                    htext = htext * "    std::vector<$(convert_julia_type(f.type, _language))> $n"
+                else
+                    htext = htext * "    $(convert_julia_type(f.type, _language)) $n"
+                    if length(f.dimension) != 0
+                        htext = htext * "[$(join(f.dimension, "]["))]"
+                    end
                 end
                 htext = htext * "; // $(f.note) \n"
                 if first
@@ -240,7 +247,7 @@ function generateinterface(interface::String; language::String = "")
                 else
                     if length(f.dimension) == 0
                         ctext = ctext * "$n($(f.defaultvalue))"
-                    else
+                    else # c++11 supports initializer lists for vectors
                         ctext = ctext * "$n{$(join([d for d in f.defaultvalue], ", "))}"
                     end
                 end
@@ -272,7 +279,12 @@ function generateinterface(interface::String; language::String = "")
                     stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
                     # deserialization
                     dtxt = dtxt * "{ json j = json::from_msgpack(data);\n"
-                    if length(f.dimension) == 0
+                    if (-1,) == f.dimension
+                        dtxt = dtxt * "            if (!j.is_array()) { return false; } obj.$(n).clear(); \n"
+                        dtxt = dtxt * "            for (auto& element : j) {\n"
+                        dtxt = dtxt * "                if (!element.$(_nlohmann_type_check[f.type])()) { return false; }\n"
+                        dtxt = dtxt * "                obj.$(n).push_back(element.get<$(convert_julia_type(f.type, _language))>()); return true;\n            }\n        }\n"
+                    elseif length(f.dimension) == 0
                         dtxt = dtxt * "            if (!j.is_primitive() || !j.$(_nlohmann_type_check[f.type])()) { return false; }\n" 
                         dtxt = dtxt * "            obj.$(n) = j.get<$(convert_julia_type(f.type, _language))>(); return true;\n        }\n"
                     else # static 1D arrays only for now
@@ -282,7 +294,11 @@ function generateinterface(interface::String; language::String = "")
                         dtxt = dtxt * "                obj.$(n)[i] = j[i].get<$(convert_julia_type(f.type, _language))>(); return true;\n            }\n        }\n"
                     end
                     # pointer
-                    ptxt = ptxt * "{ return (uint8_t*) &obj.$(n); }\n"
+                    if (-1,) == f.dimension
+                        ptxt = ptxt * "{ return (uint8_t*) obj.$(n).data(); }\n"
+                    else
+                        ptxt = ptxt * "{ return (uint8_t*) &obj.$(n); }\n"
+                    end
                     metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
                 end
             end
@@ -320,10 +336,22 @@ function generateinterface(interface::String; language::String = "")
                     else
                         cs = cs * "            $(n) : $(f.defaultvalue),\n"
                     end
+                elseif f.dimension[1] == -1 # variable length one dimensional array
+                    txt = txt * "    pub $n : Vec<$(convert_julia_type(f.type, _language))>,\n"
+                    if f.iscomposite
+                        throw(ErrorException("Variable length arrays cannot be structs"))
+                    end
+                    if f.type == "String"
+                        cs = cs * "            $(n) : vec!($(join(["\"$(d)\".to_string()" for d in f.defaultvalue], ", "))),\n"
+                    else
+                        cs = cs * "            $(n) : vec!($(join([d for d in f.defaultvalue], ", "))),\n"
+                    end
                 else
                     txt = txt * "    pub $n : [$(convert_julia_type(f.type, _language)); $(join(f.dimension, ","))],\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
+                    elseif f.type == "String"
+                        cs = cs * "            $(n) : [$(join(["\"$(d)\".to_string()" for d in f.defaultvalue], ", "))],\n"
                     else
                         cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
                     end
@@ -361,7 +389,11 @@ function generateinterface(interface::String; language::String = "")
                     dtxt = dtxt * "                Err(e) => return Some(e),\n            }\n        },\n"
                     d_any_non_composite = true
                     # pointer
-                    ptxt = ptxt * "Some(std::ptr::addr_of!(obj.$(n)) as *const u8),\n"
+                    if (-1,) == f.dimension
+                        ptxt = ptxt * "Some(obj.$(n).as_ptr() as *const u8),\n"
+                    else
+                        ptxt = ptxt * "Some(std::ptr::addr_of!(obj.$(n)) as *const u8),\n"
+                    end
                     metadata[name][n] = Dict("id" => ii - 1, "type" => f.type, "dims" => collect(f.dimension), "unit" => "$(f.units)")
                 end
             end
