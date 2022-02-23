@@ -6,6 +6,7 @@ export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
 using ..Logging
+using ..DataStructures
 using ..MLibrary
 using ..MScripting
 using ..MModel
@@ -121,16 +122,28 @@ function loadproject(directory::String = ".") :: Nothing
     return
 end
 
-function _newproj(ProjectType::RUST) :: Nothing
+function _newproj(name::String, ProjectType::RUST) :: Nothing
     run(`cargo init --lib`)
+    tml = OrderedDict("rsisproject"=> OrderedDict("type"=> "rust", "filepaths" => ["src"]))
+    open("rsisproject.toml", "w") do io
+        TOML.print(io, tml)
+    end
 end
 
-function _newproj(ProjectType::CPP) :: Nothing
-    run(`meson setup builddir`)
+function _newproj(name::String, ProjectType::CPP) :: Nothing
+    run(`meson setup build`)
+    tml = Dict("rsisproject"=> Dict("type"=> "cpp", "filepaths" => ["src"]))
+    open("rsisproject.toml", "w") do io
+        TOML.print(io, tml)
+    end
 end
 
-function _newproj(ProjectType::FORTRAN) :: Nothing
+function _newproj(name::String, ProjectType::FORTRAN) :: Nothing
     run(`fpm new --lib`)
+    tml = Dict("rsisproject"=> Dict("type"=> "fortran", "filepaths" => ["src"]))
+    open("rsisproject.toml", "w") do io
+        TOML.print(io, tml)
+    end
 end
 
 """
@@ -146,7 +159,7 @@ julia> newproject("legacy_model"; language = "fortran")
 function newproject(name::String; language::String = "rust") :: Nothing
     if isdir(name)
         println("Folder with name: `$(name)`` already exists")
-        print("Generate a new project anyways? [y/n]: ")
+        print("Attempt to generate a new project anyways? [y/n]: ")
         answer = readline()
         if answer != "y"
             println("Project generation aborted.")
@@ -155,10 +168,10 @@ function newproject(name::String; language::String = "rust") :: Nothing
     else
         mkdir(name)
     end
-
     cd(name)
 
     # Generate new project files
+    global _loaded_project
     if language == "rust"
         _loaded_project.type = RUST()
     elseif language == "cpp"
@@ -168,7 +181,8 @@ function newproject(name::String; language::String = "rust") :: Nothing
     else
         throw(ArgumentError("`language` must be one of the following: [\"rust\", \"cpp\", \"fortran\"]"))
     end
-    _newproj(_loaded_project.type)
+    _newproj(name, _loaded_project.type)
+    @info "Generated Project [$name]"
 end
 
 """

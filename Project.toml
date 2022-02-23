@@ -1,7 +1,7 @@
 name = "RSIS"
 uuid = "9cfc04b2-4961-4ca5-a9e9-a56ca7873ac9"
 authors = ["kellyschultz <kellyschultz7233@gmail.com>"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
