@@ -1,0 +1,6 @@
+
+[rsisproject]
+type = "rust"
+filepaths = [
+    "src"
+]

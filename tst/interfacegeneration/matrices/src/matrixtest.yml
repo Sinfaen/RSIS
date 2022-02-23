@@ -1,0 +1,21 @@
+# Matrix generation test model
+model: matrixtest
+desc: One dimensional lookup table.
+
+matrixtest_in:
+  signal: {type: Float64, value: 0.0, desc: Value to search for }
+
+matrixtest_out:
+  value: {type: Float64, value: 0.0, desc: Interpolated value}
+
+matrixtest_data:
+  saturated: {type: Bool, value: false, desc: Axis saturation}
+
+matrixtest_params:
+  table: {type: Float64, dims: [-1], value: [0.0, 1.0], desc: Table data}
+
+matrixtest:
+  inputs: {class: matrixtest_in}
+  outputs: {class: matrixtest_out}
+  data: {class: matrixtest_data}
+  params: {class: matrixtest_params}
