@@ -57,9 +57,17 @@ The `type` key in a member definition indicates that the datatype is one of the 
 
 | key  | Meaning | Definition | Example |
 | ---- | ------- | ---------- | ------- |
-| dims | Array dimension. Defaults to scalar | List of positive integers | [2,3,2] |
+| dims | Array dimension. Defaults to scalar | List of positive integers, or [-1] | [2,3,2] |
 | unit | Units. Defaults to nothing | See [Units](#Units) | kg^2/m |
 | desc | Description. Defaults to nothing | String | Jet engine thrust output |
+
+If the array dimension is `[-1]`, this is interpreted as a variable length one-dimension array. The following table describes how this is transformed:
+
+| Language | Container |
+| -------- | --------- |
+| Rust     | Vec<>     |
+| C++      | std::vector<> |
+| Fortran | ?? |
 
 The `value` key can also be specified for non user defined types, indicating a default value that the member must take.
 
@@ -68,7 +76,6 @@ The `value` key can also be specified for non user defined types, indicating a d
 - Multiple model declarations in a single YAML file
 - Pointer type definitions
 - Possible additional datatype support:
-    - `std::string`
     - `std::array<>`
     - `void *`
     - `char8_t` (C++20)
@@ -96,8 +103,7 @@ The following table represents how Julia datatypes correspond to datatypes in Ru
 | Complex{Float64} | Complex{f64} | std::complex<double> | complex*16 |
 
 __Notes__:
-- Complex values in Rust are supported with the `num-complex` crate. Complex values in C++ are supported with the `<complex>` header.
-- The lack of support for `int`, `short`, `long`, `long long`, and their unsigned equivalents in C++ is intentional.
+- Complex values in Rust are supported with the `num-complex` crate. Complex values in C++ are supported with the `<complex>` header.]
 - Fortran integration utilizes `use ISO_FORTRAN_ENV` to specify integers
 
 ### Units

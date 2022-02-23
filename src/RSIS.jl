@@ -24,7 +24,7 @@ using Logging
 module MVersion
 export versioninfo
 function versioninfo()
-    return "0.2.2" # what is a better option?
+    return "0.2.3" # what is a better option?
 end
 end
 

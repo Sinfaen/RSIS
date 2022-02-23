@@ -14,15 +14,14 @@ Julia is similar to Python, but with a heavy focus on scientific computation. Th
 ## Road Map
 This framework is experimental and in development. This road map will exist until the first release.
 - [ ] Add full Fortran language support
-- [x] Add Model Interface Generation
 - [x] Refactor port exposure
+- [ ] Refactor model definition files from YAML to TOML, with enum-like support
 - [ ] Add multidimensional port arrays
-- [ ] Add variable length one dimensional arrays
+- [x] Add variable length one dimensional arrays
 - [ ] Allow Custom Components in Model Interface
 - [x] Add Thread Generation
 - [x] Add Non Real-Time Scheduling
 - [x] Add multi threaded NRT Scheduling
-- [x] Add Model Connection
 - [ ] Add Logging Capability
 - [ ] Add Data Replay Capability
 - [ ] Add Save Load Feature
