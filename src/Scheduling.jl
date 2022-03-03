@@ -2,6 +2,7 @@
 module MScheduling
 using ..MLibrary
 using ..MModel
+using ..MScenario
 using ..Unitful
 using ..DataFrames
 
@@ -129,7 +130,7 @@ Returns the list of scheduled models for a specific thread
 """
 function scheduleinfo(thread::Int64) :: DataFrame
     if thread < 1 || thread > length(_threads)
-        throw(ArgumentError("Invalid thread id"))
+        throw(BoundsError(_threads, "Invalid thread id"))
     end
     schedule = _threads[thread].scheduled
     return DataFrame("Model" => [sm.ref for sm in schedule], 
@@ -193,18 +194,30 @@ function initsim(;block::Bool = false) :: Nothing
             cncts = listconnections(model.ref)
             model_in = _getmodelinstance(model.ref)
             for (out, in) in cncts
-                (idx_in, port_in)   = _parselocation(model_in, in.port)
+                if isa(model_in, ModelInstance)
+                    (idx_in, port_in) = _parselocation(model_in, in.port)
+                    dst = _get_ptr(model_in, idx_in)
+                else
+                    (argtype, _, memptr) = capp_getmeta(model_in.metaobj, INPUT, in.port)
+                    dst = Base.unsafe_convert(Ptr{argtype}, memptr)
+                end
                 model_out = _getmodelinstance(out.model)
-                (idx_out, port_out) = _parselocation(model_out, out.port)
-                # get pointers from API
-                dst = _get_ptr(model_in, idx_in)
-                src = _get_ptr(model_out, idx_out)
+                if isa(model_out, ModelInstance)
+                    (idx_out, port_out) = _parselocation(model_out, out.port)
+                    # get pointers from API
+                    src = _get_ptr(model_out, idx_out)
+                    nbytes = sizeof(port_out)
+                else
+                    (argtype, _, memptr) = capp_getmeta(model_out.metaobj, OUTPUT, out.port)
+                    src = Base.unsafe_convert(Ptr{UInt8}, memptr)
+                    nbytes = sizeof(argtype)
+                end
                 if src == 0 || dst == 0
                     @error "Null pointers detected. Connection skipped"
                     continue
                 end
                 # port sizes should be checked by now
-                createconnection(src, dst, UInt64(sizeof(port_out)), i - 1, Int64(thread.frequency / model.frequency), model.offset)
+                createconnection(src, dst, UInt64(nbytes), i - 1, Int64(thread.frequency / model.frequency), model.offset)
             end
             # Convert 1 based indexing to 0 based indexing for the thread id
             schedulemodel(model.ref, i - 1, Int64(thread.frequency / model.frequency), model.offset)

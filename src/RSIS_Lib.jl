@@ -4,12 +4,15 @@ using Base: Int32, _getmeta
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
+export addcapp
 export getscheduler, initscheduler, stepscheduler, endscheduler, schedulerparam!
 export addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export _getmodelinstance, _meta_get, _meta_set, _get_ptr
-export ModelInstance, ModelReference
+export ModelInstance, CFunctionInstance, ModelReference
 export simstatus, SchedulerState, CONFIG, INITIALIZING, INITIALIZED, RUNNING, PAUSED, ENDING, ENDED, ERRORED
+export capp_getnmeta, capp_getmeta
+export SignalTypes, INPUT, OUTPUT, DATA, PARAM
 
 using ..Artifacts
 using Libdl
@@ -39,11 +42,24 @@ _namespaces = Dict{String, Vector{String}}()
     ERR = 1
 end
 
+@enum AppType::Int32 begin
+    AT_SO = 0
+    AT_CF = 1
+end
+
+@enum SignalTypes::Int32 begin
+    INPUT  = 0
+    OUTPUT = 1
+    DATA   = 2
+    PARAM  = 3
+end
+
 mutable struct LibFuncs
     s_init
     s_shutdown
     s_newthread
     s_addmodel
+    s_addmodel_by_callbacks
     s_removemodel
     s_addconnection
     s_initscheduler
@@ -60,6 +76,7 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :library_shutdown),
             Libdl.dlsym(lib, :new_thread),
             Libdl.dlsym(lib, :add_model),
+            Libdl.dlsym(lib, :add_model_by_callbacks),
             Libdl.dlsym(lib, :remove_model),
             Libdl.dlsym(lib, :add_connection),
             Libdl.dlsym(lib, :init_scheduler),
@@ -108,21 +125,67 @@ mutable struct LibModel
     end
 end
 
+"""
+    Stores data for instantiated models
+"""
 mutable struct ModelInstance
-    modulename::String
-    name::String
-    tags::Vector{String}
-    obj::Ptr{Cvoid}
-    # These last two are customized based on language
+    modulename::String  # shared library name
+    name::String        # unique name
+    tags::Vector{String} # metadata tags
+    obj::Ptr{Cvoid}     # pointer to dynamically allocated object
+    # These last three are customized based on language
     mget::Ptr{Cvoid}
     mset::Ptr{Cvoid}
     gptr::Ptr{Cvoid}
 end
 
-struct ModelReference
-    name::String
+"""
+    Define information necessary for an app defined with a pure C pointer
+"""
+mutable struct CFunctionInstance
+    name :: String
+    tags :: Vector{String} # metadata tags
+    obj  :: Ptr{Cvoid}
+    init_func   :: Ptr{Nothing}
+    config_func :: Ptr{Nothing}
+    step_func   :: Ptr{Nothing}
+    pause_func  :: Ptr{Nothing}
+    stop_func   :: Ptr{Nothing}
+    destructor  :: Ptr{Nothing}
+
+    # object used for getting metadata
+    metaobj     :: Any
+    # - capp_getnmeta
+    # - capp_getmeta
 end
 
+function capp_getnmeta(obj, ptype::SignalTypes) :: Int
+    throw(ErrorException("Undefined meta interface"))
+end
+
+function capp_getmeta(obj, ptype::SignalTypes, port::Int) :: Tuple{DataType, Tuple, Ptr}
+    throw(ErrorException("Undefined meta interface"))
+end
+
+"""
+    Low-weight way to reference an instantiated App/Model with type safety
+"""
+struct ModelReference
+    name::String
+    type::AppType
+end
+
+function _get_app_reference(obj::Union{ModelInstance, CFunctionInstance}) :: ModelReference
+    if isa(obj, ModelInstance)
+        return ModelReference(obj.name, AT_SO)
+    else
+        return ModelReference(obj.name, AT_CF)
+    end
+end
+
+"""
+Define print for the ModelReference
+"""
 function Base.show(io::IO, obj::ModelReference)
     try
         _model = _getmodelinstance(obj)
@@ -134,10 +197,10 @@ end
 
 # globals
 _modellibs     = Dict{String, LibModel}()
-_loaded_models = Dict{String, ModelInstance}()
+_loaded_models = Dict{String, Union{ModelInstance, CFunctionInstance} }()
 _model_tags    = Set{String}()
 
-function _getmodelinstance(model::ModelReference) :: ModelInstance
+function _getmodelinstance(model::ModelReference) :: Union{ModelInstance, CFunctionInstance}
     if model.name in keys(_loaded_models)
         return _loaded_models[model.name]
     else
@@ -184,7 +247,7 @@ function LoadLibrary()
     # detect operating system
     libpath = Libdl.find_library(_libraryprefix() * "rsis", [rootpath])
     if isempty(libpath)
-        throw(InitError("Unable to locate rsis library"))
+        throw(InitError(:LoadLibrary, "Unable to locate rsis library"))
     end
     _lib = Libdl.dlopen(libpath)
     _sym = LibFuncs(_lib)
@@ -194,7 +257,7 @@ function LoadLibrary()
     # Load C++ extension
     libpath = Libdl.find_library("librsis-cpp-extension", [rootpath])
     if isempty(libpath)
-        throw(InitError("Unable to locate rsis cpp extension"))
+        throw(InitError(:LoadLibrary, "Unable to locate rsis cpp extension"))
     end
     _cpp_lib = LangExtension(Libdl.dlopen(libpath))
     return
@@ -238,20 +301,25 @@ struct BufferData
     pointer::Ptr{UInt8}
     size::UInt64
 end
-
-function _meta_get(model::ModelReference, idx::Vector{UInt32}, cb::Ptr{Cvoid}) :: Nothing
-    instance = _getmodelinstance(model)
+function _meta_get(app::ModelReference, idx::Vector{UInt32}, cb::Ptr{Cvoid}) :: Nothing
+    obj = _getmodelinstance(app)
+    _meta_get(obj, idx, cb)
+end
+function _meta_get(model::ModelInstance, idx::Vector{UInt32}, cb::Ptr{Cvoid}) :: Nothing
     indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
-    stat = ccall(instance.mget, UInt, (Ptr{Cvoid}, BufferData, Ptr{Cvoid}), instance.obj, indices, cb)
+    stat = ccall(model.mget, UInt, (Ptr{Cvoid}, BufferData, Ptr{Cvoid}), model.obj, indices, cb)
     if stat != 0
         throw(ErrorException("Error occurred while calling metaget. $(stat)"))
     end
 end
-function _meta_set(model::ModelReference, idx::Vector{UInt32}, data::Vector{UInt8}) :: Nothing
-    instance = _getmodelinstance(model)
+function _meta_set(app::ModelReference, idx::Vector{UInt32}, data::Vector{UInt8}) :: Nothing
+    obj = _getmodelinstance(app)
+    _meta_set(obj, idx, data)
+end
+function _meta_set(obj::ModelInstance, idx::Vector{UInt32}, data::Vector{UInt8}) :: Nothing
     indices = BufferData(Ptr{UInt8}(pointer(idx)), length(idx))
     bufdata = BufferData(pointer(data), length(data))
-    stat = ccall(instance.mset, UInt, (Ptr{Cvoid}, BufferData, BufferData), instance.obj, indices, bufdata)
+    stat = ccall(obj.mset, UInt, (Ptr{Cvoid}, BufferData, BufferData), obj.obj, indices, bufdata)
     if stat != 0
         throw(ErrorException("Error occurred while calling metaset. $(stat)"))
     end
@@ -275,7 +343,7 @@ function UnloadModelLib(name::String) :: Bool
             @info "Deleting $(model)"
             delete!(_loaded_models, model)
         end
-        _loaded_models = Dict{String, ModelInstance}()
+        _loaded_models = Dict{String, Union{ModelInstance, CFunctionInstance} }()
 
         # unload the library
         Libdl.dlclose(_modellibs[name].s_lib)
@@ -351,7 +419,33 @@ function newmodel(library::String, newname::String; tags::Vector{String}=Vector{
     end
 
     # return reference
-    ModelReference(newname)
+    ModelReference(newname, AT_SO)
+end
+
+"""
+    addcapp(name::String,
+        tags          ::Vector{String},
+        obj           ::Ptr{Cvoid}
+        config_fn     ::Ptr{Nothing},
+        init_fn       ::Ptr{Nothing},
+        step_fn       ::Ptr{Nothing},
+        pause_fn      ::Ptr{Nothing},
+        stop_fn       ::Ptr{Nothing},
+        destructor_fn ::Ptr{Nothing},
+        metaobj       ::Any) :: ModelReference
+Creates an app via pointers to C functions, and sets up meta data access via pointers to memory.
+Data type checking is _not_ performed here. It is the duty of the caller to ensure that only POD data types
+are used here.
+"""
+function addcapp(name::String, tags::Vector{String}, obj::Ptr{Cvoid},
+        config_fn::Ptr{Nothing}, init_fn::Ptr{Nothing}, step_fn::Ptr{Nothing}, pause_fn::Ptr{Nothing}, stop_fn::Ptr{Nothing}, destructor_fn::Ptr{Nothing},
+        metaobj::Any) :: ModelReference
+    if name in keys(_loaded_models)
+        throw(ArgumentError("Model: $newname already exists."))
+    end
+
+    _loaded_models[name] = CFunctionInstance(name, tags, obj, init_fn, config_fn, step_fn, pause_fn, stop_fn, destructor_fn, metaobj)
+    return _get_app_reference(_loaded_models[name])
 end
 
 """
@@ -373,7 +467,7 @@ Get a model reference by name
 """
 function getmodel(name::String) :: ModelReference
     if name in keys(_loaded_models)
-        return ModelReference(name)
+        return _get_app_reference(_loaded_models[name])
     else
         throw(ErrorException("Model with name ($name) does not exist"))
     end
@@ -384,7 +478,7 @@ end
 Returns the names of all models loaded into the environment.
 """
 function listmodels() :: Vector{ModelReference}
-    return [ModelReference(obj.name) for obj in values(_loaded_models)]
+    return [_get_app_reference(obj) for obj in values(_loaded_models)]
 end
 
 """
@@ -392,7 +486,7 @@ end
 Returns a vector of all models loaded into the environment by tag
 """
 function listmodelsbytag(tag::String) :: Vector{ModelReference}
-    return [ModelReference(obj.name) for obj in values(_loaded_models) if tag in obj.tags]
+    return [_get_app_reference(obj) for obj in values(_loaded_models) if tag in obj.tags]
 end
 
 """
@@ -411,13 +505,28 @@ function addthread(frequency::Float64)
 end
 
 function schedulemodel(model::ModelReference, thread::Int64, divisor::Int64, offset::Int64) :: Nothing
-    _model = _getmodelinstance(model)
-    # the framework moves the object around, get the new pointer
-    newptr = ccall(_sym.s_addmodel, Ptr{Cvoid}, (Int64, Ptr{Cvoid}, Int64, Int64), thread, _model.obj, divisor, offset)
-    if newptr == 0
-        throw(ErrorException("Call to `add_model` in library failed"))
+    _app = _getmodelinstance(model)
+    if isa(_app, ModelInstance)
+        # the framework moves the object around, get the new pointer
+        newptr = ccall(_sym.s_addmodel,
+            Ptr{Cvoid},
+            (Int64, Ptr{Cvoid}, Int64, Int64),
+            thread, _app.obj, divisor, offset)
+        if newptr == 0
+            throw(ErrorException("Call to `add_model` in library failed"))
+        end
+        _app.obj = newptr
+    else
+        # CFunctionInstance
+        newptr = ccall(_sym.s_addmodel_by_callbacks,
+            Ptr{Cvoid},
+            (Int64, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Int64, Int64),
+            thread, _app.obj, _app.config_func, _app.init_func, _app.step_func, _app.pause_func, _app.stop_func, _app.destructor, divisor, offset)
+        if newptr == 0
+            throw(ErrorException("Call to `add_model_by_callbacks` in library failed"))
+        end
+        _app.obj = newptr
     end
-    _model.obj = newptr
     return
 end
 
