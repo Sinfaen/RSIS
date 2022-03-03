@@ -41,6 +41,9 @@ function setthread(threadId::Int; frequency::Float64=1.0, cpu::Int32=-1)
     if threadId < 0 || threadId > length(_threads)
         throw(ArgumentError("Invalid thread id"))
     end
+    if simstatus() != CONFIG
+        throw(ErrorException("Number of threads can only be changed from the CONFIG state"))
+    end
     _threads[threadId].frequency = frequency;
     _threads[threadId].cpuaffinity = cpu;
 end
@@ -52,6 +55,9 @@ Clears all threads, and creates the specified number of threads.
 function setnumthreads(num::Int) :: Nothing
     if (num < 1)
         throw(ArgumentError("$(num) is non-positive"))
+    end
+    if simstatus() != CONFIG
+        throw(ErrorException("Number of threads can only be changed from the CONFIG state"))
     end
     _resetthreads()
     for i=1:num
@@ -75,6 +81,9 @@ Schedule a model in the current scenario, with a specified rational frequency an
 function Base.:schedule(model::ModelReference, frequency::Rational{Int64}; offset::Int64 = 0, thread::Int64 = 1)::Nothing
     if thread < 1 || thread > length(_threads)
         throw(ArgumentError("Invalid thread id"))
+    end
+    if simstatus() != CONFIG
+        throw(ErrorException("Models can only be scheduled from the CONFIG state"))
     end
     push!(_threads[thread].scheduled, SModel(model, frequency, offset));
     return
@@ -117,6 +126,12 @@ julia> initsim(blocking = true)
 """
 function initsim(;blocking::Bool = false) :: Nothing
     global _base_sim_frequency
+    stat = simstatus()
+    if stat == CONFIG
+        @info "Initializing simulation"
+    else
+        throw(ErrorException("Sim cannot be initialized from $(stat) state"))
+    end
     _verifyfrequencies();
 
     # create threads
@@ -155,8 +170,14 @@ end
 Step the simulation by the specified number of steps.
 """
 function stepsim(steps::Int64 = 1)
-    # TODO add state checking here
-    @info "Stepping $(steps) steps"
+    stat = simstatus()
+    if stat == INITIALIZED || stat == PAUSED
+        @info "Stepping $(steps) steps"
+    else
+        throw(ErrorException("Sim cannot be stepped from $(stat) state"))
+    end
+
+    # call into the core library
     stepscheduler(UInt64(steps));
 end
 
@@ -186,6 +207,7 @@ Ends/Halts the simulation. Drops all saved ModelInstances
 as they have been consumed and have reached end of life.
 """
 function endsim() :: Nothing
+    # always present the capability to end the simulation
     endscheduler()
     _base_sim_frequency = Int64(0)
     _time_limits = Dict{String, Float64}()
