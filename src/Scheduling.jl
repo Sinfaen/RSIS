@@ -161,8 +161,14 @@ end
 Step the simulation by the specified number of steps.
 """
 function stepsim(steps::Int64 = 1)
-    # TODO add state checking here
-    @info "Stepping $(steps) steps"
+    stat = simstatus()
+    if stat == INITIALIZED || stat == PAUSED
+        @info "Stepping $(steps) steps"
+    else
+        throw(ErrorException("Sim cannot be stepped from $(stat) state"))
+    end
+
+    # call into the core library
     stepscheduler(UInt64(steps));
 end
 
@@ -192,6 +198,7 @@ Ends/Halts the simulation. Drops all saved ModelInstances
 as they have been consumed and have reached end of life.
 """
 function endsim() :: Nothing
+    # always present the capability to end the simulation
     endscheduler()
     _base_sim_frequency = Int64(0)
     _time_limits = Dict{String, Float64}()
