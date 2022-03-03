@@ -150,9 +150,9 @@ function generate_log_structures()
     ratemodels = Dict{Int, Dict{Float64, ModelReference}}()
     for (app, data) in _loggedfields
         # check to see that the model is scheduled at all
-        ref = ModelReference(app)
+        ref = getmodel(app)
         if !(app in keys(mapping))
-            @warn "Model: $app not scheduled. Skipping all logged signals"
+            @warn "App: $app not scheduled. Skipping all logged signals"
             continue
         end
 

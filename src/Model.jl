@@ -10,13 +10,13 @@ export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
 export load, unload, appsearch, describe
 export structnames, structdefinition
-export connect, listconnections
 export addlibpath, clearlibpaths
 export _parselocation
 
 using ..DataFrames
 using ..DataStructures
 using ..MsgPack
+using ..MCFunction
 using ..MScripting
 using ..MLibrary
 using ..MInterface
@@ -103,21 +103,6 @@ LibraryData() = LibraryData(Dict{String, ClassData}(), "")
 
 _classdefinitions = Dict{String, LibraryData}()
 
-# Connection struct + globals
-struct Location
-    model :: ModelReference
-    port  :: String
-    # idx
-end
-mutable struct Connections
-    input_link :: Dict{String, Location}
-end
-_connections = Dict{ModelReference, Connections}()
-function _ensureconnection(model::ModelReference)
-    if !(model in keys(_connections))
-        _connections[model] = Connections(Dict{String, Location}())
-    end
-end
 
 function _recurse_data_tree(classdef::LibraryData, data::Dict{String, Any}, dname::String) :: Nothing
     if dname in keys(classdef.structs)
@@ -205,18 +190,28 @@ function structdefinition(library::String, name::String) :: Vector{Tuple{String,
     end
 end
 
-function structdefinition(model::ModelReference, name::String) :: Vector{Tuple{String, String, String, UInt}}
-    obj = _getmodelinstance(model)
-    return structdefinition(obj.modulename, name)
+function structdefinition(app::ModelInstance, name::String) :: Vector{Tuple{String, String, String, UInt}}
+    return structdefinition(app.modulename, name)
+end
+function structdefinition(app::ModelReference, name::String) :: Vector{Tuple{String, String, String, UInt}}
+    return structdefinition(_getmodelinstance(app), name)
 end
 
 """
-    describe(model::ModelReference, location::String; maxitems = 50)
+    describe(model::ModelInstance, location::String; maxitems)
 Print out app interface in a user-friendly fashion.
 * maxdepth - limit to number of items printed to screen
 """
-function DataFrames.:describe(model::ModelReference, location::String; maxitems::Int = 50) :: Nothing
-    obj = _getmodelinstance(model)
+function DataFrames.:describe(app::ModelReference, location::String = ""; maxitems::Int = 50) :: Nothing
+    _app = _getmodelinstance(app)
+    if isa(_app, ModelInstance)
+        describe(_app, location; maxitems = maxitems)
+    else
+        describe(_app; maxitems = maxitems)
+    end
+end
+
+function DataFrames.:describe(obj::ModelInstance, location::String; maxitems::Int) :: Nothing
     tokens = split(location, ".")
 
     # start at the root of the tree
@@ -237,7 +232,7 @@ function DataFrames.:describe(model::ModelReference, location::String; maxitems:
     end
 
     # assemble printout
-    elements = structdefinition(model, loc)
+    elements = structdefinition(obj, loc)
     ref = data[loc]
 
     table = DataFrame("Port" => Vector{String}(), "Type" => Vector{String}(), "Value" => Vector{String}(), "Units" => Vector{String}())
@@ -247,7 +242,7 @@ function DataFrames.:describe(model::ModelReference, location::String; maxitems:
         if port.iscomposite
             push!(table, (elements[ii][1], "Struct", "", ""))
         else
-            push!(table, (elements[ii][1], port.type, "$(model[location *"."*name])", "$(elements[ii][3])"))
+            push!(table, (elements[ii][1], port.type, "$(obj[location *"."*name])", "$(elements[ii][3])"))
         end
     end
     if length(elements) > maxitems
@@ -255,8 +250,20 @@ function DataFrames.:describe(model::ModelReference, location::String; maxitems:
     end
     @info table
 end
-function DataFrames.:describe(model::ModelReference) :: Nothing
-    return describe(model, "")
+function DataFrames.:describe(obj::CFunctionInstance; maxitems::Int) :: Nothing
+    table = DataFrame("Port" => Vector{String}(), "Type" => Vector{String}(), "Value" => Vector{String}(), "Units" => Vector{String}())
+    for sigtype = [OUTPUT, INPUT, DATA, PARAM]
+        for ii = 1:capp_getnmeta(obj.metaobj, sigtype)
+            (dt, _, ptr) = capp_getmeta(obj.metaobj, sigtype, ii)
+            val = Base.unsafe_load(ptr)
+            push!(table, ("$(sigtype)$(ii)", "$(dt)", "$val", ""))
+            if ii + 1 > maxitems
+                push!(table, ("...", "...", "...", "..."))
+                break
+            end
+        end
+    end
+    @info table
 end
 
 """
@@ -419,6 +426,7 @@ end
 
 """
 Helper function to grab MessagePack index by name
+ModelInstance only
 """
 function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Vector{UInt32}, Port}
     data = _classdefinitions[model.modulename].structs
@@ -449,7 +457,15 @@ function _parselocation(model::ModelInstance, fieldname::String) :: Tuple{Vector
         end
         curstruct = port.type
     end
-    throw(ErrorException("Should not reach here. Something went terribly wrong"))
+    throw(ErrorException("Should not reach here. Please contact the developers"))
+end
+
+"""
+Copy of function meant to catch infrastructure errors
+this function should not be called
+"""
+function _parselocation(model::CFunctionInstance, idx::Int) :: Tuple{Vector{UInt32}, Port}
+    #
 end
 
 _messagepack_buffer = Vector{UInt8}()
@@ -463,21 +479,29 @@ end
     getindex(model::ModelReference, fieldname::String)
 Attempts to get a signal and return a copy of the value.
 Internally relies on MessagePack API.
+Supports ModelInstance(s) only
 ```jldoctest
-julia> get(cubesat, "data.mass")
+julia> cubesat["data.mass"]
 35.6
 ```
 """
 function Base.:getindex(model::ModelReference, fieldname::String) :: Any
-    _model = _getmodelinstance(model)
-    (idx, port) = _parselocation(_model, fieldname)
+    app = _getmodelinstance(model)
+    return app[fieldname]
+end
+
+function Base.:getindex(app::ModelInstance, fieldname::String)::Any
+    if !isa(app, ModelInstance)
+        throw(ErrorException("The function arguments of this app are accessed with integer values"))
+    end
+    (idx, port) = _parselocation(app, fieldname)
     t = _gettype(port.type)
 
     # Call into the app API with the requested index and a memory setup callback
     # The app will execute the callback to ensure that a buffer of the correct
     # size exists in the Julia environent for the app to fill it with the
     # packed MessagePack structure, and then copy it into the buffer
-    _meta_get(model, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
+    _meta_get(app, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
     if port.dimension == ()
         return unpack(_messagepack_buffer, _gettype(port.type))
     elseif port.dimension == (-1,) || length(port.dimension) == 1
@@ -486,6 +510,27 @@ function Base.:getindex(model::ModelReference, fieldname::String) :: Any
         data = unpack(_messagepack_buffer, Vector{_gettype(port.type)})
         return reshape(data, reverse(port.dimension))' # convert row major to column
     end
+end
+
+"""
+    getindex(model::ModelReference, signal::SignalTypes, fieldid::Int)
+Attempts to get a signal and return a copy of the value.
+Supports CFunctionInstance(s) only
+```jldoctest
+julia> transfer_fn = addjuliaapp(x->x^2 - x, Float32, (Float32,), "quadratic")
+julia> transfer_fn[INPUT, 1] = 45.1f0
+```
+"""
+function Base.:getindex(model::ModelReference, signal::SignalTypes, fieldid::Int) :: Any
+    obj = _getmodelinstance(model)
+    if !isa(obj, CFunctionInstance)
+        throw(ErrorException("The function arguments of this type are accessed with string values"))
+    end
+    (_, dims, ptr) = capp_getmeta(obj.metaobj, signal, fieldid)
+    if dims != ()
+        @error "Non-scalar values are unsupported. Returning first value"
+    end
+    return Base.unsafe_load(ptr)
 end
 
 """
@@ -498,6 +543,9 @@ julia> set!(cubesat, "inputs.voltage", 5.0)
 """
 function Base.:setindex!(model::ModelReference, value::Any, fieldname::String)
     _model = _getmodelinstance(model)
+    if !isa(_model, ModelInstance)
+        throw(ErrorException("The function arguments of this app are accessed with integer values"))
+    end
     (idx, port) = _parselocation(_model, fieldname)
     t = _gettype(port.type)
     if value isa String
@@ -523,76 +571,30 @@ function Base.:setindex!(model::ModelReference, value::Any, fieldname::String)
     return
 end
 
+
 """
-    connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String})
-Add a connection between an output port and an input port. The second value of the output
-and input arguments represent the model ports by name. The `outputs` and `inputs` names
-should not be specified.
+    setindex!(model::ModelReference, value::Any, signal::SignalTypes, fieldid::Int)
+Attempts to set a signal to value.
+Supports CFunctionInstance(s) only.
+Warning: does not do it's own datatype checking on the value
 ```jldoctest
-julia> connect((environment_model, "pos_eci"), (cubesat, "position"))
+julia> transfer_fn = addjuliaapp(x->x^2 - x, Float32, (Float32,), "quadratic")
+julia> transfer_fn[INPUT, 1] = 45.1f0
+julia> transfer_fn[INPUT, 1]
+45.1f0
 ```
 """
-function connect(output::Tuple{ModelReference, String}, input::Tuple{ModelReference, String}) :: Nothing
-    in  = Location(input[1],  "inputs." * input[2]);
-    out = Location(output[1], "outputs." * output[2]);
-
-    _output = _getmodelinstance(out.model);
-    (_, oport) = _parselocation(_output, out.port);
-    _input  = _getmodelinstance(in.model);
-    (_, iport) = _parselocation(_input, in.port);
-    # data type must match
-    if _gettype(oport.type) != _gettype(iport.type)
-        throw(ArgumentError("Output port type: $(oport.type) does not match input port type: $(iport.type)"))
+function Base.:setindex!(model::ModelReference, value::Any, signal::SignalTypes, fieldid::Int)
+    obj = _getmodelinstance(model)
+    if !isa(obj, CFunctionInstance)
+        throw(ErrorException("The function arguments of this type are accessed with string values"))
     end
-    # dimension must match
-    if oport.dimension != iport.dimension
-        throw(ArgumentError("Output port dimension: $(oport.dimension) does not match input port dimension: $(iport.dimension)"))
+    (_, dims, ptr) = capp_getmeta(obj.metaobj, signal, fieldid)
+    if dims != ()
+        @error "Non-scalar values are unsupported. Setting first value"
     end
-    # check units only if they both exist
-    if !isempty(iport.units) && !isempty(oport.units)
-        # simple string equality check for now
-        if iport.units != oport.units
-            throw(ArgumentError("Output port units: $(oport.units) does not match input port units: $(iport.units)"))
-        end
-    end
-
-    _ensureconnection(in.model)
-    # Register input connection
-    if haskey(_connections[in.model].input_link, in.port)
-        println("Warning! Redefining input connection")
-    end
-    _connections[in.model].input_link[in.port] = out;
+    Base.unsafe_store!(ptr, value)
     return
-end
-
-"""
-    listconnections()
-Returns a list of all the connections within the scenario.
-The first element is the output, the second is the input
-"""
-function listconnections() :: Vector{Tuple{Location, Location}}
-    cncts = Vector{Tuple{Location, Location}}()
-    for (model, _map) in _connections
-        for (_iport, _oloc) in _map.input_link
-            push!(cncts, (_oloc, Location(model, _iport)))
-        end
-    end
-    return cncts
-end
-
-"""
-    listconnections(model::ModelReference)
-Returns a list of input connections by model.
-The first element is the output, the second is the input
-"""
-function listconnections(model::ModelReference) :: Vector{Tuple{Location, Location}}
-    cncts = Vector{Tuple{Location, Location}}()
-    if model in keys(_connections)
-        for (_iport, _oloc) in _connections[model].input_link
-            push!(cncts, (_oloc, Location(model, _iport)))
-        end
-    end
-    return cncts
 end
 
 end

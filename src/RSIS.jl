@@ -36,6 +36,11 @@ export getscheduler, schedulerparam!
 export newmodel, getmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
 export simstatus, SchedulerState
+export SignalTypes, INPUT, OUTPUT, DATA, PARAM
+
+include("CFunction.jl")
+using .MCFunction
+export addjuliaapp
 
 include("Scripting.jl")
 using .MScripting
@@ -52,7 +57,6 @@ include("Model.jl") # pulls in MLogging, MScripting, MLibrary, MInterface
 using .MModel
 export load, unload, appsearch, describe
 export structnames, structdefinition
-export connect, listconnections
 export addlibpath, clearlibpaths
 
 include("Project.jl") # pulls in MLogging, MScripting, MModel
@@ -68,16 +72,18 @@ include("Events.jl")
 using .MEvents
 export clear_event_map, add_event_map
 
+include("Scenario.jl")
+using .MScenario # pulls in MModel, MScripting
+export scenario!, savescenario
+export connect, listconnections
+export getconfig
+
 include("Scheduling.jl")
 using .MScheduling
 export setthread, setnumthreads, threadinfo, scheduleinfo
 export initsim, stepsim, endsim, setstoptime, settimelimit
 export getstoptime
 export register_scheduler_callback
-
-include("Scenario.jl")
-using .MScenario # pulls in MModel, MScripting
-export scenario!, savescenario
 
 include("SignalIO.jl")
 using .MSignalIO
