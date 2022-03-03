@@ -1,0 +1,6 @@
+[rsis]
+git-tree-sha1 = "0d9aa49a83cebce462daf602f69eeb614bc11ba7"
+
+    [[rsis.download]]
+    sha256 = "faab0c880fe1346bf1b1d64de240eb78e2cd75e306d3dc64e91ba51f47858e51"
+    url = "file:/home/kelly/rsis/rsis.tar.gz"
