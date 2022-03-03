@@ -41,6 +41,9 @@ function setthread(threadId::Int; frequency::Float64=1.0, cpu::Int32=-1)
     if threadId < 0 || threadId > length(_threads)
         throw(ArgumentError("Invalid thread id"))
     end
+    if simstatus() != CONFIG
+        throw(ErrorException("Number of threads can only be changed from the CONFIG state"))
+    end
     _threads[threadId].frequency = frequency;
     _threads[threadId].cpuaffinity = cpu;
 end
@@ -52,6 +55,9 @@ Clears all threads, and creates the specified number of threads.
 function setnumthreads(num::Int) :: Nothing
     if (num < 1)
         throw(ArgumentError("$(num) is non-positive"))
+    end
+    if simstatus() != CONFIG
+        throw(ErrorException("Number of threads can only be changed from the CONFIG state"))
     end
     _resetthreads()
     for i=1:num
@@ -75,6 +81,9 @@ Schedule a model in the current scenario, with a specified rational frequency an
 function Base.:schedule(model::ModelReference, frequency::Rational{Int64}; offset::Int64 = 0, thread::Int64 = 1)::Nothing
     if thread < 1 || thread > length(_threads)
         throw(ArgumentError("Invalid thread id"))
+    end
+    if simstatus() != CONFIG
+        throw(ErrorException("Models can only be scheduled from the CONFIG state"))
     end
     push!(_threads[thread].scheduled, SModel(model, frequency, offset));
     return
