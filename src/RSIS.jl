@@ -82,6 +82,10 @@ using .MSignalLogger
 export logsignal, logsignalfile, listlogged
 export setlogfilelimit
 
+include("CFunction.jl")
+using .MCFunction
+export addjuliafunction
+
 # final global variables
 
 # ===
