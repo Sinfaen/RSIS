@@ -8,7 +8,7 @@ export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, sche
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export _getmodelinstance, _meta_get, _meta_set, _get_ptr
 export ModelInstance, ModelReference
-export simstatus, SchedulerState
+export simstatus, SchedulerState, CONFIG, INITIALIZING, INITIALIZED, RUNNING, PAUSED, ENDING, ENDED, ERRORED
 
 using Libdl
 using TOML

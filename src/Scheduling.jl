@@ -117,6 +117,12 @@ julia> initsim(blocking = true)
 """
 function initsim(;blocking::Bool = false) :: Nothing
     global _base_sim_frequency
+    stat = simstatus()
+    if stat == CONFIG
+        @info "Initializing simulation"
+    else
+        throw(ErrorException("Sim cannot be initialized from $(stat) state"))
+    end
     _verifyfrequencies();
 
     # create threads
