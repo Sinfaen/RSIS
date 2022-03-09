@@ -8,11 +8,13 @@ function release_shared_environment(name::String="RSIS", path::String="./") :: N
 
     debug_dir = joinpath(pwd(), "install", "debug")
     hash = create_artifact() do dir
-        for filep in readdir(debug_dir)
-            apath = joinpath(debug_dir, filep)
-            if isfile(apath)
-                @info "Adding $(apath) to artifact"
-                cp(apath, joinpath(dir, filep))
+        for (root, ~, files) in walkdir(debug_dir)
+            for file in files
+                apath = joinpath(root, file)
+                if isfile(apath)
+                    @info "Adding $(apath) to artifact"
+                    cp(apath, joinpath(dir, file))
+                end
             end
         end
     end
