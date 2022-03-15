@@ -8,7 +8,6 @@ end
 
 _libraries = [
     LibraryInstall(["src", "core", "modellib", "cpp-meson-lib"], CPP),
-    LibraryInstall(["src", "core", "modellib"], RUST),
     LibraryInstall(["src", "core"], RUST)
 ]
 
