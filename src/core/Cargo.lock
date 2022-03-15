@@ -26,6 +26,7 @@ checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
 [[package]]
 name = "modellib"
 version = "0.1.0"
+source = "git+https://github.com/Sinfaen/rsis-app-interface#baa81255bf001b6377d23ec9de73ca2ebe367414"
 dependencies = [
  "data-buffer",
  "libc",
@@ -58,7 +59,7 @@ checksum = "318d0078beaf244bfa5dcd06174634339e41f3d21650ffcf70f4194d8852921a"
 
 [[package]]
 name = "rsis"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "data-buffer",
  "libc",
