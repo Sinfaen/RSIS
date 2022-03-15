@@ -10,8 +10,9 @@ export _getmodelinstance, _meta_get, _meta_set, _get_ptr
 export ModelInstance, ModelReference
 export simstatus, SchedulerState, CONFIG, INITIALIZING, INITIALIZED, RUNNING, PAUSED, ENDING, ENDED, ERRORED
 
+using ..Artifacts
 using Libdl
-using TOML
+using ..TOML
 
 # this enum is supposed to match the SchedulerState enum in rust
 @enum SchedulerState begin
@@ -170,11 +171,11 @@ function LoadLibrary()
     global _sym
     global _cpp_lib
 
-    # debug install directory
-    install = normpath(joinpath(@__DIR__, "..", "install", "debug"))
+    # find artifact
+    rootpath = artifact"rsis"
 
     # detect operating system
-    libpath = Libdl.find_library(_libraryprefix() * "rsis", [install])
+    libpath = Libdl.find_library(_libraryprefix() * "rsis", [rootpath])
     if isempty(libpath)
         throw(InitError("Unable to locate rsis library"))
     end
@@ -183,7 +184,7 @@ function LoadLibrary()
     InitLibrary(_sym)
 
     # Load C++ extension
-    libpath = Libdl.find_library("librsis-cpp-extension", [install])
+    libpath = Libdl.find_library("librsis-cpp-extension", [rootpath])
     if isempty(libpath)
         throw(InitError("Unable to locate rsis cpp extension"))
     end

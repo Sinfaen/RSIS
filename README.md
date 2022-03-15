@@ -36,3 +36,9 @@ The RSIS Framework is used to build Real-Time simulations.
 $ cd utilities
 $ julia -L build.jl -e "build(release=true, clean=true)"
 ```
+
+## Release to Shared Environment
+```bash
+$ cd utilities
+$ julia -L release.jl -e "release_shared_environment()"
+```

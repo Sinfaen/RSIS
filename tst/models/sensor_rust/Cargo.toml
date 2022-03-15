@@ -1,6 +1,6 @@
 [package]
 name = "sensor_rust"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,7 +13,7 @@ rmp-serde = "1.0.0"
 rmpv = "1.0.0"
 
 [dependencies.modellib]
-path = "../../../src/core/modellib"
+git = "https://github.com/Sinfaen/rsis-app-interface"
 
 [lib]
 crate-type = ["dylib"]
