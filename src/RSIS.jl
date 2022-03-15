@@ -8,6 +8,8 @@ together into a single module.
 """
 module RSIS
 
+using Artifacts
+
 using TOML
 using YAML
 using CSV

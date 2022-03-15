@@ -10,7 +10,7 @@ export _getmodelinstance, _meta_get, _meta_set, _get_ptr
 export ModelInstance, ModelReference
 export simstatus, SchedulerState, CONFIG, INITIALIZING, INITIALIZED, RUNNING, PAUSED, ENDING, ENDED, ERRORED
 
-using Artifacts
+using ..Artifacts
 using Libdl
 using ..TOML
 
