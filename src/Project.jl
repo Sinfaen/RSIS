@@ -12,6 +12,7 @@ using ..MScripting
 using ..MModel
 using ..MDefines
 using ..TOML
+using ..YAML
 using ..MVersion
 
 # globals
@@ -181,7 +182,19 @@ function newproject(name::String; language::String = "rust") :: Nothing
     else
         throw(ArgumentError("`language` must be one of the following: [\"rust\", \"cpp\", \"fortran\"]"))
     end
-    _newproj(name, _loaded_project.type)
+    _newproj(name, _loaded_project.type) # language specific actions
+    yml = OrderedDict("model" => name,
+        "$(name)_in" => nothing,
+        "$(name)_out" => nothing,
+        "$(name)_data" => nothing,
+        "$(name)_params" => nothing,
+        "$(name)" => OrderedDict(
+            "inputs" => Dict("class" => "$(name)_in"),
+            "outputs" => Dict("class" => "$(name)_out"),
+            "data" => Dict("class" => "$(name)_data"),
+            "params" => Dict("class" => "$(name)_params")
+        ))
+    YAML.write_file(joinpath("src", "$(name).yml"), yml)
     @info "Generated Project [$name]"
 end
 
