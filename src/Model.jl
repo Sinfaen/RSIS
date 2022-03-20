@@ -8,12 +8,13 @@ using DataStructures: first
 export Port, Callback
 export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
-export load, unload, listavailable
+export load, unload, listavailable, describe
 export structnames, structdefinition
 export connect, listconnections
 export addlibpath, clearlibpaths
 export _parselocation
 
+using ..DataFrames
 using ..DataStructures
 using ..MsgPack
 using ..MScripting
@@ -194,6 +195,32 @@ end
 function structdefinition(model::ModelReference, name::String) :: Vector{Tuple{String, String, String, UInt}}
     obj = _getmodelinstance(model)
     return structdefinition(obj.modulename, name)
+end
+
+"""
+    describe(model::ModelReference, location::String; maxitems = 50)
+Print out app interface in a user-friendly fashion.
+* maxdepth - limit to number of items printed to screen
+"""
+function DataFrames.:describe(model::ModelReference, location::String; maxitems::Int = 50) :: Nothing
+    obj = _getmodelinstance(model)
+    tokens = split(location, ".")
+
+    # start at the root of the tree
+    location = _classdefinitions[obj.modulename].toplevel
+    text = "TOP LEVEL"
+    if tokens[1] != ""
+        # TODO refactor point
+    end
+    # assemble printout
+    elements = structdefinition(model, location)
+    for ii = 1:min(length(elements), maxitems)
+        text = text * "\n\t$(elements[ii][1])"
+    end
+    @info text
+end
+function DataFrames.:describe(model::ModelReference) :: Nothing
+    return describe(model, "")
 end
 
 """

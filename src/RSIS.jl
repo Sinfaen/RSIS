@@ -50,7 +50,7 @@ using .MInterface
 
 include("Model.jl") # pulls in MLogging, MScripting, MLibrary, MInterface
 using .MModel
-export load, unload, listavailable
+export load, unload, listavailable, describe
 export structnames, structdefinition
 export connect, listconnections
 export addlibpath, clearlibpaths
