@@ -101,7 +101,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             newmodelname = grabClassDefinitions(data, field.second["class"], order, definitions)
             push!(order, newmodelname)
         elseif "type" in _keys
-            # this is a regular port
+            # this is a regular port. Dimensions
             dims = []
             if "dims" in _keys
                 dims = field.second["dims"]
@@ -122,9 +122,51 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                     end
                 end
             end
-            initial = _type_default(field.second["type"])
+
+            # default value
+            initial = _type_default(field.second["type"]).default
+            _type = _gettype(field.second["type"])
+            if (0,) != size(dims) # array value
+                if [-1] == dims # variable 1d
+                    initial = [initial];
+                else
+                    A = zeros(_type, Tuple(dims))
+                    fill!(A, initial)
+                    initial = A
+                end
+            end
             if "value" in _keys
                 initial = field.second["value"]
+
+                # Check that the value is the correct type,size, or is convertible
+                if [-1] != dims # fixed size dimension
+                    if size(initial) != Tuple(dims)
+                        throw(ErrorException("Default value does not match port dimension"))
+                    end
+                end
+                if _type == String && !(typeof(initial) <: String)
+                    throw(ErrorException("Default value is not a string: $(initial)"))
+                elseif !(eltype(initial) <: _type)
+                    if (0,) == size(dims) && () == size(initial)
+                        # scalar
+                        try
+                            initial = _type(initial)
+                        catch e
+                            throw(ErrorException("Failed to convert $(initial) to $(_type), with message $(e)"))
+                        end
+                    else
+                        # multidimensional
+                        newarr = zeros(_type, size(initial))
+                        try
+                            for ii = 1:length(initial)
+                                newarr[ii] = _type(initial[ii])
+                            end
+                        catch e
+                            throw(ErrorException("Failed to convert default value, with message $(e)"))
+                        end
+                        initial = newarr;
+                    end 
+                end
             end
             desc = ""
             if "desc" in _keys
