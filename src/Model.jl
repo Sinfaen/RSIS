@@ -207,17 +207,40 @@ function DataFrames.:describe(model::ModelReference, location::String; maxitems:
     tokens = split(location, ".")
 
     # start at the root of the tree
-    location = _classdefinitions[obj.modulename].toplevel
-    text = "TOP LEVEL"
+    loc = _classdefinitions[obj.modulename].toplevel
+    data = _classdefinitions[obj.modulename].structs
     if tokens[1] != ""
-        # TODO refactor point
+        for tok in tokens
+            ref = data[loc]
+            if !(tok in keys(ref.fields))
+                throw(ErrorException("$(tok) is not a member of $(loc)"))
+            end
+            port = ref.fields[tok][2]
+            if !port.iscomposite
+                throw(ErrorException("$(tok) is a signal but is accessed further"))
+            end
+            loc = port.type
+        end
     end
+
     # assemble printout
-    elements = structdefinition(model, location)
+    elements = structdefinition(model, loc)
+    ref = data[loc]
+
+    table = DataFrame("Port" => Vector{String}(), "Type" => Vector{String}(), "Value" => Vector{String}(), "Units" => Vector{String}())
     for ii = 1:min(length(elements), maxitems)
-        text = text * "\n\t$(elements[ii][1])"
+        name = elements[ii][1]
+        port = ref.fields[name][2]
+        if port.iscomposite
+            push!(table, (elements[ii][1], "Struct", "", ""))
+        else
+            push!(table, (elements[ii][1], "?", "$(model[location *"."*name])", "$(elements[ii][3])"))
+        end
     end
-    @info text
+    if length(elements) > maxitems
+        push!(table, ("...", "...", "...", "..."))
+    end
+    @info table
 end
 function DataFrames.:describe(model::ModelReference) :: Nothing
     return describe(model, "")
