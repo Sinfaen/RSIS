@@ -374,8 +374,16 @@ end
     listmodels()
 Returns the names of all models loaded into the environment.
 """
-function listmodels() :: Vector{String}
-    return collect(keys(_loaded_models))
+function listmodels() :: Vector{ModelReference}
+    return [ModelReference(obj.name) for obj in values(_loaded_models)]
+end
+
+"""
+    listmodelsbytag(tag)::String)
+Returns a vector of all models loaded into the environment by tag
+"""
+function listmodelsbytag(tag::String) :: Vector{ModelReference}
+    return [ModelReference(obj.name) for obj in values(_loaded_models) if tag in obj.tags]
 end
 
 """
@@ -384,14 +392,6 @@ Returns a vector of all loaded model libraries
 """
 function listlibraries() :: Vector{String}
     return collect(keys(_modellibs))
-end
-
-"""
-    listmodelsbytag(tag)::String)
-Returns a vector of all loaded models by tag
-"""
-function listmodelsbytag(tag::String) :: Vector{String}
-    return [name for (name, model) in _loaded_models if tag in model.tags]
 end
 
 function addthread(frequency::Float64)
