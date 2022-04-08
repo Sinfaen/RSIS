@@ -57,7 +57,7 @@ export addlibpath, clearlibpaths
 
 include("Project.jl") # pulls in MLogging, MScripting, MModel
 using .MProject
-export newproject, loadproject, projectinfo, projectlibname, build!, clean!
+export newproject, loadproject, exitproject, projectinfo, projectlibname, build!, clean!
 export getprojectdirectory, getprojectbuilddirectory
 
 include("InterfaceGeneration.jl")

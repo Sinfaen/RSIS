@@ -1,7 +1,7 @@
 
 module MProject
 
-export loadproject, newproject, projectinfo, projecttype, projectlibname
+export loadproject, exitproject, newproject, projectinfo, projecttype, projectlibname
 export build!, clean!
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
@@ -121,6 +121,12 @@ function loadproject(directory::String = ".") :: Nothing
 
     @info projectinfo()
     return
+end
+
+function exitproject() :: Nothing
+    global _loaded_project
+    _loaded_project = ProjectInfo();
+    @info "Exited project"
 end
 
 function _newproj(name::String, ProjectType::RUST) :: Nothing
