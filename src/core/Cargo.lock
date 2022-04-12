@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "autocfg"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
+checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "data-buffer"
@@ -19,14 +19,14 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.98"
+version = "0.2.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
+checksum = "cb691a747a7ab48abc15c5b42066eaafde10dc427e3b6ee2a1cf43db04c763bd"
 
 [[package]]
 name = "modellib"
-version = "0.1.0"
-source = "git+https://github.com/Sinfaen/rsis-app-interface#baa81255bf001b6377d23ec9de73ca2ebe367414"
+version = "0.1.1"
+source = "git+https://github.com/Sinfaen/rsis-app-interface#18511218a66a230577486dc7a027eef914db646f"
 dependencies = [
  "data-buffer",
  "libc",

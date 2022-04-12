@@ -7,6 +7,8 @@ extern crate libc;
 use libc::c_void;
 
 use modellib::BufferStruct;
+use modellib::ConfigStatus;
+use modellib::RuntimeStatus;
 use modellib::SizeCallback;
 use modellib::BaseModel;
 use modellib::Framework;
@@ -34,19 +36,26 @@ impl height_sensor_model {
 }
 
 impl BaseModel for height_sensor_model {
-    fn config(&mut self) -> bool {
+    fn config(&mut self) -> ConfigStatus {
         if self.intf.params.limits[1] < self.intf.params.limits[0] {
             println!("Limit range must be specified as [lower, upper]");
-            return false
+            return ConfigStatus::ERROR
         }
-        true
+        ConfigStatus::OK
     }
-    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> bool {
+    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
         self.dist = Normal::new(0.0, self.intf.params.noise).unwrap();
         println!("Created file: {}", self.intf.params.stats_file);
-        self.config()
+        match self.config() {
+            ConfigStatus::OK | ConfigStatus::INTERFACEUPDATE => {
+                return RuntimeStatus::OK
+            },
+            ConfigStatus::ERROR => {
+                return RuntimeStatus::ERROR
+            }
+        }
     }
-    fn step(&mut self) -> bool {
+    fn step(&mut self) -> RuntimeStatus {
         let mut r = rand::thread_rng();
         self.intf.data.measurement = self.intf.inputs.signal + self.dist.sample(&mut r);
         if self.intf.data.measurement < self.intf.params.limits[0] ||
@@ -56,13 +65,13 @@ impl BaseModel for height_sensor_model {
         } else {
             self.intf.outputs.inrange = true
         }
-        true
+        RuntimeStatus::OK
     }
-    fn pause(&mut self) -> bool {
-        true
+    fn pause(&mut self) -> RuntimeStatus {
+        RuntimeStatus::OK
     }
-    fn stop(&mut self) -> bool {
-        true
+    fn stop(&mut self) -> RuntimeStatus {
+        RuntimeStatus::OK
     }
     fn msg_get(&self, id : BufferStruct, cb : SizeCallback) -> u32 {
         handle_msg_get(&self.intf, id, cb)

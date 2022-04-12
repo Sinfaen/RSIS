@@ -26,7 +26,7 @@ The RSIS Framework is used to build Real-Time simulations.
 ### Optional Dependencies
 | Function | Dependency |
 | -------- | ---------- |
-| C++ Development | Meson (>= 0.61.1) |
+| C++ Development | Meson (>= 0.62.0) |
 | C++ Models | nlohmann-json (>= 3.10.5) |
 | Fortran Development | Fortran Package Manager (fpm) TODO UPDATE |
 | GUI | Stipple, Genie (TODO) |
