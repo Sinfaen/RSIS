@@ -86,6 +86,7 @@ function Base.:schedule(model::ModelReference, frequency::Rational{Int64}; offse
         throw(ErrorException("Models can only be scheduled from the CONFIG state"))
     end
     push!(_threads[thread].scheduled, SModel(model, frequency, offset));
+    @info "Schedule $(model) > Thread $(thread) Index $(length(_threads[thread].scheduled))"
     return
 end
 
