@@ -202,6 +202,7 @@ function newproject(name::String; language::String = "rust") :: Nothing
         ))
     YAML.write_file(joinpath("src", "$(name).yml"), yml)
     @info "Generated Project [$name]"
+    loadproject(".")
 end
 
 """
