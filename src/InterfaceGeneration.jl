@@ -109,6 +109,9 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             if !isa(dims, Vector)
                 throw(ErrorException("Dimension specified for field $(field.first) is not a list"))
             end
+            isscalar = dims == []
+            variablelength = dims == [-1] # check for variable 1D arrays
+
             unit=""
             if "unit" in _keys
                 u = field.second["unit"]
@@ -126,9 +129,9 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             # default value
             initial = _type_default(field.second["type"]).default
             _type = _gettype(field.second["type"])
-            if (0,) != size(dims) # array value
-                if [-1] == dims # variable 1d
-                    initial = [initial];
+            if !isscalar # array value
+                if variablelength
+                    initial = _type[]
                 else
                     A = zeros(_type, Tuple(dims))
                     fill!(A, initial)
@@ -139,16 +142,15 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                 initial = field.second["value"]
 
                 # Check that the value is the correct type,size, or is convertible
-                if [-1] != dims # fixed size dimension
-                    if size(initial) != Tuple(dims)
+                if !variablelength
+                    if !isa(initial, String) && size(initial) != Tuple(dims)
                         throw(ErrorException("Default value does not match port dimension"))
                     end
                 end
                 if _type == String && !(typeof(initial) <: String)
                     throw(ErrorException("Default value is not a string: $(initial)"))
                 elseif !(eltype(initial) <: _type)
-                    if (0,) == size(dims) && () == size(initial)
-                        # scalar
+                    if isscalar
                         try
                             initial = _type(initial)
                         catch e
