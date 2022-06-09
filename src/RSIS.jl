@@ -77,8 +77,8 @@ include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
 export scenario!, savescenario
 
-include("SignalLogger.jl")
-using .MSignalLogger
+include("SignalIO.jl")
+using .MSignalIO
 export logsignal, logsignalfile, listlogged
 export setlogfilelimit
 

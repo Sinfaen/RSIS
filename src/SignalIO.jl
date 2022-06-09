@@ -1,5 +1,5 @@
 
-module MSignalLogger
+module MSignalIO
 
 using ..MLibrary
 using ..MScripting
