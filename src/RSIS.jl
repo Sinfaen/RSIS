@@ -70,8 +70,9 @@ export clear_event_map, add_event_map
 
 include("Scheduling.jl")
 using .MScheduling
-export setthread, setnumthreads, threadinfo
+export setthread, setnumthreads, threadinfo, scheduleinfo
 export initsim, stepsim, endsim, setstoptime, settimelimit
+export register_scheduler_callback
 
 include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
@@ -80,15 +81,17 @@ export scenario!, savescenario
 include("SignalIO.jl")
 using .MSignalIO
 export logsignal, logsignalfile, listlogged
-export setlogfilelimit
+export setlogfilelimit, generate_log_structures
 
 # final global variables
 
 # ===
 
-function __init__()
+function __init__() :: Nothing
     LoadLibrary()
-    nothing
+
+    # Add callbacks for supported utilities
+    register_scheduler_callback(generate_log_structures, 10)
 end
 
 
