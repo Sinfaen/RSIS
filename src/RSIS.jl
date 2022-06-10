@@ -50,7 +50,7 @@ using .MInterface
 
 include("Model.jl") # pulls in MLogging, MScripting, MLibrary, MInterface
 using .MModel
-export load, unload, listavailable, describe
+export load, unload, appsearch, describe
 export structnames, structdefinition
 export connect, listconnections
 export addlibpath, clearlibpaths
@@ -58,7 +58,7 @@ export addlibpath, clearlibpaths
 include("Project.jl") # pulls in MLogging, MScripting, MModel
 using .MProject
 export newproject, loadproject, exitproject, projectinfo, projectlibname, build!, clean!
-export getprojectdirectory, getprojectbuilddirectory
+export getprojectdirectory, getprojectbuilddirectory, release
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration

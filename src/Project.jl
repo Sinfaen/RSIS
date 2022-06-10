@@ -2,7 +2,7 @@
 module MProject
 
 export loadproject, exitproject, newproject, projectinfo, projecttype, projectlibname
-export build!, clean!
+export build!, clean!, release
 export isprojectloaded, getprojectdirectory, getprojectbuilddirectory
 
 using ..Logging
@@ -234,6 +234,10 @@ function projecttype() :: ProjectType
     return _loaded_project.type
 end
 
+function _get_tagfile_name(projectname::String, target::String) :: String
+    return "rsis_$(projectname).app.$(target).toml";
+end
+
 """
 Generate a TOML tag file alongside the model with associated
 metadata
@@ -248,7 +252,7 @@ function _generate_tagfile(proj::ProjectInfo, target::BuildTarget) :: Nothing
             "version" => versioninfo()
         )
     );
-    filename = "rsis_$(proj.name).app.$(target).toml";
+    filename = _get_tagfile_name(proj.name, "$target")
     if proj.type == RUST()
         folder = joinpath("target", "$(target)")
     elseif proj.type == CPP()
@@ -328,6 +332,33 @@ function clean!() :: Nothing
 
     cd(_loaded_project.directory)
     rm(_builddir(_loaded_project.type); recursive=true)
+end
+
+"""
+    release(library)
+Releases the project library to a directory.
+Defaults to <user home directory>/rsis-<version>/apps, 
+"""
+function release(library::String = "", releasedir::String = "") :: Nothing
+    if isempty(library)
+        library = projectlibname()
+    end
+    if isempty(releasedir)
+        releasedir = joinpath(homedir(), "rsis-$(versioninfo())", "apps")
+    end
+    (tagfile, type, path) = appsearch(library; fullname = true)[1]
+    open(joinpath(path, tagfile), "r") do io
+        data = TOML.parse(io);
+        libname = data["binary"]["file"]
+        if !isdir(releasedir)
+            mkpath(releasedir)
+            @info "Created $releasedir"
+        end
+        cp(joinpath(path, libname), joinpath(releasedir, libname); force = true)
+        cp(joinpath(path, tagfile), joinpath(releasedir, tagfile); force = true)
+        @info "Released $library to $releasedir"
+    end
+    return;
 end
 
 end
