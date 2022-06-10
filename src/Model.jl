@@ -306,7 +306,7 @@ function appsearch(app::String = ""; fullname::Bool = false) :: Vector{Tuple{Str
     file_ext    = _libraryextension()
     file_prefix = _libraryprefix()
 
-    single_search = isempty(app)
+    single_search = !isempty(app)
 
     dpat = r"^rsis_(.*)\.app\.debug\.toml";
     rpat = r"^rsis_(.*)\.app\.release\.toml";
@@ -314,35 +314,31 @@ function appsearch(app::String = ""; fullname::Bool = false) :: Vector{Tuple{Str
     for dir in collect(_additional_lib_paths)
         if isdir(dir)
             for file in readdir(dir)
+                if single_search && !occursin(Regex(app), file)
+                    continue
+                end
                 # check for toml tag file
                 found   = false
                 tagname = file
                 type    = "debug"
-                if single_search && !occursin(Regex(app), file)
-                    continue
-                end
                 if occursin(dpat, file)
                     found = true
-                    if !fullname
-                        tagname = match(dpat, file)[1]
-                    end
+                    tagname = if fullname file else match(dpat, file)[1] end
                 elseif occursin(rpat, file)
                     found = true
                     type = "release"
-                    if !fullname
-                        tagname = match(rpat, file)[1]
-                    end
+                    tagname = if fullname file else match(rpat, file)[1] end
                 end
                 if found
                     push!(all, (tagname, type, abspath(dir)))
-                    if !single_search
+                    if single_search
                         return all;
                     end
                 end
             end
         end
     end
-    if !single_search
+    if single_search
         throw(ErrorException("Failed to find library: [$app]"))
     end
     return all

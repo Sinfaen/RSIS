@@ -118,6 +118,7 @@ function loadproject(directory::String = ".") :: Nothing
     clearlibpaths()
     addlibpath(builddir(_loaded_project, DEBUG()); force = true)
     addlibpath(builddir(_loaded_project, RELEASE()); force = true)
+    addlibpath(joinpath(homedir(), "rsis-$(versioninfo())", "apps"); force = true);
 
     @info projectinfo()
     return
