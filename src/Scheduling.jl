@@ -108,7 +108,7 @@ function scheduleinfo(thread::Int64) :: DataFrame
         throw(ArgumentError("Invalid thread id"))
     end
     schedule = _threads[thread].scheduled
-    return DataFrame("Model" => ["$(sm.ref)" for sm in schedule], 
+    return DataFrame("Model" => [sm.ref for sm in schedule], 
         "Rate" => [sm.frequency for sm in schedule])
 end
 
