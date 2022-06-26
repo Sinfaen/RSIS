@@ -7,6 +7,7 @@ using ..DataFrames
 
 export setthread, setnumthreads, schedule, threadinfo, scheduleinfo
 export initsim, stepsim, endsim, setstoptime, settimelimit
+export getstoptime
 export register_scheduler_callback
 
 mutable struct SModel
@@ -244,6 +245,7 @@ Note: other entities can still impose limits on the length of a
 simulation, e.g. native datalogging components.
 """
 function setstoptime(time::Number) :: Nothing
+    global _max_sim_duration
     if time < 0
         if time != -1
             throw(ArgumentError("Invalid duration specified: $time [s]"))
@@ -267,6 +269,14 @@ function setstoptime(time::Unitful.Quantity{T, D, U}) where {T, D, U}
         throw(ArgumentError("`time` is not a scalar. Dimension: $(size(time_in_seconds))"))
     end
     setstoptime(time_in_seconds)
+end
+
+"""
+    getstoptime()
+Get the maximum time set for the simulation
+"""
+function getstoptime()
+    return _max_sim_duration * u"s"
 end
 
 """

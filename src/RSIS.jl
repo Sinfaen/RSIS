@@ -72,6 +72,7 @@ include("Scheduling.jl")
 using .MScheduling
 export setthread, setnumthreads, threadinfo, scheduleinfo
 export initsim, stepsim, endsim, setstoptime, settimelimit
+export getstoptime
 export register_scheduler_callback
 
 include("Scenario.jl")
@@ -80,7 +81,7 @@ export scenario!, savescenario
 
 include("SignalIO.jl")
 using .MSignalIO
-export logsignal, logsignalfile, listlogged
+export logsignal, logsignalfile, listlogged, getlogdata
 export setlogfilelimit, generate_log_structures
 
 # final global variables

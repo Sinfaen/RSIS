@@ -465,7 +465,14 @@ function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     # size exists in the Julia environent for the app to fill it with the
     # packed MessagePack structure, and then copy it into the buffer
     _meta_get(model, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
-    data = unpack(_messagepack_buffer)
+    if port.dimension == ()
+        dtype = _gettype(port.type)
+    elseif port.dimension == (-1,) || length(port.dimension) == 1
+        dtype = Vector{_gettype(port.type)}
+    else
+        throw(ErrorException("2D matrices not yet supported"))
+    end
+    data = unpack(_messagepack_buffer, dtype)
 end
 
 """

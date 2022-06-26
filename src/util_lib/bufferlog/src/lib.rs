@@ -48,7 +48,7 @@ impl BaseModel for bufferlog_app {
         let o = self.intf.data.index;
         unsafe {
             for i in 0..self.intf.data.nports {
-                std::ptr::copy((p.psrc[i] as *mut u8).offset(o),
+                std::ptr::copy((p.psrc[i] as *mut u8),
                     (p.pdst[i] as *mut u8).offset(o), p.sizes[i] as usize);
             }
         }
