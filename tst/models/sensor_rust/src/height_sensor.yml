@@ -1,5 +1,6 @@
 # Height Sensor Test model
 model: height_sensor
+desc: Example sensor model written in Rust
 
 height_sensor_in:
     signal: {type: Float64, value: 1.0, unit: m, desc: Truth signal}

@@ -44,17 +44,21 @@ function _compile_release(data::LibraryInstall, install::String, for_release=fal
             if isfile(bp) && endswith(bp, r"\.so|\.dll|\.dylib|\.rlib")
                 np = joinpath(install, path)
                 println("Installing $path to $np")
-                cp(bp, np)
+                cp(bp, np; force = true)
             end
         end
     elseif data.language == CPP
         if for_release
-            run(`meson setup build -Dbuildtype=release --prefix /`)
+            if !isdir("build")
+                run(`meson setup build -Dbuildtype=release --prefix /`)
+            end
             cd("build")
             run(`meson compile`)
             run(`meson install --destdir $install`)
         else
-            run(`meson setup build -Dbuildtype=debug --prefix /`)
+            if !isdir("build")
+                run(`meson setup build -Dbuildtype=debug --prefix /`)
+            end
             cd("build")
             run(`meson compile`)
             run(`meson install --destdir $install`)
@@ -83,9 +87,9 @@ function build(;release :: Bool = false, clean::Bool = false) :: Nothing
     end
     for lib in _libraries
         if clean
-            cd(joinpath(cat([root], lib.location, dims=(1,))))
             _clean(lib)
         end
+        cd(joinpath(cat([root], lib.location, dims=(1,))))
         _compile_release(lib, install, release)
     end
     return;

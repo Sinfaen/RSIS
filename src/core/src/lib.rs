@@ -14,7 +14,8 @@ pub use rsis::NRTScheduler;
 
 use modellib::BaseModel;
 use modellib::BaseModelExternal;
-use modellib::BoolCallback;
+use modellib::ConfigStatusCallback;
+use modellib::RuntimeStatusCallback;
 use modellib::VoidCallback;
 
 use connection::Connection;
@@ -97,11 +98,11 @@ pub extern "C" fn add_model_by_callbacks(thread: i64,
     unsafe {
         let obj = BaseModelExternal {
             obj : objp,
-            config_fn : std::mem::transmute::<*mut c_void, BoolCallback>(configp),
-            init_fn   : std::mem::transmute::<*mut c_void, BoolCallback>(initp),
-            step_fn   : std::mem::transmute::<*mut c_void, BoolCallback>(stepp),
-            pause_fn  : std::mem::transmute::<*mut c_void, BoolCallback>(pausep),
-            stop_fn   : std::mem::transmute::<*mut c_void, BoolCallback>(stopp),
+            config_fn : std::mem::transmute::<*mut c_void, ConfigStatusCallback>(configp),
+            init_fn   : std::mem::transmute::<*mut c_void, RuntimeStatusCallback>(initp),
+            step_fn   : std::mem::transmute::<*mut c_void, RuntimeStatusCallback>(stepp),
+            pause_fn  : std::mem::transmute::<*mut c_void, RuntimeStatusCallback>(pausep),
+            stop_fn   : std::mem::transmute::<*mut c_void, RuntimeStatusCallback>(stopp),
             destructor_fn : std::mem::transmute::<*mut c_void, VoidCallback>(destp),
         };
         let boxed_trait : Box<Box<dyn BaseModel + Send>> = Box::new(Box::new(obj));

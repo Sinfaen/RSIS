@@ -11,6 +11,8 @@
 
 use modellib::BaseModel;
 use modellib::BufferStruct;
+use modellib::ConfigStatus;
+use modellib::RuntimeStatus;
 use modellib::SizeCallback;
 use modellib::Framework;
 use std::ptr;
@@ -22,23 +24,23 @@ pub struct Connection {
 }
 
 impl BaseModel for Connection {
-    fn config(&mut self) -> bool {
-        true
+    fn config(&mut self) -> ConfigStatus {
+        ConfigStatus::OK
     }
-    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> bool {
-        true
+    fn init(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
+        RuntimeStatus::OK
     }
-    fn step(&mut self) ->  bool {
+    fn step(&mut self) -> RuntimeStatus {
         unsafe {
             ptr::copy(self.src, self.dst, self.size);
         }
-        true
+        RuntimeStatus::OK
     }
-    fn pause(&mut self) -> bool {
-        true
+    fn pause(&mut self) -> RuntimeStatus {
+        RuntimeStatus::OK
     }
-    fn stop(&mut self) -> bool {
-        true
+    fn stop(&mut self) -> RuntimeStatus {
+        RuntimeStatus::OK
     }
     fn msg_get(&self, _id : BufferStruct, _cb : SizeCallback) -> u32 {
         1

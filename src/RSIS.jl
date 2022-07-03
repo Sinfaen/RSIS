@@ -50,15 +50,15 @@ using .MInterface
 
 include("Model.jl") # pulls in MLogging, MScripting, MLibrary, MInterface
 using .MModel
-export load, unload, listavailable
+export load, unload, appsearch, describe
 export structnames, structdefinition
 export connect, listconnections
 export addlibpath, clearlibpaths
 
 include("Project.jl") # pulls in MLogging, MScripting, MModel
 using .MProject
-export newproject, loadproject, projectinfo, projectlibname, build!, clean!
-export getprojectdirectory, getprojectbuilddirectory
+export newproject, loadproject, exitproject, projectinfo, projectlibname, build!, clean!
+export getprojectdirectory, getprojectbuilddirectory, release
 
 include("InterfaceGeneration.jl")
 using .MInterfaceGeneration
@@ -70,25 +70,29 @@ export clear_event_map, add_event_map
 
 include("Scheduling.jl")
 using .MScheduling
-export setthread, setnumthreads, threadinfo
+export setthread, setnumthreads, threadinfo, scheduleinfo
 export initsim, stepsim, endsim, setstoptime, settimelimit
+export getstoptime
+export register_scheduler_callback
 
 include("Scenario.jl")
 using .MScenario # pulls in MModel, MScripting
 export scenario!, savescenario
 
-include("SignalLogger.jl")
-using .MSignalLogger
-export logsignal, logsignalfile, listlogged
-export setlogfilelimit
+include("SignalIO.jl")
+using .MSignalIO
+export logsignal, logsignalfile, listlogged, getlogdata
+export setlogfilelimit, generate_log_structures
 
 # final global variables
 
 # ===
 
-function __init__()
+function __init__() :: Nothing
     LoadLibrary()
-    nothing
+
+    # Add callbacks for supported utilities
+    register_scheduler_callback(generate_log_structures, 10)
 end
 
 

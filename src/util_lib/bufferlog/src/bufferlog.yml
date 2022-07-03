@@ -1,0 +1,21 @@
+model: "bufferlog"
+bufferlog_in:
+  enabled: {type: Bool, value: true, desc: Is the model enabled}
+bufferlog_out: ~
+bufferlog_data:
+  nports : {type: Csize_t, value: 0, desc: Number of ports being read}
+  index : {type: Cptrdiff_t, value: 0, desc: Index into external buffers}
+bufferlog_params:
+  psrc : {type: UInt64, dims: [-1], desc: List of port pointers to save data from}
+  pdst : {type: UInt64, dims: [-1], desc: List of buffer pointers to save data into}
+  sizes: {type: Csize_t, dims: [-1], desc: Bytes to save each time}
+
+bufferlog:
+  inputs:
+    class: "bufferlog_in"
+  outputs:
+    class: "bufferlog_out"
+  data:
+    class: "bufferlog_data"
+  params:
+    class: "bufferlog_params"

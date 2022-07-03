@@ -9,6 +9,7 @@ use crate::channel::RSISInterface;
 
 pub use std::ffi::c_void;
 use modellib::BaseModel;
+use modellib::RuntimeStatus;
 use modellib::Framework;
 use std::{thread,time};
 use std::sync::{Arc, Barrier, mpsc, mpsc::TryRecvError, mpsc::Receiver, mpsc::Sender, Mutex};
@@ -26,7 +27,7 @@ pub enum ThreadCommand {
 #[derive(Copy,Clone,PartialEq)]
 pub enum ThreadResult {
     OK(ThreadCommand),
-    ERR(ThreadCommand),
+    ERR(ThreadCommand, u32),
     END
 }
 
@@ -75,13 +76,18 @@ impl NRTScheduler {
                     let mut time = EpochTime::new();
                     match rxx.recv() {
                         Ok(ThreadCommand::INIT) => {
-                            let mut status = ThreadResult::OK(ThreadCommand::INIT);
+                            let mut ii = 0;
                             for obj in &mut u[..] {
-                                if !(*obj).model.init(&mut interface) {
-                                    status = ThreadResult::ERR(ThreadCommand::INIT);
+                                match (*obj).model.init(&mut interface) {
+                                    RuntimeStatus::ERROR => {
+                                        tx.send(ThreadResult::ERR(ThreadCommand::INIT, ii));
+                                        break;
+                                    },
+                                    _ => ()
                                 }
+                                ii += 1;
                             }
-                            tx.send(status).unwrap();
+                            tx.send(ThreadResult::OK(ThreadCommand::INIT)).unwrap();
                         },
                         Ok(ThreadCommand::EXECUTE(value)) => {
                             for _ in 0..value {
@@ -156,9 +162,9 @@ impl NRTScheduler {
                                 Ok(ThreadResult::OK(_)) => {
                                     thread_state[pos] = SchedulerState::INITIALIZED;
                                 },
-                                Ok(ThreadResult::ERR(_)) => {
+                                Ok(ThreadResult::ERR(cmd, idx)) => {
                                     thread_state[pos] = SchedulerState::ERRORED;
-                                    println!("Thread {} reported an error in initialization.", pos);
+                                    println!("<Thread {}, app {}> errored in init.", pos, idx);
                                 },
                                 _ => (),
                             }
@@ -222,7 +228,7 @@ impl NRTScheduler {
                                         *s = state;
                                     }
                                 },
-                                Ok(ThreadResult::ERR(_)) => {
+                                Ok(ThreadResult::ERR(_, _)) => {
                                     println!("Thread {} reported an error", pos);
                                     state = SchedulerState::ERRORED;
                                     let mut s = mutex_state.lock().unwrap();

@@ -8,12 +8,13 @@ using DataStructures: first
 export Port, Callback
 export PORT, PORTPTR, PORTPTRI
 export listcallbacks, triggercallback
-export load, unload, listavailable
+export load, unload, appsearch, describe
 export structnames, structdefinition
 export connect, listconnections
 export addlibpath, clearlibpaths
 export _parselocation
 
+using ..DataFrames
 using ..DataStructures
 using ..MsgPack
 using ..MScripting
@@ -197,6 +198,55 @@ function structdefinition(model::ModelReference, name::String) :: Vector{Tuple{S
 end
 
 """
+    describe(model::ModelReference, location::String; maxitems = 50)
+Print out app interface in a user-friendly fashion.
+* maxdepth - limit to number of items printed to screen
+"""
+function DataFrames.:describe(model::ModelReference, location::String; maxitems::Int = 50) :: Nothing
+    obj = _getmodelinstance(model)
+    tokens = split(location, ".")
+
+    # start at the root of the tree
+    loc = _classdefinitions[obj.modulename].toplevel
+    data = _classdefinitions[obj.modulename].structs
+    if tokens[1] != ""
+        for tok in tokens
+            ref = data[loc]
+            if !(tok in keys(ref.fields))
+                throw(ErrorException("$(tok) is not a member of $(loc)"))
+            end
+            port = ref.fields[tok][2]
+            if !port.iscomposite
+                throw(ErrorException("$(tok) is a signal but is accessed further"))
+            end
+            loc = port.type
+        end
+    end
+
+    # assemble printout
+    elements = structdefinition(model, loc)
+    ref = data[loc]
+
+    table = DataFrame("Port" => Vector{String}(), "Type" => Vector{String}(), "Value" => Vector{String}(), "Units" => Vector{String}())
+    for ii = 1:min(length(elements), maxitems)
+        name = elements[ii][1]
+        port = ref.fields[name][2]
+        if port.iscomposite
+            push!(table, (elements[ii][1], "Struct", "", ""))
+        else
+            push!(table, (elements[ii][1], "?", "$(model[location *"."*name])", "$(elements[ii][3])"))
+        end
+    end
+    if length(elements) > maxitems
+        push!(table, ("...", "...", "...", "..."))
+    end
+    @info table
+end
+function DataFrames.:describe(model::ModelReference) :: Nothing
+    return describe(model, "")
+end
+
+"""
     addlibpath(directory::String; force::Bool = false)
 Adds an external directory to the library search path. Relative paths
 are resolved against the current working directory. If `force`
@@ -204,7 +254,7 @@ is specified, add the path if it doesn't exist
 ```jldoctest
 julia> loadproject("programs/project1")
 julia> addlibpath("/home/foo/release_area")
-julia> listavailable()
+julia> appsearch()
 2-element Vector{Tuple{String,String}}
  ("model1", "/home/foo/programs/project1/debug/target/libmodel1.so")
  ("extmod", "/home/foo/release_area/libextmod.so")
@@ -231,41 +281,65 @@ function clearlibpaths() :: Nothing
 end
 
 """
-    listavailable()
-Returns a list of model libraries that can be loaded with
+    appsearch(app::String; fullname::Bool)
+Searches for apps that can be loaded. With no arguments, it will
+return a list of model libraries that can be loaded with
 `load`. The project build directory is recursively searched
 for shared libraries; file extension set by OS. Additional
 library search paths can be set with `addlibpath`. Tuples of the
-library name, build type, and the absolute filepath are returned.
+library tag name, build type, and tag filepath are returned.
 The tag file must exist alongside the library.
+
+If a name is specified, it will only search for the specified
+app and throw an exception if not found. If the fullname argument
+is specified, the full name of the tag file will be returned.
 ```
-julia> listavailable()
+julia> appsearch()
 3-element Vector{Tuple{String, String, String}}:
  ("fsw_hr_model", "debug", "/home/foo/target/debug")
  ("fsw_lr_model", "release", "/home/foo/target/release")
  ("gravity_model", "debug", "/home/foo/target/debug")
 ```
 """
-function listavailable() :: Vector{Tuple{String, String, String}}
+function appsearch(app::String = ""; fullname::Bool = false) :: Vector{Tuple{String, String, String}}
     all = Vector{Tuple{String, String, String}}()
     file_ext    = _libraryextension()
     file_prefix = _libraryprefix()
 
+    single_search = !isempty(app)
+
     dpat = r"^rsis_(.*)\.app\.debug\.toml";
     rpat = r"^rsis_(.*)\.app\.release\.toml";
+
     for dir in collect(_additional_lib_paths)
         if isdir(dir)
             for file in readdir(dir)
+                if single_search && !occursin(Regex(app), file)
+                    continue
+                end
                 # check for toml tag file
+                found   = false
+                tagname = file
+                type    = "debug"
                 if occursin(dpat, file)
-                    m = match(dpat, file)
-                    push!(all, (m[1], "debug", abspath(dir)))
+                    found = true
+                    tagname = if fullname file else match(dpat, file)[1] end
                 elseif occursin(rpat, file)
-                    m = match(rpat, file)
-                    push!(all, (m[1], "release", abspath(dir)))
+                    found = true
+                    type = "release"
+                    tagname = if fullname file else match(rpat, file)[1] end
+                end
+                if found
+                    push!(all, (tagname, type, abspath(dir)))
+                    if single_search
+                        return all;
+                    end
                 end
             end
         end
+    end
+    if single_search
+        throw(ErrorException("Failed to find library: [$app]"))
     end
     return all
 end
@@ -290,27 +364,24 @@ julia> load("coreapp"; specify="release")
 """
 function load(library::String; namespace::String="", specify::String="") :: Nothing
     # Find library in search path, then pass absolute filepath to core functionality
-    for (name, type, path) in listavailable()
-        if name == library
-            # load tag file to get file name
-            if isempty(specify) || specify == type
-                open(joinpath(path, "rsis_$(name).app.$(type).toml"), "r") do io
-                    data = TOML.parse(io);
-                    # TODO add check on reported rsis version
-                    file = data["binary"]["file"]
-                    # load library
-                    if !LoadModelLib(library, joinpath(path, file), data, namespace)
-                        @info "Model library already loaded."
-                    else
-                        GetClassData(library, namespace, data)
-                        @info "Loaded $(file): $(type)$(if isempty(namespace) "" else " => [$(namespace)]" end)"
-                    end
-                end
-                return
+    (tagfile, type, path) = appsearch(library; fullname = true)[1]
+
+    # load tag file to get file name
+    if isempty(specify) || specify == type
+        open(joinpath(path, tagfile), "r") do io
+            data = TOML.parse(io);
+            # TODO add check on reported rsis version
+            file = data["binary"]["file"]
+            # load library
+            if !LoadModelLib(library, joinpath(path, file), data, namespace)
+                @info "Model library already loaded."
+            else
+                GetClassData(library, namespace, data)
+                @info "Loaded $(file): $(type)$(if isempty(namespace) "" else " => [$(namespace)]" end)"
             end
         end
+        return
     end
-    throw(ErrorException("Could not locate library: [$library]"))
 end
 
 """
@@ -394,7 +465,14 @@ function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     # size exists in the Julia environent for the app to fill it with the
     # packed MessagePack structure, and then copy it into the buffer
     _meta_get(model, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
-    data = unpack(_messagepack_buffer)
+    if port.dimension == ()
+        dtype = _gettype(port.type)
+    elseif port.dimension == (-1,) || length(port.dimension) == 1
+        dtype = Vector{_gettype(port.type)}
+    else
+        throw(ErrorException("2D matrices not yet supported"))
+    end
+    data = unpack(_messagepack_buffer, dtype)
 end
 
 """

@@ -3,9 +3,12 @@ module MScheduling
 using ..MLibrary
 using ..MModel
 using ..Unitful
+using ..DataFrames
 
-export setthread, setnumthreads, schedule, threadinfo
+export setthread, setnumthreads, schedule, threadinfo, scheduleinfo
 export initsim, stepsim, endsim, setstoptime, settimelimit
+export getstoptime
+export register_scheduler_callback
 
 mutable struct SModel
     ref::ModelReference
@@ -31,6 +34,8 @@ _base_sim_frequency = Rational{Int64}(0) # must be set by init_scheduler
 
 _max_sim_duration = Float64(-1)
 _time_limits = Dict{String, Float64}()
+
+_callbacks = Dict{Int, Vector{Function}}()
 
 function _resetthreads() :: Nothing
     empty!(_threads)
@@ -70,8 +75,9 @@ end
     threadinfo()
 Returns a vector of tuples containing thread frequencies and cpu affinities.
 """
-function threadinfo() :: Vector{Tuple{Rational{Int64}, Int32}}
-    return [(thread.frequency, thread.cpuaffinity) for thread in _threads]
+function threadinfo() :: DataFrame
+    return DataFrame("Frequency" => [thread.frequency for thread in _threads], 
+        "Affinity" => [thread.cpuaffinity for thread in _threads])
 end
 
 """
@@ -86,6 +92,7 @@ function Base.:schedule(model::ModelReference, frequency::Rational{Int64}; offse
         throw(ErrorException("Models can only be scheduled from the CONFIG state"))
     end
     push!(_threads[thread].scheduled, SModel(model, frequency, offset));
+    @info "Schedule $(model) > Thread $(thread) Index $(length(_threads[thread].scheduled))"
     return
 end
 
@@ -97,6 +104,14 @@ function Base.:schedule(model::ModelReference, frequency::Float64 = -1.0; offset
     schedule(model, Rational(frequency); offset=offset, thread=thread);
 end
 
+function scheduleinfo(thread::Int64) :: DataFrame
+    if thread < 1 || thread > length(_threads)
+        throw(ArgumentError("Invalid thread id"))
+    end
+    schedule = _threads[thread].scheduled
+    return DataFrame("Model" => [sm.ref for sm in schedule], 
+        "Rate" => [sm.frequency for sm in schedule])
+end
 
 function _verifyfrequencies()
     for thread in _threads
@@ -132,6 +147,13 @@ function initsim(;blocking::Bool = false) :: Nothing
     else
         throw(ErrorException("Sim cannot be initialized from $(stat) state"))
     end
+    # call callbacks
+    for key in sort!(collect(keys(_callbacks)))
+        for cb in _callbacks[key]
+            cb() # call the callback
+        end
+    end
+
     _verifyfrequencies();
 
     # create threads
@@ -223,6 +245,7 @@ Note: other entities can still impose limits on the length of a
 simulation, e.g. native datalogging components.
 """
 function setstoptime(time::Number) :: Nothing
+    global _max_sim_duration
     if time < 0
         if time != -1
             throw(ArgumentError("Invalid duration specified: $time [s]"))
@@ -249,6 +272,14 @@ function setstoptime(time::Unitful.Quantity{T, D, U}) where {T, D, U}
 end
 
 """
+    getstoptime()
+Get the maximum time set for the simulation
+"""
+function getstoptime()
+    return _max_sim_duration * u"s"
+end
+
+"""
     settimelimit(name::String, time::Number)
 Sets an additional time limit restraint on the simulation.
 This exists to support data logging primarily, but is extended
@@ -265,6 +296,21 @@ function settimelimit(name::String, time::Number) :: Nothing
         throw(ArgumentError("Time limit $name: $time is negative"))
     end
     _time_limits[name] = time;
+    return
+end
+
+"""
+    register_scheduler_callback(cb::Function, priority::Int)
+Registers a callback to call during initsim.
+
+Used for allowing modules to create model on the fly.
+"""
+function register_scheduler_callback(cb::Function, priority::Int) :: Nothing
+    global _callbacks
+    if !(priority in keys(_callbacks))
+        _callbacks[priority] = Vector{Function}()
+    end
+    push!(_callbacks[priority], cb);
     return
 end
 

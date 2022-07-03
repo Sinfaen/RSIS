@@ -11,6 +11,17 @@ struct BufferStruct {
 
 typedef uint8_t* (*SizeCallback)(uint64_t);
 
+enum class ConfigStatus {
+    OK,
+    ERROR,
+    INTERFACEUPDATE
+};
+
+enum class RuntimeStatus {
+    OK,
+    ERROR,
+};
+
 /**
  * Abstract base class for all C++ models that can be scheduled
  */
@@ -18,11 +29,11 @@ class BaseModel {
 public:
     virtual ~BaseModel() = 0;
 
-    virtual bool config() = 0;
-    virtual bool init()   = 0;
-    virtual bool step()   = 0;
-    virtual bool pause()  = 0;
-    virtual bool stop()   = 0;
+    virtual ConfigStatus  config() = 0;
+    virtual RuntimeStatus init()   = 0;
+    virtual RuntimeStatus step()   = 0;
+    virtual RuntimeStatus pause()  = 0;
+    virtual RuntimeStatus stop()   = 0;
 
     virtual uint32_t msg_get(BufferStruct id, SizeCallback cb) = 0;
     virtual uint32_t msg_set(BufferStruct id, BufferStruct data) = 0;

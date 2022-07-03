@@ -10,24 +10,24 @@ void DeleteModel(BaseModel* obj) {
     delete obj;
 }
 
-bool run_config(BaseModel* obj) {
-    return obj->config();
+uint32_t run_config(BaseModel* obj) {
+    return static_cast<uint32_t>(obj->config());
 }
 
-bool run_init(BaseModel* obj) {
-    return obj->init();
+uint32_t run_init(BaseModel* obj) {
+    return static_cast<uint32_t>(obj->init());
 }
 
-bool run_step(BaseModel* obj) {
-    return obj->step();
+uint32_t run_step(BaseModel* obj) {
+    return static_cast<uint32_t>(obj->step());
 }
 
-bool run_pause(BaseModel* obj) {
-    return obj->pause();
+uint32_t run_pause(BaseModel* obj) {
+    return static_cast<uint32_t>(obj->pause());
 }
 
-bool run_stop(BaseModel* obj) {
-    return obj->stop();
+uint32_t run_stop(BaseModel* obj) {
+    return static_cast<uint32_t>(obj->stop());
 }
 
 bool c_ffi_interface(BaseModel* obj, void* ptrs[7]) {

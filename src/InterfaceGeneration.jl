@@ -26,6 +26,8 @@ _nlohmann_type_check = Dict(
     "UInt16"  => "is_number_unsigned",
     "UInt32"  => "is_number_unsigned",
     "UInt64"  => "is_number_unsigned",
+    "Csize_t" => "is_number_unsigned",
+    "Cptrdiff_t" => "is_number_integer",
     "Bool"    => "is_boolean",
     "Float32" => "is_number_float",
     "Float64" => "is_number_float",
@@ -101,7 +103,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             newmodelname = grabClassDefinitions(data, field.second["class"], order, definitions)
             push!(order, newmodelname)
         elseif "type" in _keys
-            # this is a regular port
+            # this is a regular port. Dimensions
             dims = []
             if "dims" in _keys
                 dims = field.second["dims"]
@@ -109,6 +111,9 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
             if !isa(dims, Vector)
                 throw(ErrorException("Dimension specified for field $(field.first) is not a list"))
             end
+            isscalar = dims == []
+            variablelength = dims == [-1] # check for variable 1D arrays
+
             unit=""
             if "unit" in _keys
                 u = field.second["unit"]
@@ -122,9 +127,50 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                     end
                 end
             end
-            initial = _type_default(field.second["type"])
+
+            # default value
+            initial = _type_default(field.second["type"]).default
+            _type = _gettype(field.second["type"])
+            if !isscalar # array value
+                if variablelength
+                    initial = _type[]
+                else
+                    A = zeros(_type, Tuple(dims))
+                    fill!(A, initial)
+                    initial = A
+                end
+            end
             if "value" in _keys
                 initial = field.second["value"]
+
+                # Check that the value is the correct type,size, or is convertible
+                if !variablelength
+                    if !isa(initial, String) && size(initial) != Tuple(dims)
+                        throw(ErrorException("Default value does not match port dimension"))
+                    end
+                end
+                if _type == String && !(typeof(initial) <: String)
+                    throw(ErrorException("Default value is not a string: $(initial)"))
+                elseif !(eltype(initial) <: _type)
+                    if isscalar
+                        try
+                            initial = _type(initial)
+                        catch e
+                            throw(ErrorException("Failed to convert $(initial) to $(_type), with message $(e)"))
+                        end
+                    else
+                        # multidimensional
+                        newarr = zeros(_type, size(initial))
+                        try
+                            for ii = 1:length(initial)
+                                newarr[ii] = _type(initial[ii])
+                            end
+                        catch e
+                            throw(ErrorException("Failed to convert default value, with message $(e)"))
+                        end
+                        initial = newarr;
+                    end 
+                end
             end
             desc = ""
             if "desc" in _keys
