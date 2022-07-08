@@ -6,24 +6,24 @@ height_sensor_model::height_sensor_model() {
 
 height_sensor_model::~height_sensor_model() { }
 
-bool height_sensor_model::config() {
-    return true;
+ConfigStatus height_sensor_model::config() {
+    return ConfigStatus::OK;
 }
 
-bool height_sensor_model::init() {
-    return true;
+RuntimeStatus height_sensor_model::init() {
+    return RuntimeStatus::OK;
 }
 
-bool height_sensor_model::step() {
-    return true;
+RuntimeStatus height_sensor_model::step() {
+    return RuntimeStatus::OK;
 }
 
-bool height_sensor_model::pause() {
-    return true;
+RuntimeStatus height_sensor_model::pause() {
+    return RuntimeStatus::OK;
 }
 
-bool height_sensor_model::stop() {
-    return true;
+RuntimeStatus height_sensor_model::stop() {
+    return RuntimeStatus::OK;
 }
 
 uint32_t height_sensor_model::msg_get(BufferStruct id, SizeCallback cb) {

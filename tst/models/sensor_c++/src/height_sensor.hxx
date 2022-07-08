@@ -9,11 +9,11 @@ public:
     height_sensor_model();
     virtual ~height_sensor_model();
 
-    bool config();
-    bool init();
-    bool step();
-    bool pause();
-    bool stop();
+    ConfigStatus config();
+    RuntimeStatus init();
+    RuntimeStatus step();
+    RuntimeStatus pause();
+    RuntimeStatus stop();
 
     uint32_t msg_get(BufferStruct id, SizeCallback cb);
     uint32_t msg_set(BufferStruct id, BufferStruct data);
