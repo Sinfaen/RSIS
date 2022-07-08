@@ -234,7 +234,7 @@ function DataFrames.:describe(model::ModelReference, location::String; maxitems:
         if port.iscomposite
             push!(table, (elements[ii][1], "Struct", "", ""))
         else
-            push!(table, (elements[ii][1], "?", "$(model[location *"."*name])", "$(elements[ii][3])"))
+            push!(table, (elements[ii][1], port.type, "$(model[location *"."*name])", "$(elements[ii][3])"))
         end
     end
     if length(elements) > maxitems
