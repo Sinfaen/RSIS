@@ -1,6 +1,7 @@
 #ifndef __HEIGHT_SENSOR_HXX_
 #define __HEIGHT_SENSOR_HXX_
 
+#include <random>
 #include <BaseModel.hxx>
 #include "height_sensor_interface.hxx"
 
@@ -20,6 +21,8 @@ public:
     uint8_t* get_ptr(BufferStruct id);
 
     height_sensor intf;
+    std::mt19937 generator;
+    std::normal_distribution<double> dist;
 };
 
 
