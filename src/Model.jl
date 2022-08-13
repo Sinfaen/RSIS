@@ -41,8 +41,9 @@ struct Port
     note::String
     porttype::PortType
     defaultvalue::Any
+    meta::Set{String}
 
-    function Port(type::String, dimension::Tuple, units::Any, composite::Bool=false; note::String="", porttype::PortType=PORT, default=nothing)
+    function Port(type::String, dimension::Tuple, units::Any, composite::Bool=false; note::String="", porttype::PortType=PORT, default=nothing, meta::Set{String}=Set{String}())
         if !composite
             _type = _gettype(type)
             if !isnothing(default)
@@ -63,8 +64,11 @@ struct Port
                     end
                 end
             end
+            if _type == String && dimension != ()
+                push!(meta, "simplearray") # flatten immediately
+            end
         end
-        new(type, dimension, units, composite, note, porttype, default)
+        new(type, dimension, units, composite, note, porttype, default, meta)
     end
 end
 
@@ -466,13 +470,13 @@ function Base.:getindex(model::ModelReference, fieldname::String) :: Any
     # packed MessagePack structure, and then copy it into the buffer
     _meta_get(model, idx, @cfunction(_setup_buffer, Ptr{UInt8}, (UInt,)))
     if port.dimension == ()
-        dtype = _gettype(port.type)
+        return unpack(_messagepack_buffer, _gettype(port.type))
     elseif port.dimension == (-1,) || length(port.dimension) == 1
-        dtype = Vector{_gettype(port.type)}
+        return unpack(_messagepack_buffer, Vector{_gettype(port.type)})
     else
-        throw(ErrorException("2D matrices not yet supported"))
+        data = unpack(_messagepack_buffer, Vector{_gettype(port.type)})
+        return reshape(data, reverse(port.dimension))' # convert row major to column
     end
-    data = unpack(_messagepack_buffer, dtype)
 end
 
 """
@@ -495,12 +499,15 @@ function Base.:setindex!(model::ModelReference, value::Any, fieldname::String)
         if eltype(value) != t
             throw(ArgumentError("Value type $(t) does not match port type: $(port.type)"))
         end
-        if (-1,) == port.dimension
+        if (-1,) == port.dimension # variable length array
             if length(size(value)) != 1
                 throw(ArgumentError("Value size $(size(value)) is not a 1d vector"))
             end
         elseif size(value) != port.dimension
             throw(ArgumentError("Value size $(size(value)) does not match port size: $(port.dimension)"))
+        end
+        if length(port.dimension) > 1 # nd array
+            value = reshape(value', prod(port.dimension)) # column major to row major
         end
     end
     _meta_set(model, idx, pack(value))
