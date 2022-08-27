@@ -93,11 +93,11 @@ function getValueFromYaml(obj::Any, etype::DataType, dimension::Vector) :: Any
     end
 end
 
-function ndarr_to_string_rowmajor(arr_1d::Array, dimension::Tuple) :: String
+function ndarr_to_string_rowmajor(arr_1d::Array, dimension::Tuple, bracketl::Char, bracketr::Char) :: String
     if length(dimension) == 1 # last axis
-        return "[" * join(arr_1d, ",") * "]"
+        return bracketl * join(arr_1d, ",") * bracketr;
     else
-        return "[" * join([ndarr_to_string_rowmajor(arr_1d[ii, :], dimension[2:end]) for ii in 1:dimension[1]], ",") * "]"
+        return bracketl * join([ndarr_to_string_rowmajor(arr_1d[ii, :], dimension[2:end], bracketl, bracketr) for ii in 1:dimension[1]], ",") * bracketr;
     end
 end
 
@@ -313,7 +313,7 @@ function generateinterface(interface::String; language::String = "")
                     if length(f.dimension) == 0
                         ctext = ctext * "$n($(f.defaultvalue))"
                     else # c++11 supports initializer lists for vectors
-                        ctext = ctext * "$n{$(join([d for d in f.defaultvalue], ", "))}"
+                        ctext = ctext * "$n$(ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '{', '}'))"
                     end
                 end
             end
@@ -331,6 +331,7 @@ function generateinterface(interface::String; language::String = "")
                 stxt = stxt * "        case $(ii - 1): "
                 dtxt = dtxt * "        case $(ii - 1): "
                 ptxt = ptxt * "        case $(ii - 1): "
+                cpptype = convert_julia_type(f.type, _language)
                 if f.iscomposite
                     # serialization
                     stxt = stxt * "{ return s_$(f.type)(obj.$(n), it, end, error); }\n"
@@ -341,22 +342,27 @@ function generateinterface(interface::String; language::String = "")
                     metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
                     # serialization
-                    stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
+                    if (-1,) == f.dimension || length(f.dimension) == 0 || length(f.dimension) == 1
+                        stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
+                    else # multidimensional arrays
+                        stxt = stxt * "{ $(cpptype)(&a)[$(prod(f.dimension))] = ($(cpptype)(&)[$(prod(f.dimension))])obj.$(n); "
+                        stxt = stxt * "json v; for(auto it = std::begin(a); it != std::end(a); ++it) { v.push_back(json(*it)); } return json::to_msgpack(v); }\n"
+                    end
                     # deserialization
                     dtxt = dtxt * "{ json j = json::from_msgpack(data);\n"
                     if (-1,) == f.dimension
                         dtxt = dtxt * "            if (!j.is_array()) { return false; } obj.$(n).clear(); \n"
                         dtxt = dtxt * "            for (auto& element : j) {\n"
                         dtxt = dtxt * "                if (!element.$(_nlohmann_type_check[f.type])()) { return false; }\n"
-                        dtxt = dtxt * "                obj.$(n).push_back(element.get<$(convert_julia_type(f.type, _language))>()); return true;\n            }\n        }\n"
+                        dtxt = dtxt * "                obj.$(n).push_back(element.get<$(cpptype)>()); return true;\n            }\n        }\n"
                     elseif length(f.dimension) == 0
                         dtxt = dtxt * "            if (!j.is_primitive() || !j.$(_nlohmann_type_check[f.type])()) { return false; }\n" 
-                        dtxt = dtxt * "            obj.$(n) = j.get<$(convert_julia_type(f.type, _language))>(); return true;\n        }\n"
-                    else # static 1D arrays only for now
-                        dtxt = dtxt * "            if (!j.is_array() || j.size() != $(f.dimension[1])) { return false; }\n"
-                        dtxt = dtxt * "            for (int i = 0; i < $(f.dimension[1]); ++i) {\n"
+                        dtxt = dtxt * "            obj.$(n) = j.get<$(cpptype)>(); return true;\n        }\n"
+                    else # multidimensional arrays
+                        dtxt = dtxt * "            if (!j.is_array() || j.size() != $(prod(f.dimension))) { return false; }\n"
+                        dtxt = dtxt * "            for (int i = 0; i < $(prod(f.dimension)); ++i) {\n"
                         dtxt = dtxt * "                if (!j[i].$(_nlohmann_type_check[f.type])()) { return false; }\n"
-                        dtxt = dtxt * "                obj.$(n)[i] = j[i].get<$(convert_julia_type(f.type, _language))>(); return true;\n            }\n        }\n"
+                        dtxt = dtxt * "                (($(cpptype)*)obj.$(n))[i] = j[i].get<$(cpptype)>(); return true;\n            }\n        }\n"
                     end
                     # pointer
                     if (-1,) == f.dimension
@@ -429,7 +435,7 @@ function generateinterface(interface::String; language::String = "")
                     if f.iscomposite
                         cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
                     else
-                        cs = cs * "            $(n) : array!" * ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue)) * ",\n"
+                        cs = cs * "            $(n) : array!" * ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '[', ']') * ",\n"
                     end
                 end
             end
