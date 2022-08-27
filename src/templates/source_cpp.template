@@ -8,6 +8,30 @@
 using nlohmann::json;
 typedef std::vector<uint8_t> bytes;
 
+namespace std {
+    /**
+     * Custom support for complex types
+     */
+    void to_json(json& j, const std::complex<float>& obj) {
+        j = json { {"real", obj.real()}, {"imag", obj.imag()}};
+    }
+    void from_json(const json& j, std::complex<float>& obj) {
+        float r,i;
+        j.at("real").get_to(r);
+        j.at("imag").get_to(i);
+        obj.real(r); obj.imag(i);
+    }
+    void to_json(json& j, const std::complex<double>& obj) {
+        j = json { {"real", obj.real()}, {"imag", obj.imag()}};
+    }
+    void from_json(const json& j, std::complex<double>& obj) {
+        double r,i;
+        j.at("real").get_to(r);
+        j.at("imag").get_to(i);
+        obj.real(r); obj.imag(i);
+    }
+}
+
 {{CLASS_DEFINITIONS}}
 {{SERIALIZATION}}
 {{DESERIALIZATION}}

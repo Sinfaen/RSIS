@@ -264,6 +264,7 @@ function UnloadModelLib(name::String) :: Bool
     if name in keys(_modellibs)
         # unload all model instances
         for model in keys(_loaded_models)
+            @info "Deleting $(model)"
             delete!(_loaded_models, model)
         end
         _loaded_models = Dict{String, ModelInstance}()

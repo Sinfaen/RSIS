@@ -1,15 +1,16 @@
 [package]
 name = "sensor_rust"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 libc = "0.2.0"
-rand = "0.8.4"
+ndarray = { version = "0.15.4", features = ["serde"] }
+rand = "0.8.5"
 statrs = "0.15.0"
-rmp-serde = "1.0.0"
+rmp-serde = "1.1.0"
 rmpv = "1.0.0"
 
 [dependencies.modellib]

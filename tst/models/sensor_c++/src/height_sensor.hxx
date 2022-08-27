@@ -1,6 +1,7 @@
 #ifndef __HEIGHT_SENSOR_HXX_
 #define __HEIGHT_SENSOR_HXX_
 
+#include <random>
 #include <BaseModel.hxx>
 #include "height_sensor_interface.hxx"
 
@@ -9,17 +10,19 @@ public:
     height_sensor_model();
     virtual ~height_sensor_model();
 
-    bool config();
-    bool init();
-    bool step();
-    bool pause();
-    bool stop();
+    ConfigStatus config();
+    RuntimeStatus init();
+    RuntimeStatus step();
+    RuntimeStatus pause();
+    RuntimeStatus stop();
 
     uint32_t msg_get(BufferStruct id, SizeCallback cb);
     uint32_t msg_set(BufferStruct id, BufferStruct data);
     uint8_t* get_ptr(BufferStruct id);
 
     height_sensor intf;
+    std::mt19937 generator;
+    std::normal_distribution<double> dist;
 };
 
 

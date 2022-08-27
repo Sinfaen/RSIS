@@ -67,6 +67,40 @@ function pushtexttofile(directory::String, model::String, words::Dict{String,Str
     end
 end
 
+function getValueFromYaml(obj::Any, etype::DataType, dimension::Vector) :: Any
+    if isa(obj, Vector)
+        if !(etype <: Number)
+            throw(ErrorException("Array default values must be numbers"))
+        end
+
+        if dimension == [-1]
+            # handle 1D variable length arrays
+            return convert(Vector{etype}, obj)
+        else
+            # static N-Dimensional arrays
+            if length(obj) != prod(dimension)
+                throw(ErrorException("Array value does not match expected dimension: $(dimension)"))
+            end
+            return reshape(convert(Vector{etype}, obj), dimension...)
+        end
+        return reshape()
+    else
+        try
+            return etype(obj)
+        catch e
+            throw(ErrorException("Failed to create $(etype) from provided value. Message: $(e)"))
+        end
+    end
+end
+
+function ndarr_to_string_rowmajor(arr_1d::Array, dimension::Tuple, bracketl::Char, bracketr::Char) :: String
+    if length(dimension) == 1 # last axis
+        return bracketl * join(arr_1d, ",") * bracketr;
+    else
+        return bracketl * join([ndarr_to_string_rowmajor(arr_1d[ii, :], dimension[2:end], bracketl, bracketr) for ii in 1:dimension[1]], ",") * bracketr;
+    end
+end
+
 function grabClassDefinitions(data::OrderedDict{String,Any},
                               modelname::String,
                               order::Vector{String},
@@ -82,6 +116,7 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
         return modelname
     end
     for field in model
+        name = field.first
         if !isa(field.second, OrderedDict)
             throw(ErrorException("Non dictionary detected"))
         end
@@ -144,40 +179,24 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                 initial = field.second["value"]
 
                 # Check that the value is the correct type,size, or is convertible
-                if !variablelength
-                    if !isa(initial, String) && size(initial) != Tuple(dims)
-                        throw(ErrorException("Default value does not match port dimension"))
-                    end
-                end
-                if _type == String && !(typeof(initial) <: String)
-                    throw(ErrorException("Default value is not a string: $(initial)"))
-                elseif !(eltype(initial) <: _type)
-                    if isscalar
-                        try
-                            initial = _type(initial)
-                        catch e
-                            throw(ErrorException("Failed to convert $(initial) to $(_type), with message $(e)"))
-                        end
-                    else
-                        # multidimensional
-                        newarr = zeros(_type, size(initial))
-                        try
-                            for ii = 1:length(initial)
-                                newarr[ii] = _type(initial[ii])
-                            end
-                        catch e
-                            throw(ErrorException("Failed to convert default value, with message $(e)"))
-                        end
-                        initial = newarr;
-                    end 
-                end
+                initial = getValueFromYaml(initial, _type, dims)
             end
             desc = ""
             if "desc" in _keys
                 desc = field.second["desc"]
             end
 
-            port = Port(field.second["type"], Tuple(dims), unit, false; note=desc, porttype=PORT, default=initial)
+            meta = Set{String}()
+            if "opts" in _keys
+                _opts = field.second["opts"]
+                if isa(_opts, Vector)
+                    meta = Set{String}(_opts)
+                else
+                    push!(meta, _opts)
+                end
+            end
+
+            port = Port(field.second["type"], Tuple(dims), unit, false; note=desc, porttype=PORT, default=initial, meta=meta)
             push!(definitions[modelname], (field.first, port))
         else
             throw(ErrorException("Invalid model interface"))
@@ -294,7 +313,7 @@ function generateinterface(interface::String; language::String = "")
                     if length(f.dimension) == 0
                         ctext = ctext * "$n($(f.defaultvalue))"
                     else # c++11 supports initializer lists for vectors
-                        ctext = ctext * "$n{$(join([d for d in f.defaultvalue], ", "))}"
+                        ctext = ctext * "$n$(ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '{', '}'))"
                     end
                 end
             end
@@ -312,6 +331,7 @@ function generateinterface(interface::String; language::String = "")
                 stxt = stxt * "        case $(ii - 1): "
                 dtxt = dtxt * "        case $(ii - 1): "
                 ptxt = ptxt * "        case $(ii - 1): "
+                cpptype = convert_julia_type(f.type, _language)
                 if f.iscomposite
                     # serialization
                     stxt = stxt * "{ return s_$(f.type)(obj.$(n), it, end, error); }\n"
@@ -322,22 +342,27 @@ function generateinterface(interface::String; language::String = "")
                     metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
                     # serialization
-                    stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
+                    if (-1,) == f.dimension || length(f.dimension) == 0 || length(f.dimension) == 1
+                        stxt = stxt * "{ json v = obj.$(n); return json::to_msgpack(v); }\n"
+                    else # multidimensional arrays
+                        stxt = stxt * "{ $(cpptype)(&a)[$(prod(f.dimension))] = ($(cpptype)(&)[$(prod(f.dimension))])obj.$(n); "
+                        stxt = stxt * "json v; for(auto it = std::begin(a); it != std::end(a); ++it) { v.push_back(json(*it)); } return json::to_msgpack(v); }\n"
+                    end
                     # deserialization
                     dtxt = dtxt * "{ json j = json::from_msgpack(data);\n"
                     if (-1,) == f.dimension
                         dtxt = dtxt * "            if (!j.is_array()) { return false; } obj.$(n).clear(); \n"
                         dtxt = dtxt * "            for (auto& element : j) {\n"
                         dtxt = dtxt * "                if (!element.$(_nlohmann_type_check[f.type])()) { return false; }\n"
-                        dtxt = dtxt * "                obj.$(n).push_back(element.get<$(convert_julia_type(f.type, _language))>()); return true;\n            }\n        }\n"
+                        dtxt = dtxt * "                obj.$(n).push_back(element.get<$(cpptype)>()); return true;\n            }\n        }\n"
                     elseif length(f.dimension) == 0
                         dtxt = dtxt * "            if (!j.is_primitive() || !j.$(_nlohmann_type_check[f.type])()) { return false; }\n" 
-                        dtxt = dtxt * "            obj.$(n) = j.get<$(convert_julia_type(f.type, _language))>(); return true;\n        }\n"
-                    else # static 1D arrays only for now
-                        dtxt = dtxt * "            if (!j.is_array() || j.size() != $(f.dimension[1])) { return false; }\n"
-                        dtxt = dtxt * "            for (int i = 0; i < $(f.dimension[1]); ++i) {\n"
+                        dtxt = dtxt * "            obj.$(n) = j.get<$(cpptype)>(); return true;\n        }\n"
+                    else # multidimensional arrays
+                        dtxt = dtxt * "            if (!j.is_array() || j.size() != $(prod(f.dimension))) { return false; }\n"
+                        dtxt = dtxt * "            for (int i = 0; i < $(prod(f.dimension)); ++i) {\n"
                         dtxt = dtxt * "                if (!j[i].$(_nlohmann_type_check[f.type])()) { return false; }\n"
-                        dtxt = dtxt * "                obj.$(n)[i] = j[i].get<$(convert_julia_type(f.type, _language))>(); return true;\n            }\n        }\n"
+                        dtxt = dtxt * "                (($(cpptype)*)obj.$(n))[i] = j[i].get<$(cpptype)>(); return true;\n            }\n        }\n"
                     end
                     # pointer
                     if (-1,) == f.dimension
@@ -373,7 +398,7 @@ function generateinterface(interface::String; language::String = "")
             txt = "#[repr(C)]\npub struct $(name) {\n"
             cs  = "impl $(name) {\n    pub fn new() -> $(name) {\n        $(name) {\n"
             for (n,f) in fields
-                if length(f.dimension) == 0
+                if length(f.dimension) == 0 # scalar
                     txt = txt * "    pub $n : $(convert_julia_type(f.type, _language)),\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : $(f.type)::new(),\n"
@@ -392,14 +417,25 @@ function generateinterface(interface::String; language::String = "")
                     else
                         cs = cs * "            $(n) : vec!($(join([d for d in f.defaultvalue], ", "))),\n"
                     end
-                else
-                    txt = txt * "    pub $n : [$(convert_julia_type(f.type, _language)); $(join(f.dimension, ","))],\n"
+                # fixed size array, simple version. Strings shortcut to this as well
+                # Multidimensional arrays are flattened
+                elseif "simplearray" in f.meta
+                    nelements = prod(f.dimension)
+                    txt = txt * "    pub $n : [$(convert_julia_type(f.type, _language)); $(nelements)],\n"
                     if f.iscomposite
-                        cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
+                        cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in 1:nelements], ", "))],\n"
                     elseif f.type == "String"
                         cs = cs * "            $(n) : [$(join(["\"$(d)\".to_string()" for d in f.defaultvalue], ", "))],\n"
                     else
                         cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
+                    end
+                # fixed size array, n-dimensional version
+                else
+                    txt = txt * "    pub $n : Array<$(convert_julia_type(f.type, _language)), ndarray::Ix$(length(f.dimension))>,\n"
+                    if f.iscomposite
+                        cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
+                    else
+                        cs = cs * "            $(n) : array!" * ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '[', ']') * ",\n"
                     end
                 end
             end
@@ -428,14 +464,19 @@ function generateinterface(interface::String; language::String = "")
                     metadata[name][n] = Dict("id" => ii - 1, "class" => f.type)
                 else
                     # serialization
-                    stxt = stxt * "rmp_serde::to_vec(&obj.$(n)),\n"
+                    if length(f.dimension) != 0 && !("simplearray" in f.meta)
+                        stxt = stxt * "rmp_serde::to_vec(&obj.$(n).as_slice()),\n"
+                    else
+                        stxt = stxt * "rmp_serde::to_vec(&obj.$(n)),\n"
+                    end
                     # deserialization
                     dtxt = dtxt * "{\n            match rmp_serde::decode::from_read(data) {\n" 
                     dtxt = dtxt * "                Ok(val) => obj.$(n) = val,\n"
                     dtxt = dtxt * "                Err(e) => return Some(e),\n            }\n        },\n"
                     d_any_non_composite = true
                     # pointer
-                    if (-1,) == f.dimension
+                    if (-1,) == f.dimension || (length(f.dimension) != 0 && !("simplearray" in f.meta))
+                        # variable length array & multidimensional arrays
                         ptxt = ptxt * "Some(obj.$(n).as_ptr() as *const u8),\n"
                     else
                         ptxt = ptxt * "Some(std::ptr::addr_of!(obj.$(n)) as *const u8),\n"

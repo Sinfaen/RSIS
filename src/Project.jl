@@ -326,13 +326,20 @@ end
     clean!()
 Destroy build directory(s).
 """
-function clean!() :: Nothing
+function clean!(;target::String = "debug") :: Nothing
     if !isprojectloaded()
         println("No project loaded. Aborting")
     end
+    if target == "debug"
+        tt = DEBUG()
+    elseif target == "release"
+        tt = RELEASE()
+    else
+        throw(ArgumentError("target must be either [debug,release]"))
+    end
 
     cd(_loaded_project.directory)
-    rm(_builddir(_loaded_project.type); recursive=true)
+    rm(_builddir(_loaded_project.type, tt); recursive=true)
 end
 
 """

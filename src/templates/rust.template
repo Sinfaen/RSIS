@@ -2,12 +2,15 @@
 
 extern crate modellib;
 extern crate libc;
+extern crate ndarray;
 extern crate rmp_serde;
 extern crate rmpv;
 
 use modellib::BufferStruct;
 use modellib::SizeCallback;
 use std::slice::Iter;
+use ndarray::prelude::*;
+use ndarray::Array;
 
 {{STRUCT_DEFINITIONS}}
 
