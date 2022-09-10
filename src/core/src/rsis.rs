@@ -36,6 +36,10 @@ pub struct ThreadState {
     pub models : Vec<ScheduledObject>,
 }
 
+//
+// Implements an optional soft-real-time scheduling,
+// where the std::thread::sleep call is used to halt the
+// thread for a specific period of time
 pub struct NRTScheduler {
     pub threads : Vec<ThreadState>,
     pub handles : Vec<thread::JoinHandle<()>>,
@@ -46,6 +50,14 @@ pub struct NRTScheduler {
     pub runner_rx : Option<Receiver<ThreadResult>>,
 
     pub interface : RSISInterface,
+
+    // parameters
+    pub soft_real_time : bool, // if true, enable soft real-time behavior
+}
+
+fn time_to_next_frame(start : time::Instant, width : time::Duration) -> time::Duration {
+    let now = time::Instant::now();
+    width - (now - start)
 }
 
 fn send_cmd_to_threads(handles : &mut Vec::<Sender<ThreadCommand>>, cmd : ThreadCommand) {
@@ -66,11 +78,18 @@ impl NRTScheduler {
         let mut rx_handles = Vec::<Receiver<ThreadResult>>::new();
         let barrier = Arc::new(Barrier::new(threadlen));
         for ts in &mut self.threads[..] {
-            let c = Arc::clone(&barrier);
+            let cbarrier = Arc::clone(&barrier);
             let mut interface : Box<dyn Framework> = Box::new(RSISInterface::clone(&self.interface));
             let mut u: Vec<_> = ts.models.drain(..).collect();
             let (txx, rxx) = mpsc::channel(); // trigger channel
             let (tx, rx)   = mpsc::channel(); // response channel
+
+            let srt = self.soft_real_time; // passed to closure
+            let frame_dur = 1.0 / ts.frequency;
+            let frame_sec = frame_dur.trunc();
+            let frame_ns  = (frame_dur - frame_sec) / 1e9;
+            let frame_width = time::Duration::new(frame_sec as u64, frame_ns as u32);
+
             self.handles.push(thread::spawn(move|| {
                 loop {
                     let mut time = EpochTime::new();
@@ -91,6 +110,7 @@ impl NRTScheduler {
                         },
                         Ok(ThreadCommand::EXECUTE(value)) => {
                             for _ in 0..value {
+                                let framestart = time::Instant::now();
                                 for obj in &mut u[..] {
                                     if (*obj).counter == 0 {
                                         (*obj).model.step();
@@ -113,8 +133,15 @@ impl NRTScheduler {
                                         // do nothing
                                     }
                                 }
-                                time.increment(1);
-                                c.wait();
+                                // framework activities
+                                time.increment(1); // increment sim time
+                                if srt {
+                                    // sleep to simulate soft real time
+                                    thread::sleep(time_to_next_frame(framestart, frame_width));
+                                } else {
+                                    thread::sleep(time::Duration::ZERO);
+                                }
+                                cbarrier.wait();
                             }
                             // call pausing function
                             for obj in &mut u[..] {
@@ -388,6 +415,7 @@ impl NRTScheduler {
             runner_tx : None,
             runner_rx : None,
             interface : RSISInterface::new(),
+            soft_real_time : false,
         }
     }
 }
