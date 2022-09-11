@@ -32,7 +32,7 @@ end
 
 include("RSIS_Lib.jl")
 using .MLibrary
-export getscheduler
+export getscheduler, schedulerparam!
 export newmodel, getmodel, deletemodel!, listmodels, listmodelsbytag, listlibraries
 export ModelInstance
 export simstatus, SchedulerState
