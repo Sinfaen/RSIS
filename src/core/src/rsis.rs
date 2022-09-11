@@ -355,53 +355,82 @@ impl Scheduler for NRTScheduler {
     fn get_num_threads(&self) -> i32 {
         self.threads.len() as i32
     }
-    fn config(&mut self, toml : String) -> i32 {
+    fn config(&mut self, json : String) -> i32 {
         0
     }
     fn init(&mut self) -> i32 {
         let (tx, rx) = self.start_runner();
-        tx.send(ThreadCommand::INIT).unwrap(); // todo deal with unwrap
-        self.runner_tx = Some(tx);
-        self.runner_rx = Some(rx);
-        //
-        0
-    }
-    fn step(&mut self, steps: u64) -> i32 {
-        match &self.runner_tx {
-            Some(tx) => {
-                tx.send(ThreadCommand::EXECUTE(steps)).unwrap();
+        match tx.send(ThreadCommand::INIT) {
+            Ok(_) => {
+                self.runner_tx = Some(tx);
+                self.runner_rx = Some(rx);
                 return 0;
             },
             _ => {
                 return 1;
+            }
+        }
+    }
+    fn step(&mut self, steps: u64) -> i32 {
+        match &self.runner_tx {
+            Some(tx) => {
+                match tx.send(ThreadCommand::EXECUTE(steps)) {
+                    Ok(_) => {
+                        return 0;
+                    },
+                    _ => {
+                        return 1;
+                    }
+                }
+            },
+            _ => {
+                return 2;
             }
         }
     }
     fn pause(&mut self) -> i32 {
         match &self.runner_tx {
             Some(tx) => {
-                tx.send(ThreadCommand::PAUSE).unwrap();
-                return 0;
+                match tx.send(ThreadCommand::PAUSE) {
+                    Ok(_) => {
+                        return 0;
+                    },
+                    _ => {
+                        return 1;
+                    }
+                }
             },
             _ => {
-                return 1;
+                return 2;
             }
         }
     }
     fn end(&mut self) -> i32 {
         match &self.runner_tx {
             Some(tx) => {
-                tx.send(ThreadCommand::SHUTDOWN).unwrap();
+                match tx.send(ThreadCommand::SHUTDOWN) {
+                    Ok(_) => {
+                        return 0;
+                    },
+                    _ => {
+                        return 1;
+                    }
+                }
             },
             _ => {
-                return 1;
+                return 2;
             }
         }
-        return 0;
     }
     fn get_state(&self) -> SchedulerState {
-        let s = self.state.lock().unwrap();
-        *s
+        match self.state.lock() {
+            Ok(status) => {
+                *status
+            },
+            _ => {
+                SchedulerState::ERRORED
+            }
+        }
     }
 }
 
