@@ -4,7 +4,8 @@ using Base: Int32, _getmeta
 
 export LoadLibrary, UnloadLibrary, InitLibrary, ShutdownLibrary
 export newmodel, deletemodel!, getmodel, listmodels, listmodelsbytag, listlibraries
-export getscheduler, initscheduler, stepscheduler, endscheduler, addthread, schedulemodel, createconnection
+export getscheduler, initscheduler, stepscheduler, endscheduler, schedulerparam!
+export addthread, schedulemodel, createconnection
 export LoadModelLib, UnloadModelLib, _libraryprefix, _libraryextension
 export _getmodelinstance, _meta_get, _meta_set, _get_ptr
 export ModelInstance, ModelReference
@@ -50,6 +51,7 @@ mutable struct LibFuncs
     s_getmessage
     s_getstate
     s_getschedulername
+    s_configscheduler
     function LibFuncs(lib)
         new(Libdl.dlsym(lib, :library_initialize),
             Libdl.dlsym(lib, :library_shutdown),
@@ -63,7 +65,8 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :end_scheduler),
             Libdl.dlsym(lib, :get_message),
             Libdl.dlsym(lib, :get_scheduler_state),
-            Libdl.dlsym(lib, :get_scheduler_name))
+            Libdl.dlsym(lib, :get_scheduler_name),
+            Libdl.dlsym(lib, :config_scheduler))
     end
 end
 
@@ -447,5 +450,13 @@ function simstatus() :: SchedulerState
     return SchedulerState(stat);
 end
 
+function schedulerparam!(name::String, parameter) :: Nothing
+    data = "SRT"
+    bufdata = BufferData(pointer(data), length(data))
+    stat = ccall(_sym.s_configscheduler, UInt32, (BufferData,), bufdata);
+    if stat != 0
+        throw(ErrorException("Call to `config_scheduler` in library failed"))
+    end
+end
 
 end
