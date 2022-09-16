@@ -13,7 +13,9 @@ export simstatus, SchedulerState, CONFIG, INITIALIZING, INITIALIZED, RUNNING, PA
 
 using ..Artifacts
 using Libdl
+using Logging
 using ..TOML
+using ..MsgPack
 
 # this enum is supposed to match the SchedulerState enum in rust
 @enum SchedulerState begin
@@ -185,6 +187,7 @@ function LoadLibrary()
     _lib = Libdl.dlopen(libpath)
     _sym = LibFuncs(_lib)
     InitLibrary(_sym)
+    @info "Loaded RSIS :> $(libpath)"
 
     # Load C++ extension
     libpath = Libdl.find_library("librsis-cpp-extension", [rootpath])
@@ -445,17 +448,28 @@ function endscheduler() :: Nothing
     end
 end
 
+"""
+    simstatus()
+Returns the current state of the simulation
+"""
 function simstatus() :: SchedulerState
     stat = ccall(_sym.s_getstate, Int32, ());
     return SchedulerState(stat);
 end
 
+"""
+    schedulerparam!(name::String, parameter)
+Sends a configuration key value pair to the underlying selected
+scheduler.
+"""
 function schedulerparam!(name::String, parameter) :: Nothing
-    data = "SRT"
-    bufdata = BufferData(pointer(data), length(data))
-    stat = ccall(_sym.s_configscheduler, UInt32, (BufferData,), bufdata);
+    keypack = pack(name)
+    valpack = pack(parameter)
+    keydata = BufferData(pointer(keypack), length(keypack))
+    valdata = BufferData(pointer(valpack), sizeof(valpack))
+    stat = ccall(_sym.s_configscheduler, UInt32, (BufferData,BufferData), keydata, valdata);
     if stat != 0
-        throw(ErrorException("Call to `config_scheduler` in library failed"))
+        throw(ErrorException("Call to `config_scheduler` in library failed with error: $(stat)"))
     end
 end
 

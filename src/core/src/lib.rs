@@ -1,6 +1,7 @@
 
 
 extern crate libc;
+extern crate rmp_serde as rmps;
 
 mod rsis;
 mod scheduler;
@@ -17,7 +18,7 @@ use modellib::BaseModelExternal;
 use modellib::ConfigStatusCallback;
 use modellib::RuntimeStatusCallback;
 use modellib::VoidCallback;
-
+use modellib::BufferStruct;
 use connection::Connection;
 
 pub use std::ffi::c_void;
@@ -204,24 +205,14 @@ pub extern "C" fn get_message() -> u32 {
 
 // Utility methods, not related to running the scheduler and framework
 
-#[repr(C, align(8))]
-pub struct UTF8Data {
-    ptr : *const c_void,
-    size : u64,
-}
-
 #[no_mangle]
-pub extern "C" fn config_scheduler(data : UTF8Data) -> u32 {
+pub extern "C" fn config_scheduler(key : BufferStruct, value : BufferStruct) -> u32 {
     unsafe {
-        let slice = std::slice::from_raw_parts(data.ptr as *const u8, data.size as usize);
-        match std::str::from_utf8(slice) {
-            Ok(value) => {
-                SCHEDULERS.get_mut(0).unwrap().config(value.to_string());
-                return RSISStat::OK as u32;
-            },
-            Err(_) => {
-                return RSISStat::ERR as u32;
-            }
+        let key_s = std::slice::from_raw_parts(key.ptr as *const u8, key.size as usize);
+        let val_s = std::slice::from_raw_parts(value.ptr as *const u8, value.size as usize);
+        match SCHEDULERS.get_mut(0).unwrap().config(key_s, val_s) {
+            None => { return RSISStat::OK as u32; },
+            Some(val) => { return val as u32; }
         }
     }
 }

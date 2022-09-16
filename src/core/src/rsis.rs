@@ -1,5 +1,6 @@
 
 extern crate modellib;
+extern crate rmp_serde as rmps;
 
 use crate::scheduler::SchedulerState;
 use crate::scheduler::Scheduler;
@@ -57,7 +58,13 @@ pub struct NRTScheduler {
 
 fn time_to_next_frame(start : time::Instant, width : time::Duration) -> time::Duration {
     let now = time::Instant::now();
-    width - (now - start)
+    let dur = now - start;
+    if width < dur {
+        println!("BAD DURATION: {width:#?} {dur:#?}");
+        return time::Duration::ZERO;
+    } else {
+        return width - dur;
+    }
 }
 
 fn send_cmd_to_threads(handles : &mut Vec::<Sender<ThreadCommand>>, cmd : ThreadCommand) {
@@ -87,7 +94,7 @@ impl NRTScheduler {
             let srt = self.soft_real_time; // passed to closure
             let frame_dur = 1.0 / ts.frequency;
             let frame_sec = frame_dur.trunc();
-            let frame_ns  = (frame_dur - frame_sec) / 1e9;
+            let frame_ns  = (frame_dur - frame_sec) * 1e9;
             let frame_width = time::Duration::new(frame_sec as u64, frame_ns as u32);
 
             self.handles.push(thread::spawn(move|| {
@@ -137,9 +144,8 @@ impl NRTScheduler {
                                 time.increment(1); // increment sim time
                                 if srt {
                                     // sleep to simulate soft real time
-                                    thread::sleep(time_to_next_frame(framestart, frame_width));
-                                } else {
-                                    thread::sleep(time::Duration::ZERO);
+                                    let dur = time_to_next_frame(framestart, frame_width);
+                                    thread::sleep(dur);
                                 }
                                 cbarrier.wait();
                             }
@@ -355,8 +361,25 @@ impl Scheduler for NRTScheduler {
     fn get_num_threads(&self) -> i32 {
         self.threads.len() as i32
     }
-    fn config(&mut self, json : String) -> i32 {
-        0
+    fn config(&mut self, key : &[u8], _value : &[u8]) -> Option<i32> {
+        let mut key_s : String = String::from("");
+        match rmps::decode::from_read(key) {
+            Ok(val) => {
+                key_s = val;
+            },
+            Err(e) => return Some(0)
+        }
+        match key_s.as_str() {
+            "srt" => {
+                self.soft_real_time = true;
+                println!("Soft real-time enabled");
+            },
+            _ => {
+                println!("Invalid config key");
+                return Some(1);
+            }
+        }
+        return None;
     }
     fn init(&mut self) -> i32 {
         let (tx, rx) = self.start_runner();
