@@ -4,6 +4,7 @@ module MInterface
 using ..MDefines
 
 export convert_julia_type, _gettype, _istypesupported, _type_default
+export _print_value_rust, _print_value_cpp
 
 struct InterfaceData
     type::DataType
@@ -14,13 +15,13 @@ struct InterfaceData
 end
 
 _type_conversions = Dict{String, InterfaceData}(
-    "Char"    => InterfaceData(Char, "char", "char", "character", ' '),
+    "Char"    => InterfaceData(Char,   "char", "char", "character", ' '),
     "String"  => InterfaceData(String, "String", "std::string", "character (len=:), allocatable", ""),
-    "Int8"    => InterfaceData(Int8, "i8",   "int8_t",  "integer (int8)",  0),
-    "Int16"   => InterfaceData(Int16, "i16",  "int16_t", "integer (int16)", 0),
-    "Int32"   => InterfaceData(Int32, "i32",  "int32_t", "integer (int32)", 0),
-    "Int64"   => InterfaceData(Int64, "i64",  "int64_t", "integer (int64)", 0),
-    "UInt8"   => InterfaceData(UInt8, "u8",   "uint8_t",  missing, UInt8(0)),
+    "Int8"    => InterfaceData(Int8,   "i8",   "int8_t",  "integer (int8)",  0),
+    "Int16"   => InterfaceData(Int16,  "i16",  "int16_t", "integer (int16)", 0),
+    "Int32"   => InterfaceData(Int32,  "i32",  "int32_t", "integer (int32)", 0),
+    "Int64"   => InterfaceData(Int64,  "i64",  "int64_t", "integer (int64)", 0),
+    "UInt8"   => InterfaceData(UInt8,  "u8",   "uint8_t",  missing, UInt8(0)),
     "UInt16"  => InterfaceData(UInt16, "u16",  "uint16_t", missing, UInt16(0)),
     "UInt32"  => InterfaceData(UInt32, "u32",  "uint32_t", missing, UInt32(0)),
     "UInt64"  => InterfaceData(UInt64, "u64",  "uint64_t", missing, UInt64(0)),
@@ -29,9 +30,40 @@ _type_conversions = Dict{String, InterfaceData}(
     "Bool"    => InterfaceData(Bool, "bool", "bool", "logical", false),
     "Float32" => InterfaceData(Float32, "f32",  "float",  "real (real32)", 0),
     "Float64" => InterfaceData(Float64, "f64",  "double", "real (real64)", 0),
-    "Complex{Float32}" => InterfaceData(Complex{Float32}, "Complex<f32>", "std::complex<float>",  "complex*8",  0+0im),
-    "Complex{Float64}" => InterfaceData(Complex{Float64}, "Complex<f64>", "std::complex<double>", "complex*16", 0+0im)
+    "ComplexF32" => InterfaceData(Complex{Float32}, "Complex<f32>", "std::complex<float>",  "complex*8",  0+0im),
+    "ComplexF64" => InterfaceData(Complex{Float64}, "Complex<f64>", "std::complex<double>", "complex*16", 0+0im)
 )
+
+function _print_value_rust(data::Any) :: String
+    return "$(data)"
+end
+function _print_value_rust(data::ComplexF32) :: String
+    return "Complex32::new($(real(data)), $(imag(data)))"
+end
+function _print_value_rust(data::ComplexF64) :: String
+    return "Complex64::new($(real(data)), $(imag(data)))"
+end
+function _print_value_rust(data::String) :: String
+    return "\"$(data)\".to_string()"
+end
+function _print_value_rust(data::Char) :: String
+    return "\'$(data)\'"
+end
+function _print_value_cpp(data::Any) :: String
+    return "$(data)"
+end
+function _print_value_cpp(data::ComplexF32) :: String
+    return "std::complex<float>($(real(data)), $(imag(data)))"
+end
+function _print_value_cpp(data::ComplexF64) :: String
+    return "std::complex<double>($(real(data)), $(imag(data)))"
+end
+function _print_value_cpp(data::String) :: String
+    return "\"$(data)\""
+end
+function _print_value_cpp(data::Char) :: String
+    return "\'$(data)\'"
+end
 
 function _istypesupported(name::String) :: Bool
     return name in keys(_type_conversions)

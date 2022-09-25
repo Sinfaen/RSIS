@@ -3,6 +3,7 @@
 extern crate modellib;
 extern crate libc;
 extern crate ndarray;
+extern crate num_complex;
 extern crate rmp_serde;
 extern crate rmpv;
 
@@ -11,6 +12,9 @@ use modellib::SizeCallback;
 use std::slice::Iter;
 use ndarray::prelude::*;
 use ndarray::Array;
+use num_complex::Complex;
+use num_complex::Complex32;
+use num_complex::Complex64;
 
 {{STRUCT_DEFINITIONS}}
 
