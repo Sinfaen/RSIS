@@ -31,8 +31,8 @@ _nlohmann_type_check = Dict(
     "Bool"    => "is_boolean",
     "Float32" => "is_number_float",
     "Float64" => "is_number_float",
-    "Complex{Float32}" => "is_number_float",
-    "Complex{Float64}" => "is_number_float"
+    "ComplexF32" => "is_number_float",
+    "ComplexF64" => "is_number_float"
 )
 
 """
@@ -67,37 +67,48 @@ function pushtexttofile(directory::String, model::String, words::Dict{String,Str
     end
 end
 
-function getValueFromYaml(obj::Any, etype::DataType, dimension::Vector) :: Any
-    if isa(obj, Vector)
-        if !(etype <: Number)
-            throw(ErrorException("Array default values must be numbers"))
+function getValueFromYaml(etype::DataType, dimension::Tuple, obj::Any) :: Any
+    if isempty(dimension) # scalar value
+        if etype <: Complex
+            if isa(obj, Vector) && length(obj) == 2
+                try
+                    return etype(obj[1], obj[2])
+                catch e
+                    throw(ErrorException("Failed to create complex value from $(obj). Message: $(e)"))
+                end
+            else
+                throw(ErrorException("Unable to create complex value from $(obj)"))
+            end
+        else
+            try
+                return etype(obj)
+            catch e
+                throw(ErrorException("Failed to create $(etype) from provided value: $(obj). Message: $(e)"))
+            end
         end
-
+    else # arrays
+        if !isa(obj, Vector)
+            throw(ErrorException("Unable to create array values from provided initializer: $(obj)"))
+        end
         if dimension == [-1]
             # handle 1D variable length arrays
-            return convert(Vector{etype}, obj)
+            return [getValueFromYaml(etype, (), obj[i]) for i = 1:length(obj)]
         else
             # static N-Dimensional arrays
             if length(obj) != prod(dimension)
-                throw(ErrorException("Array value does not match expected dimension: $(dimension)"))
+                throw(ErrorException("Array value $(obj) does not match expected dimension: $(dimension)"))
             end
-            return reshape(convert(Vector{etype}, obj), dimension...)
-        end
-        return reshape()
-    else
-        try
-            return etype(obj)
-        catch e
-            throw(ErrorException("Failed to create $(etype) from provided value. Message: $(e)"))
+            data = [getValueFromYaml(etype, (), obj[i]) for i = 1:length(obj)]
+            return reshape(data, dimension...)
         end
     end
 end
 
-function ndarr_to_string_rowmajor(arr_1d::Array, dimension::Tuple, bracketl::Char, bracketr::Char) :: String
+function ndarr_to_string_rowmajor(arr_1d::Array, dimension::Tuple, bracketl::Char, bracketr::Char, format::Function) :: String
     if length(dimension) == 1 # last axis
-        return bracketl * join(arr_1d, ",") * bracketr;
+        return bracketl * join([format(a) for a in arr_1d], ",") * bracketr;
     else
-        return bracketl * join([ndarr_to_string_rowmajor(arr_1d[ii, :], dimension[2:end], bracketl, bracketr) for ii in 1:dimension[1]], ",") * bracketr;
+        return bracketl * join([ndarr_to_string_rowmajor(arr_1d[ii, :], dimension[2:end], bracketl, bracketr, format) for ii in 1:dimension[1]], ",") * bracketr;
     end
 end
 
@@ -176,10 +187,9 @@ function grabClassDefinitions(data::OrderedDict{String,Any},
                 end
             end
             if "value" in _keys
-                initial = field.second["value"]
-
                 # Check that the value is the correct type,size, or is convertible
-                initial = getValueFromYaml(initial, _type, dims)
+                # call the vector function wrapper
+                initial = getValueFromYaml(_type, Tuple(dims), field.second["value"])
             end
             desc = ""
             if "desc" in _keys
@@ -307,13 +317,11 @@ function generateinterface(interface::String; language::String = "")
                 end
                 if f.iscomposite
                     ctext = ctext * "$n()"
-                elseif f.type == "String"
-                    ctext = ctext * "$n(\"$(f.defaultvalue)\")"
                 else
                     if length(f.dimension) == 0
-                        ctext = ctext * "$n($(f.defaultvalue))"
+                        ctext = ctext * "$n($(_print_value_cpp(f.defaultvalue)))"
                     else # c++11 supports initializer lists for vectors
-                        ctext = ctext * "$n$(ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '{', '}'))"
+                        ctext = ctext * "$n$(ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '{', '}', _print_value_cpp))"
                     end
                 end
             end
@@ -402,21 +410,15 @@ function generateinterface(interface::String; language::String = "")
                     txt = txt * "    pub $n : $(convert_julia_type(f.type, _language)),\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : $(f.type)::new(),\n"
-                    elseif f.type == "String"
-                        cs = cs * "            $(n) : \"$(f.defaultvalue)\".to_string(),\n"
                     else
-                        cs = cs * "            $(n) : $(f.defaultvalue),\n"
+                        cs = cs * "            $(n) : $(_print_value_rust(f.defaultvalue)),\n"
                     end
                 elseif f.dimension[1] == -1 # variable length one dimensional array
                     txt = txt * "    pub $n : Vec<$(convert_julia_type(f.type, _language))>,\n"
                     if f.iscomposite
                         throw(ErrorException("Variable length arrays cannot be structs"))
                     end
-                    if f.type == "String"
-                        cs = cs * "            $(n) : vec!($(join(["\"$(d)\".to_string()" for d in f.defaultvalue], ", "))),\n"
-                    else
-                        cs = cs * "            $(n) : vec!($(join([d for d in f.defaultvalue], ", "))),\n"
-                    end
+                    cs = cs * "            $(n) : vec!($(join([_print_value_rust(d) for d in f.defaultvalue], ", "))),\n"
                 # fixed size array, simple version. Strings shortcut to this as well
                 # Multidimensional arrays are flattened
                 elseif "simplearray" in f.meta
@@ -424,10 +426,8 @@ function generateinterface(interface::String; language::String = "")
                     txt = txt * "    pub $n : [$(convert_julia_type(f.type, _language)); $(nelements)],\n"
                     if f.iscomposite
                         cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in 1:nelements], ", "))],\n"
-                    elseif f.type == "String"
-                        cs = cs * "            $(n) : [$(join(["\"$(d)\".to_string()" for d in f.defaultvalue], ", "))],\n"
                     else
-                        cs = cs * "            $(n) : [$(join([d for d in f.defaultvalue], ", "))],\n"
+                        cs = cs * "            $(n) : [$(join([_print_value_rust(d) for d in f.defaultvalue], ", "))],\n"
                     end
                 # fixed size array, n-dimensional version
                 else
@@ -435,7 +435,7 @@ function generateinterface(interface::String; language::String = "")
                     if f.iscomposite
                         cs = cs * "            $(n) : [$(join(["$(n)::new()" for d in f.dimension], ", "))],\n"
                     else
-                        cs = cs * "            $(n) : array!" * ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '[', ']') * ",\n"
+                        cs = cs * "            $(n) : array!" * ndarr_to_string_rowmajor(f.defaultvalue, size(f.defaultvalue), '[', ']', _print_value_rust) * ",\n"
                     end
                 end
             end

@@ -30,6 +30,15 @@ _additional_lib_paths = OrderedSet{String}()
 
 @enum PortType PORT=1 PORTPTR=2 PORTPTRI=3
 
+# add support for complex data types in MsgPack
+# - deserialization doesn't currently work right, unsure how to fix it
+MsgPack.msgpack_type(::Type{Complex{Float32}}) = MsgPack.ArrayType()
+MsgPack.msgpack_type(::Type{Complex{Float64}}) = MsgPack.ArrayType()
+MsgPack.to_msgpack(::MsgPack.ArrayType, arr::Complex{Float32}) = [real(arr), imag(arr)]
+MsgPack.to_msgpack(::MsgPack.ArrayType, arr::Complex{Float64}) = [real(arr), imag(arr)]
+MsgPack.from_msgpack(::Type{Complex{Float32}}, arr::Vector{Float32}) = Complex{Float32}(arr[1], arr[2])
+MsgPack.from_msgpack(::Type{Complex{Float64}}, arr::Vector{Float64}) = Complex{Float64}(arr[1], arr[2])
+
 """
 Defines a Port in a Model Interface file
 """
