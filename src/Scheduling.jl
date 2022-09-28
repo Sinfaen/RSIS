@@ -130,16 +130,16 @@ function _verifyfrequencies()
 end
 
 """
-    initsim(;blocking::Bool=false)
+    initsim(;block::Bool=false)
 Verifies the scenario, and initializes the simulation.
 By default returns immediately to user, unless the blocking
 flag is set to true.
 ```jldoctest
 julia> initsim()
-julia> initsim(blocking = true)
+julia> initsim(block = true)
 ```
 """
-function initsim(;blocking::Bool = false) :: Nothing
+function initsim(;block::Bool = false) :: Nothing
     global _base_sim_frequency
     stat = simstatus()
     if stat == CONFIG
@@ -186,7 +186,7 @@ function initsim(;blocking::Bool = false) :: Nothing
     end
     initscheduler()
 
-    if blocking
+    if block
         while simstatus() == INITIALIZING
             sleep(0.1) # seconds
         end
@@ -212,6 +212,14 @@ function stepsim(steps::Int64 = 1; blocking::Bool = false)
 
     # if set to block, don't return until we're not RUNNING anymore
     if blocking
+        while true
+            stat = simstatus()
+            if stat == INITIALIZED || stat == PAUSED
+                sleep(0.1) # seconds
+            else
+                break
+            end
+        end
         while simstatus() == RUNNING
             sleep(0.1) # seconds
         end
@@ -219,7 +227,7 @@ function stepsim(steps::Int64 = 1; blocking::Bool = false)
 end
 
 """
-    stepsim(time::Unitful.Quantity; blocking::Bool)
+    stepsim(time::Unitful.Quantity; block::Bool)
 Step the simulation by the specified time. The first argument
 must be convertable to a time value as understood by Unitful.
 If the blocking keyword is `true`, then the function will loop while waiting
@@ -227,17 +235,17 @@ for the scheduler status to change to anything besides RUNNING.
 ```jldoctest
 julia> stepsim(15.3u"s")
 julia> stepsim(3.2u"minute")
-julia> stepsim(1u"hr"; blocking=True)
+julia> stepsim(1u"hr"; block=True)
 ```
 """
-function stepsim(time::Unitful.Quantity{T, D, U}; blocking::Bool = false) where {T, D, U}
+function stepsim(time::Unitful.Quantity{T, D, U}; block::Bool = false) where {T, D, U}
     time_in_seconds = ustrip(u"s", time)
     if length(size(time_in_seconds)) != 0
         # can this logic be improved?
         throw(ArgumentError("`time` is not a scalar. Dimension: $(size(time_in_seconds))"))
     end
     steps = floor(time_in_seconds * _base_sim_frequency)
-    stepsim(Int64(steps); blocking = blocking)
+    stepsim(Int64(steps); blocking = block)
 end
 
 """
