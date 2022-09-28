@@ -185,13 +185,21 @@ function initsim(;blocking::Bool = false) :: Nothing
         end
     end
     initscheduler()
+
+    if blocking
+        while simstatus() == INITIALIZING
+            sleep(0.1) # seconds
+        end
+    end
 end
 
 """
-    stepsim(steps::Int64 = 1)
+    stepsim(steps::Int64 = 1; blocking:Bool = false)
 Step the simulation by the specified number of steps.
+If the blocking keyword is `true`, then the function will loop while waiting
+for the scheduler status to change to anything besides RUNNING.
 """
-function stepsim(steps::Int64 = 1)
+function stepsim(steps::Int64 = 1; blocking::Bool = false)
     stat = simstatus()
     if stat == INITIALIZED || stat == PAUSED
         @info "Stepping $(steps) steps"
@@ -201,26 +209,35 @@ function stepsim(steps::Int64 = 1)
 
     # call into the core library
     stepscheduler(UInt64(steps));
+
+    # if set to block, don't return until we're not RUNNING anymore
+    if blocking
+        while simstatus() == RUNNING
+            sleep(0.1) # seconds
+        end
+    end
 end
 
 """
-    stepsim(time::Unitful.Quantity)
+    stepsim(time::Unitful.Quantity; blocking::Bool)
 Step the simulation by the specified time. The first argument
-must be convertable to a time value as understood by Unitful
+must be convertable to a time value as understood by Unitful.
+If the blocking keyword is `true`, then the function will loop while waiting
+for the scheduler status to change to anything besides RUNNING.
 ```jldoctest
 julia> stepsim(15.3u"s")
 julia> stepsim(3.2u"minute")
-julia> stepsim(1u"hr")
+julia> stepsim(1u"hr"; blocking=True)
 ```
 """
-function stepsim(time::Unitful.Quantity{T, D, U}) where {T, D, U}
+function stepsim(time::Unitful.Quantity{T, D, U}; blocking::Bool = false) where {T, D, U}
     time_in_seconds = ustrip(u"s", time)
     if length(size(time_in_seconds)) != 0
         # can this logic be improved?
         throw(ArgumentError("`time` is not a scalar. Dimension: $(size(time_in_seconds))"))
     end
     steps = floor(time_in_seconds * _base_sim_frequency)
-    stepsim(Int64(steps))
+    stepsim(Int64(steps); blocking = blocking)
 end
 
 """
