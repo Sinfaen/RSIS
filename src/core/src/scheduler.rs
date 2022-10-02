@@ -20,6 +20,7 @@ pub trait Scheduler {
     fn clear_threads(&mut self) -> ();
     fn add_thread(&mut self, freq : f64) -> ();
     fn add_model(&mut self, model: Box<Box<dyn BaseModel + Send>>, thread: usize, divisor: i64, offset: i64) -> *mut c_void;
+    fn remove_model(&mut self, thread : usize, id : usize) -> i32;
     fn get_num_threads(&self) -> i32;
 
     fn config(&mut self, key : &[u8], value : &[u8]) -> Option<i32>;
