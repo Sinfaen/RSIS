@@ -15,8 +15,6 @@ use rsisappinterface::Framework;
 use std::{thread,time};
 use std::sync::{Arc, Barrier, mpsc, mpsc::TryRecvError, mpsc::Receiver, mpsc::Sender, Mutex};
 
-use crate::epoch::EpochTime;
-
 #[derive(Copy,Clone,PartialEq)]
 pub enum ThreadCommand {
     INIT,
@@ -99,7 +97,6 @@ impl NRTScheduler {
 
             self.handles.push(thread::spawn(move|| {
                 loop {
-                    let mut etime = EpochTime::new();
                     match rxx.recv() {
                         Ok(ThreadCommand::INIT) => {
                             let mut ii = 0;
@@ -141,7 +138,15 @@ impl NRTScheduler {
                                     }
                                 }
                                 // framework activities
-                                etime.increment(1); // increment sim time
+                                // sim time increment
+                                match interface.as_any().downcast_ref::<RSISInterface>() {
+                                    Some(intf) => {
+                                        let mut data = intf.time.lock().unwrap();
+                                        (*data).increment(1);
+                                    }
+                                    None => panic!("Something went terribly wrong. Bad Framework instantiation")
+                                };
+                                //
                                 if srt {
                                     // sleep to simulate soft real time
                                     let dur = time_to_next_frame(framestart, frame_width);

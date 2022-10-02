@@ -3,12 +3,15 @@ extern crate rsisappinterface;
 extern crate data_buffer;
 
 use data_buffer::DataBuffer;
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, mpsc, mpsc::Receiver, mpsc::Sender, mpsc::RecvError, mpsc::TryRecvError, mpsc::SendError};
 
 use rsisappinterface::Framework;
 use rsisappinterface::ChannelRx;
 use rsisappinterface::ChannelTx;
+
+use crate::epoch::EpochTime;
 
 pub struct ChannelPairStorage {
     tx : Sender<DataBuffer>,
@@ -50,12 +53,14 @@ impl ChannelTx for MpscTx {
 
 pub struct RSISInterface {
     map : Arc<Mutex<HashMap<i64, ChannelPairStorage>>>,
+    pub time : Arc<Mutex<EpochTime>>,
 }
 
 impl RSISInterface {
     pub fn new() -> RSISInterface {
         RSISInterface {
             map : Arc::new(Mutex::new(HashMap::new())),
+            time : Arc::new(Mutex::new(EpochTime::new())),
         }
     }
     pub fn clear(&mut self) {
@@ -65,11 +70,16 @@ impl RSISInterface {
 }
 
 impl Framework for RSISInterface {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
     fn get_simtick(&self) -> i64 {
-        0
+        let mut data = self.time.lock().unwrap();
+        (*data).time
     }
     fn get_simtime(&self) -> f64 {
-        0.0
+        let mut data = self.time.lock().unwrap();
+        (*data).value()
     }
     fn request_rx(&mut self, id : i64) -> Option<Box<dyn ChannelRx>> {
         let mut data = self.map.lock().unwrap();
@@ -99,6 +109,7 @@ impl Clone for RSISInterface {
     fn clone(&self) -> Self {
         RSISInterface {
             map : Arc::clone(&self.map),
+            time : Arc::clone(&self.time),
         }
     }
 }
