@@ -1,17 +1,17 @@
 // Height Sensor Model
 // Rust Version
 
-extern crate modellib;
+extern crate rsisappinterface;
 extern crate libc;
 
 use libc::c_void;
 
-use modellib::BufferStruct;
-use modellib::ConfigStatus;
-use modellib::RuntimeStatus;
-use modellib::SizeCallback;
-use modellib::BaseModel;
-use modellib::Framework;
+use rsisappinterface::BufferStruct;
+use rsisappinterface::ConfigStatus;
+use rsisappinterface::RuntimeStatus;
+use rsisappinterface::SizeCallback;
+use rsisappinterface::BaseModel;
+use rsisappinterface::Framework;
 
 use rand::distributions::Distribution;
 use statrs::distribution::Normal;
@@ -55,7 +55,7 @@ impl BaseModel for height_sensor_model {
             }
         }
     }
-    fn step(&mut self) -> RuntimeStatus {
+    fn step(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
         let mut r = rand::thread_rng();
         self.intf.data.measurement = self.intf.inputs.signal + self.dist.sample(&mut r);
         if self.intf.data.measurement < self.intf.params.limits[0] ||
