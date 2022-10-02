@@ -14,7 +14,7 @@ statrs = "0.15.0"
 rmp-serde = "1.1.0"
 rmpv = "1.0.0"
 
-[dependencies.modellib]
+[dependencies.rsisappinterface]
 git = "https://github.com/Sinfaen/rsis-app-interface"
 
 [lib]
