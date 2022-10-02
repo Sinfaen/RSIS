@@ -99,7 +99,7 @@ impl NRTScheduler {
 
             self.handles.push(thread::spawn(move|| {
                 loop {
-                    let mut time = EpochTime::new();
+                    let mut etime = EpochTime::new();
                     match rxx.recv() {
                         Ok(ThreadCommand::INIT) => {
                             let mut ii = 0;
@@ -141,7 +141,7 @@ impl NRTScheduler {
                                     }
                                 }
                                 // framework activities
-                                time.increment(1); // increment sim time
+                                etime.increment(1); // increment sim time
                                 if srt {
                                     // sleep to simulate soft real time
                                     let dur = time_to_next_frame(framestart, frame_width);
