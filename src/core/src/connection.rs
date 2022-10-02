@@ -9,12 +9,12 @@
 // It is up to the Julia interface to add these in the correct order,
 // and create these as efficiently as possible
 
-use modellib::BaseModel;
-use modellib::BufferStruct;
-use modellib::ConfigStatus;
-use modellib::RuntimeStatus;
-use modellib::SizeCallback;
-use modellib::Framework;
+use rsisappinterface::BaseModel;
+use rsisappinterface::BufferStruct;
+use rsisappinterface::ConfigStatus;
+use rsisappinterface::RuntimeStatus;
+use rsisappinterface::SizeCallback;
+use rsisappinterface::Framework;
 use std::ptr;
 
 pub struct Connection {
@@ -30,7 +30,7 @@ impl BaseModel for Connection {
     fn init(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
         RuntimeStatus::OK
     }
-    fn step(&mut self) -> RuntimeStatus {
+    fn step(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
         unsafe {
             ptr::copy(self.src, self.dst, self.size);
         }
