@@ -1,5 +1,5 @@
 
-extern crate modellib;
+extern crate rsisappinterface;
 extern crate rmp_serde as rmps;
 
 use crate::scheduler::SchedulerState;
@@ -9,9 +9,9 @@ use crate::scheduler::ScheduledObject;
 use crate::channel::RSISInterface;
 
 pub use std::ffi::c_void;
-use modellib::BaseModel;
-use modellib::RuntimeStatus;
-use modellib::Framework;
+use rsisappinterface::BaseModel;
+use rsisappinterface::RuntimeStatus;
+use rsisappinterface::Framework;
 use std::{thread,time};
 use std::sync::{Arc, Barrier, mpsc, mpsc::TryRecvError, mpsc::Receiver, mpsc::Sender, Mutex};
 
@@ -120,7 +120,7 @@ impl NRTScheduler {
                                 let framestart = time::Instant::now();
                                 for obj in &mut u[..] {
                                     if (*obj).counter == 0 {
-                                        (*obj).model.step();
+                                        (*obj).model.step(&mut interface);
                                     }
                                     (*obj).counter += 1;
                                     if (*obj).counter == (*obj).divisor {

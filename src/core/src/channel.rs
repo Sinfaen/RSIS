@@ -1,14 +1,14 @@
 
-extern crate modellib;
+extern crate rsisappinterface;
 extern crate data_buffer;
 
 use data_buffer::DataBuffer;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, mpsc, mpsc::Receiver, mpsc::Sender, mpsc::RecvError, mpsc::TryRecvError, mpsc::SendError};
 
-use modellib::Framework;
-use modellib::ChannelRx;
-use modellib::ChannelTx;
+use rsisappinterface::Framework;
+use rsisappinterface::ChannelRx;
+use rsisappinterface::ChannelTx;
 
 pub struct ChannelPairStorage {
     tx : Sender<DataBuffer>,
@@ -65,6 +65,12 @@ impl RSISInterface {
 }
 
 impl Framework for RSISInterface {
+    fn get_simtick(&self) -> i64 {
+        0
+    }
+    fn get_simtime(&self) -> f64 {
+        0.0
+    }
     fn request_rx(&mut self, id : i64) -> Option<Box<dyn ChannelRx>> {
         let mut data = self.map.lock().unwrap();
         if !(*data).contains_key(&id) {

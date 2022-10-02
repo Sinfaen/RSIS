@@ -1,7 +1,7 @@
 
-extern crate modellib;
+extern crate rsisappinterface;
 
-use modellib::BaseModel;
+use rsisappinterface::BaseModel;
 use std::ffi::c_void;
 
 #[derive(Copy,Clone,PartialEq)]

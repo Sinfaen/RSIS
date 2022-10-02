@@ -13,12 +13,12 @@ pub use scheduler::Scheduler;
 pub use rsis::NRTScheduler;
 
 
-use modellib::BaseModel;
-use modellib::BaseModelExternal;
-use modellib::ConfigStatusCallback;
-use modellib::RuntimeStatusCallback;
-use modellib::VoidCallback;
-use modellib::BufferStruct;
+use rsisappinterface::BaseModel;
+use rsisappinterface::BaseModelExternal;
+use rsisappinterface::ConfigStatusCallback;
+use rsisappinterface::RuntimeStatusCallback;
+use rsisappinterface::VoidCallback;
+use rsisappinterface::BufferStruct;
 use connection::Connection;
 
 pub use std::ffi::c_void;
