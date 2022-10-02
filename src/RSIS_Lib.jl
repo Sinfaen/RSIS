@@ -44,6 +44,7 @@ mutable struct LibFuncs
     s_shutdown
     s_newthread
     s_addmodel
+    s_removemodel
     s_addconnection
     s_initscheduler
     s_stepscheduler
@@ -59,6 +60,7 @@ mutable struct LibFuncs
             Libdl.dlsym(lib, :library_shutdown),
             Libdl.dlsym(lib, :new_thread),
             Libdl.dlsym(lib, :add_model),
+            Libdl.dlsym(lib, :remove_model),
             Libdl.dlsym(lib, :add_connection),
             Libdl.dlsym(lib, :init_scheduler),
             Libdl.dlsym(lib, :step_scheduler),
