@@ -74,11 +74,11 @@ impl Framework for RSISInterface {
         self
     }
     fn get_simtick(&self) -> i64 {
-        let mut data = self.time.lock().unwrap();
+        let data = self.time.lock().unwrap();
         (*data).time
     }
     fn get_simtime(&self) -> f64 {
-        let mut data = self.time.lock().unwrap();
+        let data = self.time.lock().unwrap();
         (*data).value()
     }
     fn request_rx(&mut self, id : i64) -> Option<Box<dyn ChannelRx>> {

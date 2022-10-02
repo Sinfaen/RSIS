@@ -74,7 +74,7 @@ fn send_cmd_to_threads(handles : &mut Vec::<Sender<ThreadCommand>>, cmd : Thread
 impl NRTScheduler {
     fn start_runner(&mut self) -> (Sender<ThreadCommand>, Receiver<ThreadResult>) {
         let (mtor_tx, mtor_rx) = mpsc::channel();
-        let (rtom_tx, rtom_rx) = mpsc::channel();
+        let (_rtom_tx, rtom_rx) = mpsc::channel();
         let threadlen = self.threads.len();
         
         // create threads now. Add 1 for main thread
@@ -200,9 +200,9 @@ impl NRTScheduler {
                                 Ok(ThreadResult::OK(_)) => {
                                     thread_state[pos] = SchedulerState::INITIALIZED;
                                 },
-                                Ok(ThreadResult::ERR(cmd, idx)) => {
+                                Ok(ThreadResult::ERR(_, idx)) => {
                                     thread_state[pos] = SchedulerState::ERRORED;
-                                    println!("<Thread {}, app {}> errored in init.", pos, idx);
+                                    println!("<Thread {}, app {}> errored in init with cmd", pos, idx);
                                 },
                                 _ => (),
                             }
@@ -382,7 +382,7 @@ impl Scheduler for NRTScheduler {
             Ok(val) => {
                 key_s = val;
             },
-            Err(e) => return Some(0)
+            Err(_) => return Some(0)
         }
         match key_s.as_str() {
             "srt" => {
