@@ -363,6 +363,16 @@ impl Scheduler for NRTScheduler {
         self.threads[thread].models.push(obj);
         return &self.threads[thread].models.last().unwrap().model as *const Box<dyn BaseModel + Send> as *mut c_void;
     }
+    fn remove_model(&mut self, thread : usize, id : usize) -> i32 {
+        if thread >= self.threads.len() {
+            return 1;
+        }
+        if id >= self.threads[thread].models.len() {
+            return 2;
+        }
+        self.threads[thread].models.remove(id);
+        0
+    }
     fn get_num_threads(&self) -> i32 {
         self.threads.len() as i32
     }

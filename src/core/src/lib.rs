@@ -132,8 +132,15 @@ pub extern "C" fn add_connection(src: *mut u8, dst: *mut u8, size: usize, thread
 }
 
 #[no_mangle]
-pub extern "C" fn remove_model(id: i32) -> u32 {
-    return RSISStat::OK as u32;
+pub extern "C" fn remove_model(thread: usize, id: usize) -> u32 {
+    unsafe {
+        let status = SCHEDULERS.get_mut(0).unwrap().remove_model(thread, id);
+        if status == 0 {
+            return RSISStat::OK as u32;
+        } else {
+            return RSISStat::ERR as u32;
+        }
+    }
 }
 
 #[no_mangle]
