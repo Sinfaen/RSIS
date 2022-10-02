@@ -12,6 +12,7 @@ rmp-serde = "1.1.0"
 
 [dependencies.rsisappinterface]
 git = "https://github.com/Sinfaen/rsis-app-interface"
+version = "0.1.2"
 
 [lib]
 crate-type = ["dylib"]
