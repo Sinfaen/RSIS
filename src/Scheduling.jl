@@ -81,29 +81,50 @@ function threadinfo() :: DataFrame
 end
 
 """
-    schedule(model::ModelReference, frequency::Rational{Int64}; offset::Int64 = 0, thread::Int64 = 1)
-Schedule a model in the current scenario, with a specified rational frequency and offset.
+    schedule(model::ModelReference,
+        frequency::Rational{Int64};
+        offset::Int64 = 0,
+        thread::Int64 = 1,
+        index::Int64 = -1)
+Schedule an app in the current scenario, with a specified rational frequency and offset.
+If the index is not -1, then the app will be scheduled at a specific point in the
+pre-existing schedule.
 """
-function Base.:schedule(model::ModelReference, frequency::Rational{Int64}; offset::Int64 = 0, thread::Int64 = 1)::Nothing
+function Base.:schedule(model::ModelReference, frequency::Rational{Int64}; offset::Int64 = 0, thread::Int64 = 1, index = -1)::Nothing
     if thread < 1 || thread > length(_threads)
         throw(ArgumentError("Invalid thread id"))
     end
     if simstatus() != CONFIG
         throw(ErrorException("Models can only be scheduled from the CONFIG state"))
     end
-    push!(_threads[thread].scheduled, SModel(model, frequency, offset));
-    @info "Schedule $(model) > Thread $(thread) Index $(length(_threads[thread].scheduled))"
+    if index == -1
+        push!(_threads[thread].scheduled, SModel(model, frequency, offset))
+        @info "Schedule $(model) > Thread $(thread) Index $(length(_threads[thread].scheduled))"
+    else
+        insert!(_threads[thread].scheduled, index, SModel(model, frequency, offset))
+        @info "Schedule $(model) > Thread $(thread) inserted into Index $(index)"
+    end
     return
 end
 
 """
-    schedule(model::ModelReference, frequency::Float64 = -1.0; offset::Int64 = 0, thread::Int64 = 1)
-Schedule a model in the current scenario, with a specified frequency and offset.
+    schedule(model::ModelReference,
+        frequency::Real = -1.0;
+        offset::Int64 = 0,
+        thread::Int64 = 1,
+        index::Int64 = -1)
+Schedule an app in the current scenario, with a specified frequency and offset.
+If index is not -1, the app will be scheduled at a specific location in the existing
+schedule.
 """
-function Base.:schedule(model::ModelReference, frequency::Float64 = -1.0; offset::Int64 = 0, thread::Int64 = 1) :: Nothing
-    schedule(model, Rational(frequency); offset=offset, thread=thread);
+function Base.:schedule(model::ModelReference, frequency::Real = -1.0; offset::Int64 = 0, thread::Int64 = 1, index::Int64 = -1) :: Nothing
+    schedule(model, Rational(frequency); offset=offset, thread=thread, index=index);
 end
 
+"""
+    scheduleinfo(thread::Int64)
+Returns the list of scheduled models for a specific thread
+"""
 function scheduleinfo(thread::Int64) :: DataFrame
     if thread < 1 || thread > length(_threads)
         throw(ArgumentError("Invalid thread id"))
