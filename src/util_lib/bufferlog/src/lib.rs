@@ -1,15 +1,15 @@
 
-extern crate modellib;
+extern crate rsisappinterface;
 extern crate libc;
 
 use libc::c_void;
 
-use modellib::BufferStruct;
-use modellib::ConfigStatus;
-use modellib::RuntimeStatus;
-use modellib::SizeCallback;
-use modellib::BaseModel;
-use modellib::Framework;
+use rsisappinterface::BufferStruct;
+use rsisappinterface::ConfigStatus;
+use rsisappinterface::RuntimeStatus;
+use rsisappinterface::SizeCallback;
+use rsisappinterface::BaseModel;
+use rsisappinterface::Framework;
 
 mod bufferlog_interface;
 use bufferlog_interface::*;
@@ -43,7 +43,7 @@ impl BaseModel for bufferlog_app {
         self.intf.data.index = 0;
         RuntimeStatus::OK
     }
-    fn step(&mut self) -> RuntimeStatus {
+    fn step(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
         let p = &self.intf.params;
         let o = self.intf.data.index;
         unsafe {
@@ -53,7 +53,11 @@ impl BaseModel for bufferlog_app {
             }
         }
         self.intf.data.index += 1;
-        RuntimeStatus::OK
+        if self.intf.data.index >= self.intf.params.ndata {
+            RuntimeStatus::FINISHED
+        } else {
+            RuntimeStatus::OK
+        }
     }
     fn pause(&mut self) -> RuntimeStatus {
         RuntimeStatus::OK
