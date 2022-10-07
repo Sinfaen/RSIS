@@ -1,0 +1,22 @@
+model: "bufferread"
+bufferread_in:
+  enabled: {type: Bool, value: true, desc: Is the app enabled}
+bufferread_out: ~
+bufferread_data:
+  nports : {type: Csize_t, value: 0, desc: Number of ports being read}
+  index : {type: Cptrdiff_t, value: 0, desc: Index into external buffers}
+bufferread_params:
+  psrc : {type: UInt64, dims: [-1], desc: List of buffer pointers to read data from}
+  pdst : {type: UInt64, dims: [-1], desc: List of port pointers to read data into}
+  sizes: {type: Csize_t, dims: [-1], desc: Bytes to save each time}
+  ndata : {type: Cptrdiff_t, value: 1, desc: Number of buffer points to read}
+
+bufferread:
+  inputs:
+    class: "bufferread_in"
+  outputs:
+    class: "bufferread_out"
+  data:
+    class: "bufferread_data"
+  params:
+    class: "bufferread_params"
