@@ -14,8 +14,10 @@ using ..DataFrames
 export logsignal, logsignalfile, listlogged
 export setlogfilelimit, generate_log_structures
 export getlogdata
+export readsignal, generate_read_structures
 
 _loggedfields = Dict{String, Dict{String, Float64}}()
+_readfields   = Dict{String, Dict{String, Float64}}()
 
 _log_file_size = 100 # 100 MB
 
@@ -44,12 +46,12 @@ mutable struct ThreadLogging
 end
 
 _log_memory = Dict{Int, ThreadLogging}()
+_read_tmp = Dict{String, Vector{Number}}()
+_read_memory = Dict{Int, ThreadLogging}()
 
 """
     setlogfilelimit(limit::Float64)
 Set the maximum size of a log (per thread) in MB.
-
-TODO: refactor to use Unitful
 ```jldoctest
 julia> setlogfilelimit(800.0) # MB. max CI artifact size
 ```
@@ -193,7 +195,8 @@ function generate_log_structures()
 
             # create the memory needed for logging
             porttype = _gettype(port.type)
-            mem = SignalBuffer{(porttype)}(ref, location, Int(ceil(end_time * rate)))
+            ntimepoints = Int(ceil(end_time * rate))
+            mem = SignalBuffer{(porttype)}(ref, location, ntimepoints)
             push!(db.memory, mem)
 
             # add the signal info to the bufferlog model
@@ -201,6 +204,7 @@ function generate_log_structures()
             rapp["params.pdst"] = push!(rapp["params.pdst"], UInt64(pointer(mem.memory)))
             tsize = sizeof(porttype) * prod(port.dimension)
             rapp["params.sizes"] = push!(rapp["params.sizes"], Csize_t(tsize))
+            rapp["params.ndata"] = ntimepoints
         end
     end
 
@@ -211,6 +215,105 @@ function generate_log_structures()
             @info "Created logger for Thread $(thread), rate $(rate)"
         end
     end
+end
+
+function generate_read_structures()
+    if length(keys(_readfields)) == 0
+        return
+    end
+
+    @info "Initializing DataReading"
+    load("bufferread") # load this utility if it doesn't already exist
+
+    # iterate over threads
+    # make a map of modelreferences to threads
+    mapping = Dict{String, Tuple{Int, Rational}}()
+    tinfo = threadinfo()
+    for i in 1:nrow(tinfo)
+        # get schedule info for that thread
+        s = scheduleinfo(i)
+        for (m, f) in eachrow(s)
+            mapping[m.name] = (i, f)
+        end
+    end
+
+    max_time = typemax(Float64) # seconds
+
+    rateapps = Dict{Int, Dict{Float64, ModelReference}}()
+    for (app, data) in _readfields
+        # check to see that the app is scheduled at all
+        ref = ModelReference(app)
+        if !(app in keys(mapping))
+            @warn "App: $app not scheduled. Skipping all read signals"
+            continue
+        end
+
+        modelinst = _getmodelinstance(ref) # checks to see if it exists at all
+        thread = mapping[ref.name][1]
+
+        if !(thread in keys(rateapps))
+            rateapps[thread] = Dict{Float64, Vector{ModelReference}}()
+        end
+
+        # go through ports that are going to be read
+        for (location, rate) in data
+            # ensure that the model exists, grab port info
+            (indices, port) = _parselocation(modelinst, location)
+
+            # check that the read rate fits into the model scheduled rate
+            lrate = Rational(rate)
+            if mapping[ref.name][2] % lrate != 0
+                @warn "App [$app][$(mapping[ref.name][2]) Hz] incompatible with logging [$location][$rate Hz]. Skipping"
+                continue
+            end
+
+            # if a rate doesn't exist, create a bufferread app for it
+            if !(rate in keys(rateapps[thread]))
+                rateapps[thread][rate] = newmodel("bufferread", "_br_$(thread)_$(rate)")
+            end
+            rapp = rateapps[thread][rate] # grab reference
+
+            # get the threadlogging object
+            if !(thread in keys(_read_memory))
+                _log_memory[thread] = ThreadLogging()
+            end
+            tl = _log_memory[thread]
+
+            # get the threadlogging rate model
+            if !(rate in keys(tl.rates))
+                tl.rates[rate] = DataBuffer(rapp)
+            end
+            db = tl.rates[rate]
+
+            # create the memory needed for logging from the referenced data
+            readdata = _read_tmp[app]
+            porttype = _gettype(port.type)
+            mem = SignalBuffer{(porttype)}(ref, location, length(readdata))
+            mem.memory = convert(Vector{(porttype)}, readdata)
+            push!(db.memory, mem)
+
+            # set time limits
+            max_time = min(max_time, length(readdata) / rate)
+
+            # add the signal info to the bufferlog model
+            rapp["params.psrc"] = push!(rapp["params.psrc"], UInt64(pointer(mem.memory)))
+            rapp["params.pdst"] = push!(rapp["params.pdst"], _get_ptr(modelinst, indices))
+            tsize = sizeof(porttype) * prod(port.dimension)
+            rapp["params.sizes"] = push!(rapp["params.sizes"], Csize_t(tsize))
+        end
+    end
+
+    # go through each rate model, and schedule it before all other apps
+    # on that thread
+    for (thread, rates) in rateapps
+        for (rate, app) in rates
+            schedule(app, rate, thread = thread, index = 1)
+            @info "Created reader for Thread $(thread), rate $(rate)"
+        end
+    end
+
+    # set time limit on the sim
+    settimelimit("datareader", max_time)
 end
 
 """
@@ -231,6 +334,34 @@ function getlogdata() :: Dict{Float64, DataFrame}
         end
     end
     return refs
+end
+
+"""
+    readsignal(app::ModelReference, path::String, rate::Float64)
+Read into the signal as specified by the input app port string. If
+the rate is not specified, logging will occur at the rate that the
+app is scheduled.
+```jldoctest
+julia> n = newmodel("sensorsim", "simulated sensors")
+julia> schedule(n, 100.0)
+julia> readsignal(n, "inputs.acc_body", 100.0, baseline_acceleration)
+julia> readsignal(n, "inputs.range_tgt", 20.0, baseline_range)
+```
+"""
+function readsignal(app::String, path::String, rate::Number, data::Vector{<:Number}) :: Nothing
+    # ensure that model and path exist. Move to initialization?
+    if !(app in keys(_readfields))
+        _readfields[app] = Dict{String, Float64}()
+    end
+    _readfields[app][path] = Float64(rate)
+
+    # store data reference
+    _read_tmp[app] = data
+    return
+end
+
+function readsignal(app::ModelReference, path::String, rate::Number, data::Vector{<:Number}) :: Nothing
+    readsignal(app.name, path, rate, data)
 end
 
 end
