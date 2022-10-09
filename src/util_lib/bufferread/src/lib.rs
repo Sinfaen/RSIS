@@ -45,11 +45,12 @@ impl BaseModel for bufferread_app {
     }
     fn step(&mut self, _interface : &mut Box<dyn Framework>) -> RuntimeStatus {
         let p = &self.intf.params;
-        let o = self.intf.data.index;
+        let ind = self.intf.data.index;
         unsafe {
             for i in 0..self.intf.data.nports {
-                std::ptr::copy((p.psrc[i] as *mut u8).offset(o),
-                    (p.pdst[i] as *mut u8), p.sizes[i] as usize);
+                let byte_offset = ind * p.sizes[i] as isize;
+                std::ptr::copy((p.psrc[i] as *mut u8).offset(byte_offset),
+                    p.pdst[i] as *mut u8, p.sizes[i] as usize);
             }
         }
         self.intf.data.index += 1;
