@@ -300,6 +300,7 @@ function generate_read_structures()
             rapp["params.pdst"] = push!(rapp["params.pdst"], _get_ptr(modelinst, indices))
             tsize = sizeof(porttype) * prod(port.dimension)
             rapp["params.sizes"] = push!(rapp["params.sizes"], Csize_t(tsize))
+            rapp["params.ndata"] = length(readdata)
         end
     end
 
