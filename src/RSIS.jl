@@ -83,6 +83,7 @@ include("SignalIO.jl")
 using .MSignalIO
 export logsignal, logsignalfile, listlogged, getlogdata
 export setlogfilelimit, generate_log_structures
+export readsignal, generate_read_structures
 
 # final global variables
 
@@ -93,6 +94,7 @@ function __init__() :: Nothing
 
     # Add callbacks for supported utilities
     register_scheduler_callback(generate_log_structures, 10)
+    register_scheduler_callback(generate_read_structures, 11)
 end
 
 

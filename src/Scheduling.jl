@@ -6,7 +6,7 @@ using ..Unitful
 using ..DataFrames
 
 export setthread, setnumthreads, schedule, threadinfo, scheduleinfo
-export initsim, stepsim, endsim, setstoptime, settimelimit
+export initsim, stepsim, endsim, setstoptime, settimelimit, gettimelimit
 export getstoptime
 export register_scheduler_callback
 
@@ -31,6 +31,8 @@ _threads = Vector{SThread}()
 push!(_threads, SThread())
 
 _base_sim_frequency = Rational{Int64}(0) # must be set by init_scheduler
+_steptime_start = 0 # index of when last or current step started at in sim time
+_simtime_finish = 0 # index
 
 _max_sim_duration = Float64(-1)
 _time_limits = Dict{String, Float64}()
@@ -162,6 +164,9 @@ julia> initsim(block = true)
 """
 function initsim(;block::Bool = false) :: Nothing
     global _base_sim_frequency
+    global _steptime_start
+    global _simtime_finish
+    global _time_limits
     stat = simstatus()
     if stat == CONFIG
         @info "Initializing simulation"
@@ -207,6 +212,14 @@ function initsim(;block::Bool = false) :: Nothing
     end
     initscheduler()
 
+    _steptime_start = 0 # index
+    _simtime_finish = -1 # index
+    if !isempty(_time_limits)
+        _simtime_finish = minimum(collect(values(_time_limits)))
+        @info "Setting max simulation time to $(_simtime_finish) [s]"
+        _simtime_finish = floor(Int, _simtime_finish * _base_sim_frequency) # convert to index
+    end
+
     if block
         while simstatus() == INITIALIZING
             sleep(0.1) # seconds
@@ -221,12 +234,21 @@ If the blocking keyword is `true`, then the function will loop while waiting
 for the scheduler status to change to anything besides RUNNING.
 """
 function stepsim(steps::Int64 = 1; blocking::Bool = false)
+    global _steptime_start
+    global _simtime_finish
     stat = simstatus()
     if stat == INITIALIZED || stat == PAUSED
         @info "Stepping $(steps) steps"
     else
         throw(ErrorException("Sim cannot be stepped from $(stat) state"))
     end
+
+    # apply maximum sim time rules, unless it's infinite
+    if _simtime_finish > 0 && _steptime_start + steps > _simtime_finish
+        steps = _simtime_finish - _steptime_start
+        @warn "Limiting execution to $(steps) steps"
+    end
+    _steptime_start += steps
 
     # call into the core library
     stepscheduler(UInt64(steps));
@@ -291,14 +313,13 @@ Note: other entities can still impose limits on the length of a
 simulation, e.g. native datalogging components.
 """
 function setstoptime(time::Number) :: Nothing
-    global _max_sim_duration
+    global _base_sim_frequency
     if time < 0
         if time != -1
             throw(ArgumentError("Invalid duration specified: $time [s]"))
         end
     end
-    _max_sim_duration = Float64(time);
-    return
+    settimelimit("__duration", time )
 end
 
 """
@@ -322,11 +343,11 @@ end
 Get the maximum time set for the simulation
 """
 function getstoptime()
-    return _max_sim_duration * u"s"
+    return gettimelimit("__duration") * u"s"
 end
 
 """
-    settimelimit(name::String, time::Number)
+    settimelimit(name::String, time::Real)
 Sets an additional time limit restraint on the simulation.
 This exists to support data logging primarily, but is extended
 to the user as well. Ending a simulation clears these restraints.
@@ -334,15 +355,23 @@ to the user as well. Ending a simulation clears these restraints.
 julia> settimelimit("GITLAB_CI_TIME_LIMIT", ENV["CI_TOKEN_DURATION"])
 ```
 """
-function settimelimit(name::String, time::Number) :: Nothing
-    if name in keys(_time_limits)
+function settimelimit(name::String, time::Real; warn::Bool = true) :: Nothing
+    if warn && name in keys(_time_limits)
         @warn "Time limit for $name being overridden"
     end
-    if _time_limits < 0
+    if time < 0
         throw(ArgumentError("Time limit $name: $time is negative"))
     end
     _time_limits[name] = time;
     return
+end
+
+function gettimelimit(name::String) :: Float64
+    if name in keys(_time_limits)
+        return _time_limits[name]
+    else
+        return -1
+    end
 end
 
 """

@@ -113,11 +113,24 @@ impl NRTScheduler {
                             tx.send(ThreadResult::OK(ThreadCommand::INIT)).unwrap();
                         },
                         Ok(ThreadCommand::EXECUTE(value)) => {
+                            let mut halt_sim = false;
                             for _ in 0..value {
                                 let framestart = time::Instant::now();
                                 for obj in &mut u[..] {
                                     if (*obj).counter == 0 {
-                                        (*obj).model.step(&mut interface);
+                                        match (*obj).model.step(&mut interface) {
+                                            RuntimeStatus::ERROR => {
+                                                println!("App errored");
+                                                halt_sim = true;
+                                                break;
+                                            },
+                                            RuntimeStatus::FINISHED => {
+                                                println!("Halting simulation");
+                                                halt_sim = true;
+                                                break;
+                                            },
+                                            RuntimeStatus::OK => ()
+                                        }
                                     }
                                     (*obj).counter += 1;
                                     if (*obj).counter == (*obj).divisor {
@@ -154,9 +167,14 @@ impl NRTScheduler {
                                 }
                                 cbarrier.wait();
                             }
-                            // call pausing function
-                            for obj in &mut u[..] {
-                                (*obj).model.pause();
+                            if halt_sim {
+                                tx.send(ThreadResult::END).unwrap();
+                                break;
+                            } else {
+                                // call pausing function
+                                for obj in &mut u[..] {
+                                    (*obj).model.pause();
+                                }
                             }
                             tx.send(ThreadResult::OK(ThreadCommand::EXECUTE(value))).unwrap();
                         },
