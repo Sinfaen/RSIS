@@ -1,7 +1,7 @@
 name = "RSIS"
 uuid = "9cfc04b2-4961-4ca5-a9e9-a56ca7873ac9"
 authors = ["kellyschultz <kellyschultz7233@gmail.com>"]
-version = "0.2.3"
+version = "0.2.4"
 
 [deps]
 Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
