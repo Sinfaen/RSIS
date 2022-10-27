@@ -1,7 +1,0 @@
-
-[rsisproject]
-type = "rust"
-filepaths = [
-    "src",
-    "scripts"
-]
